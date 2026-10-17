@@ -317,8 +317,12 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query })
       });
-      const data = await res.json();
-      if (data.success && data.isServerMember) {
+      let data = null;
+      try {
+        data = await res.json();
+      } catch(parseErr) {}
+
+      if (data && data.success && data.isServerMember) {
         if (data.token) {
           localStorage.setItem("ahm_session_token", data.token);
         }
@@ -327,13 +331,13 @@
         pollState();
       } else {
         if (errBox) {
-          errBox.textContent = data.error || "User was not found in the Spy Sec Music server.";
+          errBox.textContent = (data && data.error) ? data.error : "User was not found in the Spy Sec Music server.";
           errBox.style.display = "block";
         }
       }
     } catch (e) {
       if (errBox) {
-        errBox.textContent = "Network error communicating with server.";
+        errBox.textContent = "Network error communicating with server. Please check your connection.";
         errBox.style.display = "block";
       }
     } finally {

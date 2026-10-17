@@ -1254,10 +1254,54 @@ const server = http.createServer(async (req, res) => {
     const chanBrowser = systemChannels.browser;
     const chanApp = systemChannels.app;
 
+    // Check if local bot worker is running on port 3051
+    let botData = null;
+    try {
+      const botRes = await fetch("http://127.0.0.1:3051/api/state", { signal: AbortSignal.timeout(350) });
+      if (botRes.ok) {
+        botData = await botRes.json();
+      }
+    } catch (e) {}
+
+    const sessionUser = getSessionUser(req);
+    const botChannelState = botData?.channels?.bot || {
+      id: "bot",
+      name: "Discord Bot",
+      icon: "🤖",
+      badge: "Discord Voice Engine",
+      isPlaying: false,
+      isPaused: false,
+      position: 0,
+      duration: 0,
+      volume: 100,
+      current: null,
+      queue: [],
+      history: [],
+      voiceChannel: "General",
+      announcementChannelName: "music",
+      streamUrl: null
+    };
+
     const payload = {
       connected: true,
-      authenticated: false,
-      user: null,
+      authenticated: Boolean(sessionUser),
+      user: sessionUser ? {
+        id: sessionUser.id,
+        username: sessionUser.username,
+        displayName: sessionUser.displayName,
+        avatar: sessionUser.avatar,
+        type: sessionUser.type,
+        isServerMember: Boolean(sessionUser.isServerMember)
+      } : null,
+      currentUser: sessionUser ? {
+        id: sessionUser.id,
+        username: sessionUser.username,
+        displayName: sessionUser.displayName,
+        avatar: sessionUser.avatar,
+        isServerMember: Boolean(sessionUser.isServerMember),
+        favoriteCount: sessionUser.favorites?.length || 0,
+        queueCount: sessionUser.queue?.length || 0
+      } : null,
       playing: chanBrowser.isPlaying,
       paused: chanBrowser.isPaused,
       position: chanBrowser.position,
@@ -1291,23 +1335,17 @@ const server = http.createServer(async (req, res) => {
           volume: chanApp.volume,
           current: chanApp.current,
           queue: chanApp.queue || []
-        }
-      }
+        },
+        bot: botChannelState
+      },
+      servers: botData?.servers || [],
+      availableTextChannels: botData?.availableTextChannels || [],
+      channelsVersion: botData?.channelsVersion || Date.now(),
+      announcementChannelId: botData?.announcementChannelId || null,
+      announcementChannelName: botData?.announcementChannelName || "music"
     };
 
-    const sessionUser = getSessionUser(req);
-    if (sessionUser) {
-      payload.authenticated = true;
-      payload.user = {
-        id: sessionUser.id,
-        username: sessionUser.username,
-        displayName: sessionUser.displayName,
-        avatar: sessionUser.avatar,
-        type: sessionUser.type
-      };
-    }
-
-    res.writeHead(200, { "Content-Type": "application/json" });
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     return res.end(JSON.stringify(payload));
   }
 
@@ -1323,7 +1361,47 @@ const server = http.createServer(async (req, res) => {
       try {
         const parsed = JSON.parse(body || "{}");
         const action = parsed.action;
-        const targetChannel = parsed.targetChannel || "browser";
+        const targetChannel = parsed.targetChannel || parsed.channel || "browser";
+
+        // Route Discord Bot actions to the bot worker process
+        if (targetChannel === "bot" || action === "send" || action === "set_announcement_channel") {
+          const sessionUser = getSessionUser(req);
+          if (!sessionUser || !sessionUser.isServerMember) {
+            if (abortController?.signal?.aborted || res.headersSent) return;
+            res.writeHead(403, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+            return res.end(JSON.stringify({
+              success: false,
+              error: "Authentication required: You must be logged in with Discord and a verified member of the Spy Sec Music server to control the bot.",
+              requireDiscordAuth: true
+            }));
+          }
+
+          try {
+            const authHeader = req.headers["authorization"] || "";
+            const forwardHeaders = { "Content-Type": "application/json" };
+            if (authHeader) forwardHeaders["Authorization"] = authHeader;
+            if (req.headers.cookie) forwardHeaders["Cookie"] = req.headers.cookie;
+
+            const botRes = await fetch("http://127.0.0.1:3051/api/action", {
+              method: "POST",
+              headers: forwardHeaders,
+              body: body,
+              signal: AbortSignal.timeout(6000)
+            });
+            const botJson = await botRes.json();
+            if (abortController?.signal?.aborted || res.headersSent) return;
+            res.writeHead(botRes.status || 200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+            return res.end(JSON.stringify(botJson));
+          } catch (botErr) {
+            if (abortController?.signal?.aborted || res.headersSent) return;
+            res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+            return res.end(JSON.stringify({
+              success: false,
+              error: "Discord bot is connecting to voice gateway. Please wait a moment and try again."
+            }));
+          }
+        }
+
         const chan = systemChannels[targetChannel] || systemChannels.browser;
 
         if (action === "play_now" || action === "play_query") {
@@ -1357,11 +1435,11 @@ const server = http.createServer(async (req, res) => {
         }
 
         if (abortController?.signal?.aborted || res.headersSent) return;
-        res.writeHead(200, { "Content-Type": "application/json" });
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ success: true, message: `Action ${action} executed` }));
       } catch (err) {
         if (abortController?.signal?.aborted || res.headersSent) return;
-        res.writeHead(400, { "Content-Type": "application/json" });
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
@@ -1432,8 +1510,136 @@ const server = http.createServer(async (req, res) => {
 
   if (pathname === "/api/user/me") {
     const user = getSessionUser(req);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ success: true, authenticated: Boolean(user), user: user || null }));
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    if (user) {
+      return res.end(JSON.stringify({
+        authenticated: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          avatar: user.avatar,
+          type: user.type,
+          discordId: user.discordId,
+          isServerMember: Boolean(user.isServerMember),
+          roles: user.roles || [],
+          favoriteCount: user.favorites?.length || 0,
+          queueCount: user.queue?.length || 0,
+          tasteProfile: userStore.getUserTasteProfile ? userStore.getUserTasteProfile(user.id) : null
+        }
+      }));
+    } else {
+      return res.end(JSON.stringify({ authenticated: false, user: null }));
+    }
+  }
+
+  // Discord Server Member Verification Endpoint (Validates against guild 1553640111047180448)
+  if (pathname === "/api/auth/discord-verify" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", async () => {
+      try {
+        const { query } = JSON.parse(body || "{}");
+        if (!query) {
+          res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          return res.end(JSON.stringify({ success: false, error: "Please provide a Discord User ID or Username" }));
+        }
+
+        const GUILD_ID = "1553640111047180448";
+        const result = await userStore.verifyDiscordServerMember(null, GUILD_ID, query);
+        if (result.isMember) {
+          res.writeHead(200, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Set-Cookie": `ahm_auth_token=${encodeURIComponent(result.token)}; Path=/; Max-Age=2592000; SameSite=Lax`
+          });
+          return res.end(JSON.stringify({
+            success: true,
+            isServerMember: true,
+            token: result.token,
+            user: result.user
+          }));
+        } else {
+          res.writeHead(403, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          return res.end(JSON.stringify({
+            success: false,
+            isServerMember: false,
+            error: result.error || "User is not a member of the Spy Sec Music server"
+          }));
+        }
+      } catch(err) {
+        res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // Get Discord Server Members List for Quick Login
+  if (pathname === "/api/auth/server-members" && req.method === "GET") {
+    const GUILD_ID = "1553640111047180448";
+    const members = await userStore.getServerMembers(GUILD_ID);
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    return res.end(JSON.stringify({ success: true, count: members.length, members }));
+  }
+
+  // Discord OAuth2 Redirect
+  if (pathname === "/auth/discord") {
+    const origin = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host || "localhost:" + PORT}`;
+    const redirectUri = `${origin}/auth/discord/callback`;
+    const clientId = process.env.CLIENT_ID || "1559615126406168646";
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=identify%20guilds`;
+    res.writeHead(302, { "Location": discordAuthUrl });
+    return res.end();
+  }
+
+  // Discord OAuth2 Callback
+  if (pathname === "/auth/discord/callback") {
+    const code = parsedUrl.searchParams.get("code");
+    const clientSecret = process.env.CLIENT_SECRET;
+    const clientId = process.env.CLIENT_ID || "1559615126406168646";
+    const origin = `${req.headers["x-forwarded-proto"] || "https"}://${req.headers.host || "localhost:" + PORT}`;
+    const redirectUri = `${origin}/auth/discord/callback`;
+
+    if (code && clientSecret) {
+      try {
+        const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            grant_type: "authorization_code",
+            code: code,
+            redirect_uri: redirectUri
+          })
+        });
+        const tokenData = await tokenRes.json();
+        if (tokenData.access_token) {
+          const userRes = await fetch("https://discord.com/api/users/@me", {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` }
+          });
+          const discordUser = await userRes.json();
+          const GUILD_ID = "1553640111047180448";
+          const verifyResult = await userStore.verifyDiscordServerMember(null, GUILD_ID, discordUser.id);
+
+          if (verifyResult.isMember) {
+            res.writeHead(302, {
+              "Location": `/discord?token=${verifyResult.token}`,
+              "Set-Cookie": `ahm_auth_token=${encodeURIComponent(verifyResult.token)}; Path=/; Max-Age=2592000; SameSite=Lax`
+            });
+            return res.end();
+          } else {
+            res.writeHead(302, { "Location": "/discord?error=not_in_server" });
+            return res.end();
+          }
+        }
+      } catch(e) {
+        console.error("OAuth callback error:", e);
+      }
+    }
+    res.writeHead(302, { "Location": `/discord?verify_prompt=true` });
+    return res.end();
   }
 
   if (pathname === "/api/user/rehydrate" && req.method === "POST") {
