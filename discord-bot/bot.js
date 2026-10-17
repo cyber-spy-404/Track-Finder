@@ -645,23 +645,19 @@ lavalink.on("trackError", async (player, track, payload) => {
   console.error(`❌ [Lavalink] Track error on "${track?.info?.title}":`, errMsg);
   const textChannel = client.channels.cache.get(getAnnouncementChannelId(player.guildId, player.textChannelId));
 
-  // Auto-recovery for YouTube stream failures using yt-dlp direct stream extractor:
-  const isYtTrack = track?.info?.sourceName === "youtube" || track?.info?.uri?.includes("youtube.com") || track?.info?.uri?.includes("youtu.be");
-  if (isYtTrack && !track.userData?.mirrored) {
+  // Auto-recovery for stream failures using alternative search:
+  if (!track?.userData?.mirrored) {
     try {
-      console.log(`🔄 [Auto-Recovery] Extracting direct stream for "${track.info.title}"...`);
-      const streamInfo = await extractYouTubeStream(track.info.uri || track.info.title);
-      if (streamInfo && streamInfo.streamUrl) {
-        const httpRes = await player.search({ query: streamInfo.streamUrl }, track.userData?.requester || { username: "AutoRecovery" });
-        if (httpRes?.tracks?.length) {
-          const mirrorTrack = httpRes.tracks[0];
-          mirrorTrack.info.title = streamInfo.title;
-          mirrorTrack.info.author = streamInfo.author;
-          if (streamInfo.duration) mirrorTrack.info.duration = streamInfo.duration;
-          mirrorTrack.userData = { ...track.userData, mirrored: true };
+      const q = track?.info?.title || "";
+      if (q) {
+        console.log(`🔄 [Auto-Recovery] Attempting mirror search for "${q}"...`);
+        const scRes = await player.search({ query: `scsearch:${q}` }, track?.userData?.requester || { username: "AutoRecovery" });
+        if (scRes?.tracks?.length) {
+          const mirrorTrack = scRes.tracks[0];
+          mirrorTrack.userData = { ...(track.userData || {}), mirrored: true };
           await player.play({ clientTrack: mirrorTrack });
           textChannel?.send({
-            content: `🔄 **Seamless Audio Recovery:** Connected high-fidelity stream for **"${streamInfo.title}"** 🎧`
+            content: `🔄 **Seamless Audio Recovery:** Connected alternative audio stream for **"${q}"** 🎧`
           }).catch(() => {});
           return;
         }
@@ -1175,9 +1171,92 @@ async function getOrCreatePlayer(guild, voiceChannelId, textChannelId) {
     });
   } else {
     player.textChannelId = preferredTextChannel;
+    if (voiceChannelId && player.voiceChannelId !== voiceChannelId) {
+      player.voiceChannelId = voiceChannelId;
+    }
   }
   if (!player.connected) await player.connect();
   return player;
+}
+
+/**
+ * Robust Lavalink track resolution for Discord Voice:
+ * 1. Direct URLs (YouTube, SoundCloud, direct MP3 CDN)
+ * 2. Native YouTube search via youtube-plugin (ytsearch:) - primary, zero 403, 100% reliable
+ * 3. YouTube Music search (ytmsearch:)
+ * 4. SoundCloud search (scsearch:)
+ * 5. Stream extractor fallback (yt-dlp)
+ */
+async function resolveLavalinkTrack(player, query, requester, mode = "filterless") {
+  if (!query || typeof query !== "string") return null;
+  const target = query.trim();
+  const isUrl = target.startsWith("http://") || target.startsWith("https://");
+
+  // 1. Direct URL (YouTube, SoundCloud, direct MP3/M4A)
+  if (isUrl) {
+    try {
+      const res = await player.search({ query: target }, requester);
+      if (res?.tracks?.length) {
+        if (mode === "filterless") return res.tracks[0];
+        const match = res.tracks.find(t => validateByFilterMode(mode, t).allowed);
+        if (match) return match;
+      }
+    } catch (e) {
+      console.warn("Direct URL Lavalink search notice:", e.message);
+    }
+  }
+
+  // 2. Native YouTube search via youtube-plugin (Primary, zero 403, crystal-clear audio in Discord Voice)
+  try {
+    const resYt = await player.search({ query: `ytsearch:${target}` }, requester);
+    if (resYt?.tracks?.length) {
+      if (mode === "filterless") return resYt.tracks[0];
+      const match = resYt.tracks.find(t => validateByFilterMode(mode, t).allowed);
+      if (match) return match;
+    }
+  } catch (ytErr) {
+    console.warn("ytsearch Lavalink notice:", ytErr.message);
+  }
+
+  // 3. Fallback: YouTube Music
+  try {
+    const resYtm = await player.search({ query: `ytmsearch:${target}` }, requester);
+    if (resYtm?.tracks?.length) {
+      if (mode === "filterless") return resYtm.tracks[0];
+      const match = resYtm.tracks.find(t => validateByFilterMode(mode, t).allowed);
+      if (match) return match;
+    }
+  } catch (ytmErr) {}
+
+  // 4. Fallback: SoundCloud
+  try {
+    const resSc = await player.search({ query: `scsearch:${target}` }, requester);
+    if (resSc?.tracks?.length) {
+      if (mode === "filterless") return resSc.tracks[0];
+      const match = resSc.tracks.find(t => validateByFilterMode(mode, t).allowed);
+      if (match) return match;
+    }
+  } catch (scErr) {}
+
+  // 5. Ultimate Fallback: Direct stream extraction via yt-dlp
+  try {
+    const streamInfo = await extractYouTubeStream(target);
+    if (streamInfo && streamInfo.streamUrl) {
+      const httpRes = await player.search({ query: streamInfo.streamUrl }, requester);
+      if (httpRes?.tracks?.length) {
+        const tr = httpRes.tracks[0];
+        tr.info.title = streamInfo.title || tr.info.title;
+        tr.info.author = streamInfo.author || tr.info.author;
+        if (streamInfo.duration) tr.info.duration = streamInfo.duration;
+        if (streamInfo.artworkUrl) tr.info.artworkUrl = streamInfo.artworkUrl;
+        if (mode === "filterless" || validateByFilterMode(mode, tr).allowed) {
+          return tr;
+        }
+      }
+    }
+  } catch (dlpErr) {}
+
+  return null;
 }
 
 async function playSurahDirect(player, surahNum, requester) {
@@ -1579,23 +1658,17 @@ client.on("messageCreate", async (message) => {
           // Resolve & Play Track 1 Immediately
           const first = spotifyData.tracks[0];
           try {
-            const streamInfo = await extractYouTubeStream(first.query);
-            if (streamInfo && streamInfo.streamUrl) {
-              const httpRes = await player.search({ query: streamInfo.streamUrl }, message.author);
-              if (httpRes?.tracks?.length) {
-                const tr = httpRes.tracks[0];
-                tr.info.title = streamInfo.title || first.title;
-                tr.info.author = streamInfo.author || first.artist;
-                if (streamInfo.duration) tr.info.duration = streamInfo.duration;
-                if (streamInfo.artworkUrl) tr.info.artworkUrl = streamInfo.artworkUrl;
-                tr.userData = { filterMode: mode, requester: message.author, streamUrl: streamInfo.streamUrl };
-                if (isPlayNow) {
-                  if (player.queue.current) addToHistory(message.guild.id, player.queue.current);
-                  await player.play({ clientTrack: tr });
-                } else {
-                  player.queue.add(tr);
-                  if (!player.playing) await player.play();
-                }
+            const tr = await resolveLavalinkTrack(player, first.query, message.author, mode);
+            if (tr) {
+              tr.userData = { filterMode: mode, requester: message.author };
+              if (isPlayNow) {
+                if (player.queue.current) addToHistory(message.guild.id, player.queue.current);
+                if (player.paused) await player.resume();
+                await player.play({ clientTrack: tr });
+              } else {
+                player.queue.add(tr);
+                if (player.paused) await player.resume();
+                if (!player.playing) await player.play();
               }
             }
           } catch(e) {
@@ -1607,17 +1680,12 @@ client.on("messageCreate", async (message) => {
             for (let i = 1; i < spotifyData.tracks.length; i++) {
               const spTrack = spotifyData.tracks[i];
               try {
-                const streamInfo = await extractYouTubeStream(spTrack.query);
-                if (streamInfo && streamInfo.streamUrl) {
-                  const httpRes = await player.search({ query: streamInfo.streamUrl }, message.author);
-                  if (httpRes?.tracks?.length) {
-                    const tr = httpRes.tracks[0];
-                    tr.info.title = streamInfo.title || spTrack.title;
-                    tr.info.author = streamInfo.author || spTrack.artist;
-                    if (streamInfo.duration) tr.info.duration = streamInfo.duration;
-                    if (streamInfo.artworkUrl) tr.info.artworkUrl = streamInfo.artworkUrl;
-                    tr.userData = { filterMode: mode, requester: message.author, streamUrl: streamInfo.streamUrl };
-                    player.queue.add(tr);
+                const tr = await resolveLavalinkTrack(player, spTrack.query, message.author, mode);
+                if (tr) {
+                  tr.userData = { filterMode: mode, requester: message.author };
+                  player.queue.add(tr);
+                  if (!player.playing && player.queue.tracks.length === 1) {
+                    await player.play();
                   }
                 }
               } catch(e) {}
@@ -1627,72 +1695,11 @@ client.on("messageCreate", async (message) => {
           return;
         }
 
-        // Direct media links (.mp3, .m4a, .ogg, etc.)
-        if (query.match(/\.(mp3|m4a|wav|aac|flac|ogg)(\?.*)?$/i)) {
-          try {
-            res = await player.search({ query }, message.author);
-            if (res?.tracks?.length) {
-              if (mode === "filterless" || validateByFilterMode(mode, res.tracks[0]).allowed) {
-                candidateTrack = res.tracks[0];
-              }
-            }
-          } catch(e) {}
-        }
-
-        // For YouTube & video URLs, extract direct stream
-        if (!candidateTrack) {
-          try {
-            const streamInfo = await extractYouTubeStream(query);
-            if (streamInfo && streamInfo.streamUrl) {
-              const httpRes = await player.search({ query: streamInfo.streamUrl }, message.author);
-              if (httpRes?.tracks?.length) {
-                const tr = httpRes.tracks[0];
-                tr.info.title = streamInfo.title;
-                tr.info.author = streamInfo.author;
-                if (streamInfo.duration) tr.info.duration = streamInfo.duration;
-                if (streamInfo.artworkUrl) tr.info.artworkUrl = streamInfo.artworkUrl;
-
-                if (mode === "filterless" || validateByFilterMode(mode, tr).allowed) {
-                  candidateTrack = tr;
-                }
-              }
-            }
-          } catch(ytErr) {
-            console.error("Direct URL stream extraction error:", ytErr);
-          }
-        }
+        // Direct URLs (YouTube, SoundCloud, direct MP3s, etc.)
+        candidateTrack = await resolveLavalinkTrack(player, query, message.author, mode);
       } else {
-        // Search query: Extract direct audio stream via yt-dlp
-        try {
-          const streamInfo = await extractYouTubeStream(query);
-          if (streamInfo && streamInfo.streamUrl) {
-            const httpRes = await player.search({ query: streamInfo.streamUrl }, message.author);
-            if (httpRes?.tracks?.length) {
-              const tr = httpRes.tracks[0];
-              tr.info.title = streamInfo.title;
-              tr.info.author = streamInfo.author;
-              if (streamInfo.duration) tr.info.duration = streamInfo.duration;
-              if (streamInfo.artworkUrl) tr.info.artworkUrl = streamInfo.artworkUrl;
-
-              if (mode === "filterless" || validateByFilterMode(mode, tr).allowed) {
-                candidateTrack = tr;
-              }
-            }
-          }
-        } catch(searchErr) {
-          console.error("Search stream extraction error:", searchErr);
-        }
-
-        // Fallback: If yt-dlp didn't find anything, try direct search
-        if (!candidateTrack) {
-          try {
-            res = await player.search({ query: `ytsearch:${query}` }, message.author);
-            if (res?.tracks?.length) {
-              if (mode === "filterless") candidateTrack = res.tracks[0];
-              else candidateTrack = res.tracks.find(t => validateByFilterMode(mode, t).allowed);
-            }
-          } catch(e) {}
-        }
+        // Query search via Lavalink (ytsearch, ytmsearch, scsearch)
+        candidateTrack = await resolveLavalinkTrack(player, query, message.author, mode);
       }
 
       // Handle Playlist vs Single Track
@@ -1707,6 +1714,7 @@ client.on("messageCreate", async (message) => {
           }
           if (player.queue.current) addToHistory(message.guild.id, player.queue.current);
           message.channel.send(`⚡ **Playing Playlist Now:** Starting **${first.info.title}** immediately (+${candidateTracks.length} queued) 🎧`);
+          if (player.paused) await player.resume();
           await player.play({ clientTrack: first });
         } else {
           candidateTracks.forEach(t => {
@@ -1714,6 +1722,7 @@ client.on("messageCreate", async (message) => {
             player.queue.add(t);
           });
           message.channel.send(`${badge}\n▶️ **Queued Playlist:** Added **${candidateTracks.length}** tracks to queue 🎧`);
+          if (player.paused) await player.resume();
           if (!player.playing) await player.play();
         }
         return;
@@ -1740,10 +1749,12 @@ client.on("messageCreate", async (message) => {
       if (isPlayNow) {
         if (player.queue.current) addToHistory(message.guild.id, player.queue.current);
         message.channel.send(`⚡ **Playing Now:** **${candidateTrack.info.title}** by *${candidateTrack.info.author}* 🎧`);
+        if (player.paused) await player.resume();
         await player.play({ clientTrack: candidateTrack });
       } else {
         player.queue.add(candidateTrack);
         message.channel.send(`${badge}\n▶️ Queued: **${candidateTrack.info.title}** by *${candidateTrack.info.author}* 🎧`);
+        if (player.paused) await player.resume();
         if (!player.playing) await player.play();
       }
     } catch (e) {
@@ -3174,30 +3185,25 @@ const webServer = http.createServer(async (req, res) => {
             let isFirst = true;
             for (const q of tracks) {
               try {
-                const streamInfo = await extractYouTubeStream(q);
-                if (streamInfo && streamInfo.streamUrl) {
-                  const httpRes = await player.search({ query: streamInfo.streamUrl }, { username: "LiquidGlassWeb" });
-                  if (httpRes?.tracks?.length) {
-                    const tr = httpRes.tracks[0];
-                    tr.info.title = streamInfo.title;
-                    tr.info.author = streamInfo.author;
-                    tr.userData = {
-                      filterMode: "filterless",
-                      requester: { username: "LiquidGlassWeb" },
-                      streamUrl: streamInfo.streamUrl
-                    };
-                    if (isFirst && isPlayNow) {
-                      if (player.queue.current) addToHistory(guild.id, player.queue.current);
-                      await player.play({ clientTrack: tr });
-                      isFirst = false;
-                    } else if (isFirst && !player.playing) {
-                      player.queue.add(tr);
-                      await player.play();
-                      isFirst = false;
-                    } else {
-                      player.queue.add(tr);
-                      isFirst = false;
-                    }
+                const tr = await resolveLavalinkTrack(player, q, { username: "LiquidGlassWeb" }, "filterless");
+                if (tr) {
+                  tr.userData = {
+                    filterMode: "filterless",
+                    requester: { username: "LiquidGlassWeb" }
+                  };
+                  if (isFirst && isPlayNow) {
+                    if (player.queue.current) addToHistory(guild.id, player.queue.current);
+                    if (player.paused) await player.resume();
+                    await player.play({ clientTrack: tr });
+                    isFirst = false;
+                  } else if (isFirst && !player.playing) {
+                    player.queue.add(tr);
+                    if (player.paused) await player.resume();
+                    await player.play();
+                    isFirst = false;
+                  } else {
+                    player.queue.add(tr);
+                    isFirst = false;
                   }
                 }
               } catch(e) {}
@@ -3237,23 +3243,17 @@ const webServer = http.createServer(async (req, res) => {
               const tracks = spotifyData.tracks;
               const first = tracks[0];
               try {
-                const streamInfo = await extractYouTubeStream(first.query);
-                if (streamInfo && streamInfo.streamUrl) {
-                  const httpRes = await player.search({ query: streamInfo.streamUrl }, { username: "LiquidGlassWeb" });
-                  if (httpRes?.tracks?.length) {
-                    const tr = httpRes.tracks[0];
-                    tr.info.title = streamInfo.title || first.title;
-                    tr.info.author = streamInfo.author || first.artist;
-                    if (streamInfo.duration) tr.info.duration = streamInfo.duration;
-                    if (streamInfo.artworkUrl) tr.info.artworkUrl = streamInfo.artworkUrl;
-                    tr.userData = { filterMode: mode, requester: { username: "LiquidGlassWeb" }, streamUrl: streamInfo.streamUrl };
-                    if (isPlayNow) {
-                      if (player.queue.current) addToHistory(guild.id, player.queue.current);
-                      await player.play({ clientTrack: tr });
-                    } else {
-                      player.queue.add(tr);
-                      if (!player.playing) await player.play();
-                    }
+                const tr = await resolveLavalinkTrack(player, first.query, { username: "LiquidGlassWeb" }, mode);
+                if (tr) {
+                  tr.userData = { filterMode: mode, requester: { username: "LiquidGlassWeb" } };
+                  if (isPlayNow) {
+                    if (player.queue.current) addToHistory(guild.id, player.queue.current);
+                    if (player.paused) await player.resume();
+                    await player.play({ clientTrack: tr });
+                  } else {
+                    player.queue.add(tr);
+                    if (player.paused) await player.resume();
+                    if (!player.playing) await player.play();
                   }
                 }
               } catch(e) {}
@@ -3262,18 +3262,10 @@ const webServer = http.createServer(async (req, res) => {
               (async () => {
                 for (let i = 1; i < tracks.length; i++) {
                   try {
-                    const sInfo = await extractYouTubeStream(tracks[i].query);
-                    if (sInfo && sInfo.streamUrl) {
-                      const hRes = await player.search({ query: sInfo.streamUrl }, { username: "LiquidGlassWeb" });
-                      if (hRes?.tracks?.length) {
-                        const tr = hRes.tracks[0];
-                        tr.info.title = sInfo.title || tracks[i].title;
-                        tr.info.author = sInfo.author || tracks[i].artist;
-                        if (sInfo.duration) tr.info.duration = sInfo.duration;
-                        if (sInfo.artworkUrl) tr.info.artworkUrl = sInfo.artworkUrl;
-                        tr.userData = { filterMode: mode, requester: { username: "LiquidGlassWeb" }, streamUrl: sInfo.streamUrl };
-                        player.queue.add(tr);
-                      }
+                    const tr = await resolveLavalinkTrack(player, tracks[i].query, { username: "LiquidGlassWeb" }, mode);
+                    if (tr) {
+                      tr.userData = { filterMode: mode, requester: { username: "LiquidGlassWeb" } };
+                      player.queue.add(tr);
                     }
                   } catch(e) {}
                 }
@@ -3285,48 +3277,8 @@ const webServer = http.createServer(async (req, res) => {
             }
           }
 
-          if (isUrl && query.match(/\.(mp3|m4a|wav|aac|flac|ogg)(\?.*)?$/i)) {
-            try {
-              const resUrl = await player.search({ query }, { username: "LiquidGlassWeb" });
-              if (resUrl?.tracks?.length) {
-                if (mode === "filterless" || validateByFilterMode(mode, resUrl.tracks[0]).allowed) {
-                  candidate = resUrl.tracks[0];
-                }
-              }
-            } catch(e) {}
-          }
-
           if (!candidate) {
-            try {
-              const streamInfo = await extractYouTubeStream(query);
-              if (streamInfo && streamInfo.streamUrl) {
-                const httpRes = await player.search({ query: streamInfo.streamUrl }, { username: "LiquidGlassWeb" });
-                if (httpRes?.tracks?.length) {
-                  const tr = httpRes.tracks[0];
-                  tr.info.title = streamInfo.title;
-                  tr.info.author = streamInfo.author;
-                  if (streamInfo.duration) tr.info.duration = streamInfo.duration;
-                  if (streamInfo.artworkUrl) tr.info.artworkUrl = streamInfo.artworkUrl;
-
-                  if (mode === "filterless" || validateByFilterMode(mode, tr).allowed) {
-                    candidate = tr;
-                  }
-                }
-              }
-            } catch(e) {
-              console.error("Web API stream extraction error:", e);
-            }
-          }
-
-          if (!candidate) {
-            try {
-              const resYT = await player.search({ query: `ytsearch:${query}` }, { username: "LiquidGlassWeb" });
-              if (resYT?.tracks?.length) {
-                if (mode === "filterless" || validateByFilterMode(mode, resYT.tracks[0]).allowed) {
-                  candidate = resYT.tracks[0];
-                }
-              }
-            } catch(e) {}
+            candidate = await resolveLavalinkTrack(player, query, { username: "LiquidGlassWeb" }, mode);
           }
 
           if (candidate) {
@@ -3337,10 +3289,12 @@ const webServer = http.createServer(async (req, res) => {
             };
             if (isPlayNow) {
               if (player.queue.current) addToHistory(guild.id, player.queue.current);
+              if (player.paused) await player.resume();
               await player.play({ clientTrack: candidate });
               resultMsg = `⚡ Playing Now on Discord Bot: ${candidate.info.title}`;
             } else {
               player.queue.add(candidate);
+              if (player.paused) await player.resume();
               if (!player.playing) await player.play();
               resultMsg = `${badge} Queued on Discord Bot: ${candidate.info.title}`;
             }
