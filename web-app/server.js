@@ -160,13 +160,24 @@ const SURAH_NAMES = {
 function executeYtDlp(args, options, callback) {
   const localBinary = path.join(__dirname, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
   if (fs.existsSync(localBinary)) {
-    return execFile(localBinary, args, options, callback);
+    return execFile(localBinary, args, options, (err, stdout, stderr) => {
+      if (options?.signal?.aborted || err?.name === "AbortError") {
+        return callback(new Error("Request aborted"), "", "");
+      }
+      callback(err, stdout, stderr);
+    });
   }
 
   const pythonCmd = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
   execFile(pythonCmd, ["-m", "yt_dlp", ...args], options, (err, stdout, stderr) => {
+    if (options?.signal?.aborted || err?.name === "AbortError") {
+      return callback(new Error("Request aborted"), "", "");
+    }
     if (err && (err.code === "ENOENT" || err.message?.includes("ENOENT"))) {
       return execFile("yt-dlp", args, options, (err2, stdout2, stderr2) => {
+        if (options?.signal?.aborted || err2?.name === "AbortError") {
+          return callback(new Error("Request aborted"), "", "");
+        }
         if (err2 && process.platform !== "win32") {
           return execFile("python", ["-m", "yt_dlp", ...args], options, callback);
         }
@@ -182,11 +193,15 @@ function executeYtDlp(args, options, callback) {
 // ==========================================================================
 
 // Fast JioSaavn Search (Instant ~150ms response, zero datacenter IP bans, 320kbps audio)
-async function searchJioSaavn(query, limit = 10) {
+async function searchJioSaavn(query, limit = 10, signal = null) {
+  if (signal?.aborted) return [];
   try {
     const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=${limit}&p=1&q=${encodeURIComponent(query)}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    const timeoutSignal = AbortSignal.timeout(3000);
+    const fetchSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+    const res = await fetch(url, { signal: fetchSignal });
     const data = await res.json();
+    if (signal?.aborted) return [];
     const results = data.results || [];
     return results
       .filter(r => r && r.title)
@@ -219,15 +234,19 @@ async function searchJioSaavn(query, limit = 10) {
 }
 
 // Fast Lavalink Search
-async function searchLavalinkTracks(query, limit = 15) {
+async function searchLavalinkTracks(query, limit = 15, signal = null) {
+  if (signal?.aborted) return [];
   try {
     const lavalinkUrl = process.env.LAVALINK_URL || "http://lavalink.jirayu.net:13592";
     const lavalinkAuth = process.env.LAVALINK_AUTH || "youshallnotpass";
+    const timeoutSignal = AbortSignal.timeout(2800);
+    const fetchSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
     const res = await fetch(`${lavalinkUrl}/v4/loadtracks?identifier=ytsearch:${encodeURIComponent(query)}`, {
       headers: { Authorization: lavalinkAuth },
-      signal: AbortSignal.timeout(2800)
+      signal: fetchSignal
     });
     const d = await res.json();
+    if (signal?.aborted) return [];
     const tracks = d.data?.length ? d.data : (d.data?.tracks || []);
     if (Array.isArray(tracks) && tracks.length > 0) {
       return tracks
@@ -248,7 +267,8 @@ async function searchLavalinkTracks(query, limit = 15) {
 }
 
 // Multi-Source Search (JioSaavn + Lavalink + yt-dlp)
-async function searchYouTubeMulti(query, limit = 20) {
+async function searchYouTubeMulti(query, limit = 20, signal = null) {
+  if (signal?.aborted) return [];
   const cacheKey = (query || "").trim().toLowerCase();
   if (searchCache.has(cacheKey)) {
     const cached = searchCache.get(cacheKey);
@@ -259,9 +279,11 @@ async function searchYouTubeMulti(query, limit = 20) {
 
   // Execute JioSaavn and Lavalink in parallel for ultra-low latency (<300ms)
   const [saavnResults, lavalinkResults] = await Promise.all([
-    searchJioSaavn(query, Math.min(limit, 12)),
-    searchLavalinkTracks(query, Math.min(limit, 15))
+    searchJioSaavn(query, Math.min(limit, 12), signal),
+    searchLavalinkTracks(query, Math.min(limit, 15), signal)
   ]);
+
+  if (signal?.aborted) return [];
 
   let combined = [];
   if (saavnResults.length > 0) {
@@ -283,13 +305,17 @@ async function searchYouTubeMulti(query, limit = 20) {
     return combined.slice(0, limit);
   }
 
+  if (signal?.aborted) return [];
+
   // Fallback to yt-dlp flat playlist search with android client
   const fetchLimit = Math.max(limit + 5, 25);
   return new Promise((resolve) => {
+    if (signal?.aborted) return resolve([]);
     executeYtDlp(
       ["--flat-playlist", "-J", "--no-warnings", "--extractor-args", "youtube:player_client=android", `ytsearch${fetchLimit}:${query}`],
-      { timeout: 12000, maxBuffer: 15 * 1024 * 1024 },
+      { timeout: 12000, maxBuffer: 15 * 1024 * 1024, signal },
       (err, stdout) => {
+        if (signal?.aborted) return resolve([]);
         if (!err && stdout) {
           try {
             const data = JSON.parse(stdout);
@@ -318,7 +344,8 @@ async function searchYouTubeMulti(query, limit = 20) {
 }
 
 // Fast Playlist Search
-async function searchPlaylistsMulti(query, limit = 5) {
+async function searchPlaylistsMulti(query, limit = 5, signal = null) {
+  if (signal?.aborted) return [];
   const cacheKey = (query || "").trim().toLowerCase();
   if (searchPlaylistCache.has(cacheKey)) {
     const cached = searchPlaylistCache.get(cacheKey);
@@ -331,10 +358,12 @@ async function searchPlaylistsMulti(query, limit = 5) {
   const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAw%3D%3D`;
 
   return new Promise((resolve) => {
+    if (signal?.aborted) return resolve([]);
     executeYtDlp(
       ["--flat-playlist", "-J", "--no-warnings", "--playlist-end", String(fetchLimit), "--extractor-args", "youtube:player_client=android", url],
-      { timeout: 10000, maxBuffer: 15 * 1024 * 1024 },
+      { timeout: 10000, maxBuffer: 15 * 1024 * 1024, signal },
       (err, stdout) => {
+        if (signal?.aborted) return resolve([]);
         if (err || !stdout) return resolve([]);
         try {
           const data = JSON.parse(stdout);
@@ -364,7 +393,8 @@ async function searchPlaylistsMulti(query, limit = 5) {
 // ==========================================================================
 // RESILIENT MULTI-SOURCE AUDIO STREAM EXTRACTOR
 // ==========================================================================
-async function extractYouTubeStream(queryOrUrl) {
+async function extractYouTubeStream(queryOrUrl, signal = null) {
+  if (signal?.aborted) return null;
   const cleanKey = (queryOrUrl || "").trim().toLowerCase();
   if (directStreamCache.has(cleanKey)) {
     const cached = directStreamCache.get(cleanKey);
@@ -393,7 +423,9 @@ async function extractYouTubeStream(queryOrUrl) {
   // Fast Path 2: If query is plain text, check JioSaavn first (~150ms instant CD-quality 320kbps stream!)
   if (!isUrl) {
     try {
-      const saavnResults = await searchJioSaavn(target, 3);
+      if (signal?.aborted) return null;
+      const saavnResults = await searchJioSaavn(target, 3, signal);
+      if (signal?.aborted) return null;
       if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
         const top = saavnResults[0];
         const data = {
@@ -409,6 +441,8 @@ async function extractYouTubeStream(queryOrUrl) {
     } catch (e) {}
   }
 
+  if (signal?.aborted) return null;
+
   // Fast Path 3: Single-step yt-dlp android extraction
   if (!isUrl) {
     const cachedSearch = searchCache.get(cleanKey);
@@ -421,10 +455,12 @@ async function extractYouTubeStream(queryOrUrl) {
   }
 
   return new Promise((resolve) => {
+    if (signal?.aborted) return resolve(null);
     executeYtDlp(
       ["-g", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
-      { timeout: 12000 },
+      { timeout: 12000, signal },
       async (err, stdout) => {
+        if (signal?.aborted) return resolve(null);
         if (!err && stdout && stdout.trim()) {
           const directUrl = stdout.trim().split("\n")[0].trim();
           if (directUrl.startsWith("http")) {
@@ -443,12 +479,14 @@ async function extractYouTubeStream(queryOrUrl) {
           }
         }
 
+        if (signal?.aborted) return resolve(null);
         // If yt-dlp extraction failed (e.g. YouTube datacenter IP block on Render),
         // fallback to searching JioSaavn for the clean query/title so audio NEVER drops!
         const searchQuery = streamMeta?.title || queryOrUrl.replace(/^https?:\/\/[^\s]+/i, "").trim() || queryOrUrl;
         if (searchQuery && searchQuery.length > 1) {
           try {
-            const saavnFallback = await searchJioSaavn(searchQuery, 3);
+            const saavnFallback = await searchJioSaavn(searchQuery, 3, signal);
+            if (signal?.aborted) return resolve(null);
             if (saavnFallback.length > 0 && saavnFallback[0].streamUrl) {
               const top = saavnFallback[0];
               const data = {
@@ -464,11 +502,13 @@ async function extractYouTubeStream(queryOrUrl) {
           } catch (e) {}
         }
 
+        if (signal?.aborted) return resolve(null);
         // Final Fallback: JSON metadata extraction
         executeYtDlp(
           ["-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
-          { maxBuffer: 15 * 1024 * 1024, timeout: 12000 },
+          { maxBuffer: 15 * 1024 * 1024, timeout: 12000, signal },
           (err2, stdout2) => {
+            if (signal?.aborted) return resolve(null);
             if (err2 || !stdout2) return resolve(null);
             try {
               const info = JSON.parse(stdout2.trim().split("\n")[0]);
@@ -493,7 +533,8 @@ async function extractYouTubeStream(queryOrUrl) {
 }
 
 // Media Track Resolver
-async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null) {
+async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = null) {
+  if (signal?.aborted) return null;
   let query = (queryOrUrl || "").trim();
   let filterMode = forcedFilterMode || "filterless";
 
@@ -531,7 +572,9 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null) {
   }
 
   try {
-    const streamInfo = await extractYouTubeStream(query);
+    if (signal?.aborted) return null;
+    const streamInfo = await extractYouTubeStream(query, signal);
+    if (signal?.aborted) return null;
     if (streamInfo && streamInfo.streamUrl) {
       return {
         title: streamInfo.title || "Audio Track",
@@ -544,6 +587,7 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null) {
       };
     }
   } catch (err) {
+    if (signal?.aborted) return null;
     console.error("resolveMediaTrack error:", err.message);
   }
   return null;
@@ -566,6 +610,163 @@ function getSessionUser(req) {
     } catch (e) {}
   }
   return token ? userStore.getUserByToken(token) : null;
+}
+
+// ==========================================================================
+// IP REQUEST REGULATOR (HOLD SINGLE & LAST REQUEST PER IP, DROP REST)
+// ==========================================================================
+const inFlightRequests = new Map(); // slotKey -> { id, clientIp, slotKey, category, req, res, abortController, createdAt }
+const ipInFlightSlots = new Map();  // clientIp -> Set<slotKey>
+let requestCounter = 0;
+
+function getClientIp(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded && typeof forwarded === "string") {
+    const first = forwarded.split(",")[0].trim();
+    if (first) return first;
+  }
+  const realIp = req.headers["x-real-ip"];
+  if (realIp && typeof realIp === "string" && realIp.trim()) {
+    return realIp.trim();
+  }
+  return req.socket?.remoteAddress || "127.0.0.1";
+}
+
+function getRequestCategory(pathname, parsedUrl) {
+  if (pathname === "/api/search") return "search";
+  if (pathname === "/api/resolve-track") return "resolve";
+  if (pathname === "/api/stream-audio") {
+    const channel = parsedUrl.searchParams.get("channel") || "browser";
+    return `stream:${channel}`;
+  }
+  if (pathname === "/api/action") return "action";
+  if (pathname === "/api/state") return "state";
+  if (pathname.startsWith("/api/user/")) return "user";
+  if (pathname.startsWith("/api/auth/")) return "auth";
+  if (pathname.startsWith("/api/spotify-")) return "spotify";
+  if (pathname.startsWith("/api/playlist-")) return "playlist";
+  if (pathname.startsWith("/api/")) return `api:${pathname.slice(5)}`;
+  return "static";
+}
+
+function dropInFlightRequest(entry, reason) {
+  if (!entry) return;
+  try {
+    // 1. Abort any associated child processes (yt-dlp) or network fetch signals
+    if (entry.abortController && !entry.abortController.signal.aborted) {
+      entry.abortController.abort();
+    }
+
+    // 2. End HTTP response if not already sent
+    if (!entry.res.headersSent) {
+      entry.res.writeHead(499, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "X-Dropped-Reason": reason
+      });
+      entry.res.end(JSON.stringify({
+        success: false,
+        dropped: true,
+        error: `Request dropped: ${reason}`
+      }));
+    } else {
+      entry.res.destroy();
+    }
+  } catch (err) {
+    // Ignore socket termination errors
+  }
+}
+
+function registerIncomingRequest(req, res, pathname, parsedUrl) {
+  if (req.method === "OPTIONS") {
+    return { abortController: null };
+  }
+
+  const category = getRequestCategory(pathname, parsedUrl);
+  // Static assets (CSS, JS, images, icons, HTML) load in parallel and must never drop
+  if (category === "static") {
+    return { abortController: null };
+  }
+
+  const clientIp = getClientIp(req);
+  const slotKey = `${clientIp}::${category}`;
+  const reqId = ++requestCounter;
+  const abortController = new AbortController();
+
+  // 1. Per-Slot Single-and-Last Policy:
+  // Drop any older in-flight request from this IP in the same category immediately
+  if (inFlightRequests.has(slotKey)) {
+    const prev = inFlightRequests.get(slotKey);
+    dropInFlightRequest(prev, "newer request received in slot");
+  }
+
+  // 2. Heavy Compute Operations Guard:
+  // If this is a search or resolve, cancel any previous search/resolve from this IP
+  if (category === "search" || category === "resolve") {
+    const heavySlotKey = `${clientIp}::heavy`;
+    if (inFlightRequests.has(heavySlotKey)) {
+      const prevHeavy = inFlightRequests.get(heavySlotKey);
+      dropInFlightRequest(prevHeavy, "newer heavy compute request received from IP");
+    }
+  }
+
+  // 3. Global In-Flight Concurrency Guard Per IP (Max 3 concurrent active API requests per IP)
+  const MAX_GLOBAL_PER_IP = 3;
+  let activeSlots = ipInFlightSlots.get(clientIp);
+  if (!activeSlots) {
+    activeSlots = new Set();
+    ipInFlightSlots.set(clientIp, activeSlots);
+  }
+
+  if (activeSlots.size >= MAX_GLOBAL_PER_IP) {
+    let oldest = null;
+    for (const key of activeSlots) {
+      const entry = inFlightRequests.get(key);
+      if (entry && (!oldest || entry.createdAt < oldest.createdAt)) {
+        oldest = entry;
+      }
+    }
+    if (oldest) {
+      dropInFlightRequest(oldest, "concurrency limit exceeded for IP, holding single latest");
+    }
+  }
+
+  // Register current request
+  const entry = {
+    id: reqId,
+    clientIp,
+    slotKey,
+    category,
+    req,
+    res,
+    abortController,
+    createdAt: Date.now()
+  };
+
+  inFlightRequests.set(slotKey, entry);
+  if (category === "search" || category === "resolve") {
+    inFlightRequests.set(`${clientIp}::heavy`, entry);
+  }
+  activeSlots.add(slotKey);
+
+  // Auto-cleanup on finish or client disconnect
+  const cleanup = () => {
+    if (inFlightRequests.get(slotKey)?.id === reqId) {
+      inFlightRequests.delete(slotKey);
+    }
+    if (inFlightRequests.get(`${clientIp}::heavy`)?.id === reqId) {
+      inFlightRequests.delete(`${clientIp}::heavy`);
+    }
+    activeSlots.delete(slotKey);
+    if (activeSlots.size === 0) {
+      ipInFlightSlots.delete(clientIp);
+    }
+  };
+
+  res.on("finish", cleanup);
+  res.on("close", cleanup);
+
+  return { abortController, clientIp, slotKey, category };
 }
 
 // ==========================================================================
@@ -602,6 +803,10 @@ const server = http.createServer(async (req, res) => {
 
   const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = parsedUrl.pathname;
+
+  // IP Request Regulation: Hold Single & Last Request Per IP
+  const { abortController } = registerIncomingRequest(req, res, pathname, parsedUrl);
+  if (abortController?.signal?.aborted || res.headersSent) return;
 
   // --------------------------------------------------------------------------
   // API: Instant Audio Stream Proxy (Low-Latency TCP Nodelay + Persistent TLS)
@@ -681,6 +886,9 @@ const server = http.createServer(async (req, res) => {
               res.end();
             });
             req.on("close", () => redReq.destroy());
+            if (abortController?.signal) {
+              abortController.signal.addEventListener("abort", () => redReq.destroy(), { once: true });
+            }
             redReq.end();
             return;
           } catch (e) {}
@@ -711,6 +919,9 @@ const server = http.createServer(async (req, res) => {
       req.on("close", () => {
         proxyReq.destroy();
       });
+      if (abortController?.signal) {
+        abortController.signal.addEventListener("abort", () => proxyReq.destroy(), { once: true });
+      }
       proxyReq.end();
       return;
     } catch (e) {
@@ -723,6 +934,7 @@ const server = http.createServer(async (req, res) => {
   // API: Instant Track Resolver
   // --------------------------------------------------------------------------
   if (pathname === "/api/resolve-track") {
+    if (abortController?.signal?.aborted || res.headersSent) return;
     const q = parsedUrl.searchParams.get("q") || "";
     const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
     const targetChannel = parsedUrl.searchParams.get("channel") || "browser";
@@ -736,7 +948,9 @@ const server = http.createServer(async (req, res) => {
     try {
       if (forceSaavn) {
         try {
-          const saavnResults = await searchJioSaavn(q, 3);
+          if (abortController?.signal?.aborted || res.headersSent) return;
+          const saavnResults = await searchJioSaavn(q, 3, abortController?.signal);
+          if (abortController?.signal?.aborted || res.headersSent) return;
           if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
             const top = saavnResults[0];
             const track = {
@@ -761,7 +975,9 @@ const server = http.createServer(async (req, res) => {
         } catch (e) {}
       }
 
-      const track = await resolveMediaTrack(q, filterMode);
+      if (abortController?.signal?.aborted || res.headersSent) return;
+      const track = await resolveMediaTrack(q, filterMode, abortController?.signal);
+      if (abortController?.signal?.aborted || res.headersSent) return;
       if (track) {
         const shouldSet = parsedUrl.searchParams.get("set") === "true";
         if (shouldSet && systemChannels[targetChannel]) {
@@ -785,6 +1001,7 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ success: false, error: `Track not found for: ${q}` }));
       }
     } catch (e) {
+      if (abortController?.signal?.aborted || res.headersSent) return;
       res.writeHead(500, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ success: false, error: e.message }));
     }
@@ -794,6 +1011,7 @@ const server = http.createServer(async (req, res) => {
   // API: Search Endpoint (Multi-Track & Playlists)
   // --------------------------------------------------------------------------
   if (pathname === "/api/search") {
+    if (abortController?.signal?.aborted || res.headersSent) return;
     const q = parsedUrl.searchParams.get("q") || "";
     const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
     if (!q) {
@@ -803,9 +1021,10 @@ const server = http.createServer(async (req, res) => {
 
     try {
       const [rawResults, rawPlaylists] = await Promise.all([
-        searchYouTubeMulti(q, 20),
-        searchPlaylistsMulti(q, 5)
+        searchYouTubeMulti(q, 20, abortController?.signal),
+        searchPlaylistsMulti(q, 5, abortController?.signal)
       ]);
+      if (abortController?.signal?.aborted || res.headersSent) return;
       res.writeHead(200, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({
         success: true,
@@ -815,6 +1034,7 @@ const server = http.createServer(async (req, res) => {
         playlists: rawPlaylists
       }));
     } catch (e) {
+      if (abortController?.signal?.aborted || res.headersSent) return;
       res.writeHead(500, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ success: false, error: e.message }));
     }
@@ -908,9 +1128,11 @@ const server = http.createServer(async (req, res) => {
   // API: User Action Controller (play_now, set_track, play_pause, etc.)
   // --------------------------------------------------------------------------
   if (pathname === "/api/action" && req.method === "POST") {
+    if (abortController?.signal?.aborted || res.headersSent) return;
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", async () => {
+      if (abortController?.signal?.aborted || res.headersSent) return;
       try {
         const parsed = JSON.parse(body || "{}");
         const action = parsed.action;
@@ -920,7 +1142,8 @@ const server = http.createServer(async (req, res) => {
         if (action === "play_now" || action === "play_query") {
           const q = parsed.value || parsed.query || "";
           if (q) {
-            const tr = await resolveMediaTrack(q, parsed.filterMode);
+            const tr = await resolveMediaTrack(q, parsed.filterMode, abortController?.signal);
+            if (abortController?.signal?.aborted || res.headersSent) return;
             if (tr) {
               chan.current = tr;
               chan.isPlaying = true;
@@ -946,9 +1169,11 @@ const server = http.createServer(async (req, res) => {
           }
         }
 
+        if (abortController?.signal?.aborted || res.headersSent) return;
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ success: true, message: `Action ${action} executed` }));
       } catch (err) {
+        if (abortController?.signal?.aborted || res.headersSent) return;
         res.writeHead(400, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ success: false, error: err.message }));
       }

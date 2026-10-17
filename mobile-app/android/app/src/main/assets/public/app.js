@@ -422,6 +422,7 @@ const BrowserPlayer = {
         const query = track.url || `${track.title} ${track.author || track.artist || ""}`.trim();
         const res = await fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=browser&set=true`);
         const data = await res.json();
+        if (data.dropped) return;
         if (data.success && data.track) {
           track = {
             ...track,
@@ -551,6 +552,7 @@ const BrowserPlayer = {
       const shouldSet = immediate ? "true" : "false";
       const res = await fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(filterMode)}&channel=browser&set=${shouldSet}`);
       const data = await res.json();
+      if (data.dropped) return;
       if (data.success && data.track) {
         const isCurrentlySilent = !this.isPlaying() && (!this.audio?.src || this.audio.ended || !this.currentTrack);
         if (immediate || isCurrentlySilent) {
@@ -2353,6 +2355,7 @@ async function handleSearch(query) {
       signal: searchAbortController.signal
     });
     const data = await res.json();
+    if (data.dropped) return;
 
     // 1. Render Playlists (~5 Playlists)
     if (data.success && Array.isArray(data.playlists) && data.playlists.length > 0 && searchPlaylistsGrid) {
