@@ -754,8 +754,9 @@ const BrowserPlayer = {
       const url = `/api/radio?seedTitle=${encodeURIComponent(title)}&seedArtist=${encodeURIComponent(author)}&filterMode=${encodeURIComponent(filterMode)}&limit=${limit}`;
       const res = await fetch(url);
       const data = await res.json();
-      if (data.success && Array.isArray(data.tracks) && data.tracks.length > 0) {
-        return data.tracks.map(t => ({
+      const fetchedTracks = (data && data.success && Array.isArray(data.tracks)) ? data.tracks : (Array.isArray(data?.results) ? data.results : []);
+      if (fetchedTracks.length > 0) {
+        return fetchedTracks.map(t => ({
           ...t,
           isRadio: true,
           radioSeedTitle: title
@@ -773,9 +774,10 @@ const BrowserPlayer = {
       const query = cleanArtist ? `${cleanArtist} hits` : `${title} similar`;
       const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(currentFilterMode)}`);
       const data = await res.json();
-      if (data.success && Array.isArray(data.tracks) && data.tracks.length > 0) {
+      const rawTracks = (data && Array.isArray(data.results)) ? data.results : (Array.isArray(data?.tracks) ? data.tracks : []);
+      if (rawTracks.length > 0) {
         const normSeed = title.toLowerCase().replace(/[^a-z0-9]/g, "");
-        return data.tracks
+        return rawTracks
           .filter(t => {
             const tNorm = (t.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
             return !tNorm.includes(normSeed) && !normSeed.includes(tNorm);
@@ -822,6 +824,7 @@ const BrowserPlayer = {
     showToast(`📻 Tuning in to ${track.title} Radio...`);
     this.activeRadioSeed = track;
     this.isRadioActive = true;
+    if (typeof updateRadioUI === "function") updateRadioUI();
     if (this.currentTrack) {
       this.history.push(this.currentTrack);
       this.currentTrack = null;
@@ -837,6 +840,7 @@ const BrowserPlayer = {
     } else {
       await this.playTrack(track);
     }
+    if (typeof updateRadioUI === "function") updateRadioUI();
   },
 
   toggleAutoplay() {
@@ -853,6 +857,7 @@ const BrowserPlayer = {
       const textSpan = btnQueue.querySelector("span:not(.radio-pulse-dot)");
       if (textSpan) textSpan.textContent = `Autoplay Radio: ${isEnabled ? "On" : "Off"}`;
     }
+    if (typeof updateRadioUI === "function") updateRadioUI();
     return isEnabled;
   },
 
@@ -874,6 +879,8 @@ const BrowserPlayer = {
   },
 
   stop() {
+    this.isRadioActive = false;
+    this.activeRadioSeed = null;
     if (this.audio) {
       this.audio.pause();
       this.audio.currentTime = 0;
@@ -881,6 +888,7 @@ const BrowserPlayer = {
     if (this.currentTrack) this.history.push(this.currentTrack);
     this.currentTrack = null;
     updateUIWithTrack(null, false);
+    if (typeof updateRadioUI === "function") updateRadioUI();
     this.reportState();
   },
 
@@ -984,8 +992,8 @@ const BrowserPlayer = {
     const cur = this.audio?.currentTime || 0;
     const dur = this.audio?.duration || (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
 
-    // Guard against premature 'ended' events triggered by demuxer hiccups or chunk boundaries
-    if (dur > 8 && cur < (dur - 4)) {
+    // Guard against premature 'ended' events triggered by demuxer hiccups or chunk boundaries (finite duration only)
+    if (Number.isFinite(dur) && dur > 8 && cur < (dur - 4)) {
       console.warn(`Browser audio ended event fired prematurely at ${cur.toFixed(1)}s / ${dur.toFixed(1)}s. Ignoring false end.`);
       return;
     }
@@ -1082,6 +1090,8 @@ const BrowserPlayer = {
   }
 };
 window.BrowserPlayer = BrowserPlayer;
+window.AudioEngine = BrowserPlayer;
+const AudioEngine = BrowserPlayer;
 
 // ==========================================================================
 // SPOTIFY FEATURE 1: TIME-SYNCED KARAOKE LYRICS (LRCLIB + MUSIXMATCH EQUIV)
@@ -2404,6 +2414,7 @@ async function loadDailySpotifyTrending(forceRefresh = false) {
       window.spotifyDailyTrending = data;
       renderDailyTrendingSpotify();
       renderHotTracksPills();
+      renderSpotifyRadioStations();
       updateTrendingMetaBadge();
       renderSidebarLibrary("playlists");
       if (forceRefresh) {
@@ -2471,6 +2482,118 @@ function renderDailyTrendingSpotify() {
   });
   setTimeout(initShelfScrollButtons, 50);
 }
+
+const CURATED_RADIO_STATIONS = [
+  {
+    id: "radio_arijit",
+    name: "Arijit Singh Radio",
+    seedTitle: "Kesariya",
+    seedArtist: "Arijit Singh",
+    coverUrl: "https://c.saavncdn.com/artists/Arijit_Singh_002_20230323062147_500x500.jpg",
+    desc: "Infinite soul melodies & chartbusters with Arijit Singh & friends",
+    badge: "📻 Radio"
+  },
+  {
+    id: "radio_atif",
+    name: "Atif Aslam Radio",
+    seedTitle: "Dil Diyan Gallan",
+    seedArtist: "Atif Aslam",
+    coverUrl: "https://c.saavncdn.com/artists/Atif_Aslam_500x500.jpg",
+    desc: "Soulful romantic anthems & timeless nostalgic classics",
+    badge: "📻 Radio"
+  },
+  {
+    id: "radio_shreya",
+    name: "Shreya Ghoshal Radio",
+    seedTitle: "Deewani Mastani",
+    seedArtist: "Shreya Ghoshal",
+    coverUrl: "https://c.saavncdn.com/artists/Shreya_Ghoshal_500x500.jpg",
+    desc: "Golden melodies with Shreya Ghoshal, Sunidhi Chauhan & Alka Yagnik",
+    badge: "📻 Radio"
+  },
+  {
+    id: "radio_pritam",
+    name: "Pritam Hitmaker Radio",
+    seedTitle: "Subhanallah",
+    seedArtist: "Pritam",
+    coverUrl: "https://c.saavncdn.com/artists/Pritam_500x500.jpg",
+    desc: "Continuous Bollywood blockbuster hits composed by Pritam",
+    badge: "📻 Hitmaker"
+  },
+  {
+    id: "radio_lofi",
+    name: "Lo-Fi Chill & Focus Radio",
+    seedTitle: "Coffee Lofi Chill",
+    seedArtist: "Lofi Beats",
+    coverUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&q=80",
+    desc: "24/7 continuous relaxing beats for focus, work, coding & late nights",
+    badge: "📻 Chill"
+  },
+  {
+    id: "radio_bollywood_romance",
+    name: "Bollywood Romance Radio",
+    seedTitle: "Tum Hi Ho",
+    seedArtist: "Mithoon",
+    coverUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&q=80",
+    desc: "Unstoppable romantic stream of Indian cinema's greatest love hits",
+    badge: "📻 Romance"
+  },
+  {
+    id: "radio_punjabi",
+    name: "Punjabi Banger Radio",
+    seedTitle: "Softly",
+    seedArtist: "Karan Aujla",
+    coverUrl: "https://c.saavncdn.com/artists/Karan_Aujla_500x500.jpg",
+    desc: "High energy Punjabi hip hop, beats, and basslines",
+    badge: "📻 Banger"
+  },
+  {
+    id: "radio_global_hits",
+    name: "Global Top Hits Radio",
+    seedTitle: "Blinding Lights",
+    seedArtist: "The Weeknd",
+    coverUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500&q=80",
+    desc: "Worldwide Spotify & Billboard chart-toppers on continuous repeat",
+    badge: "📻 Global"
+  }
+];
+
+function renderSpotifyRadioStations() {
+  const grid = document.getElementById("gridSpotifyRadioStations");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  CURATED_RADIO_STATIONS.forEach(station => {
+    const card = document.createElement("div");
+    card.className = "spotify-card";
+    card.innerHTML = `
+      <div class="card-artwork">
+        <span class="card-top-badge" style="background: rgba(30, 215, 96, 0.95); color: #000; font-weight: 800;">${escapeHtml(station.badge)}</span>
+        <img src="${escapeHtml(station.coverUrl)}" alt="${escapeHtml(station.name)}" loading="lazy" onerror="this.src='logo.png'">
+        <button class="circle-play" title="Tune in to ${escapeHtml(station.name)}">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>
+      <span class="card-title">${escapeHtml(station.name)}</span>
+      <span class="card-desc">${escapeHtml(station.desc)}</span>
+    `;
+
+    card.addEventListener("click", () => {
+      BrowserPlayer.startRadioForTrack({
+        title: station.seedTitle,
+        author: station.seedArtist,
+        artworkUrl: station.coverUrl
+      });
+      if (typeof openExpandedPlayer === "function") {
+        openExpandedPlayer();
+      }
+    });
+
+    grid.appendChild(card);
+  });
+  setTimeout(initShelfScrollButtons, 50);
+}
+
 
 function renderHotTracksPills() {
   const grid = document.getElementById("gridTrendingTracksPills");
@@ -4794,8 +4917,85 @@ function updateUIWithTrack(track, isPlaying = false) {
     }
   }
 
+  if (typeof updateRadioUI === "function") updateRadioUI();
   updatePlayPauseIcons(isPlaying);
 }
+
+function updateRadioUI() {
+  const isRadio = Boolean(BrowserPlayer.isRadioActive);
+  const isAutoplay = Boolean(BrowserPlayer.autoplayRadioEnabled);
+  const seed = BrowserPlayer.activeRadioSeed;
+  const current = BrowserPlayer.currentTrack;
+
+  // 1. Expanded Header: Subhead indicator & Station Name
+  const expSubhead = document.getElementById("expandedSubhead");
+  const expSourceName = document.getElementById("expandedSourceName");
+  if (expSubhead) {
+    if (isRadio) {
+      expSubhead.innerHTML = '<span class="radio-pulse-dot"></span> PLAYING FROM RADIO';
+      expSubhead.style.color = "var(--emerald, #1ed760)";
+    } else {
+      expSubhead.textContent = "PLAYING FROM";
+      expSubhead.style.color = "";
+    }
+  }
+  if (expSourceName) {
+    if (isRadio && seed) {
+      const seedName = seed.title || seed.info?.title || "Artist";
+      expSourceName.textContent = `${seedName} Radio`;
+    } else if (!isRadio) {
+      expSourceName.textContent = "Spy Sec Music Hub";
+    }
+  }
+
+  // 2. Expanded Header Antenna / Radio Action Button
+  const btnExpRadio = document.getElementById("btnExpandedRadio");
+  if (btnExpRadio) {
+    btnExpRadio.classList.toggle("active", isRadio);
+    if (isRadio) {
+      btnExpRadio.setAttribute("title", `Playing ${seed?.title || "Song"} Radio (Tap to change)`);
+    } else {
+      btnExpRadio.setAttribute("title", "Go to Song Radio (Spotify Infinite Radio)");
+    }
+  }
+
+  // 3. Expanded Radio Quick-Launch Pill
+  const btnExpRadioPill = document.getElementById("btnExpandedRadioPill");
+  const expRadioPillText = document.getElementById("expandedRadioPillText");
+  if (btnExpRadioPill) {
+    btnExpRadioPill.classList.toggle("active", isRadio);
+  }
+  if (expRadioPillText) {
+    if (isRadio && seed) {
+      const shortName = seed.title ? (seed.title.length > 20 ? seed.title.substring(0, 18) + "…" : seed.title) : "Live";
+      expRadioPillText.textContent = `🟢 Radio: ${shortName}`;
+    } else if (current && current.title) {
+      const shortTitle = current.title.length > 16 ? current.title.substring(0, 15) + "…" : current.title;
+      expRadioPillText.textContent = `Start ${shortTitle} Radio`;
+    } else {
+      expRadioPillText.textContent = "Start Spotify Radio";
+    }
+  }
+
+  // 4. Expanded Radio Autoplay Toggle Button & Status Text
+  const btnExpAutoplay = document.getElementById("btnExpandedRadioAutoplay");
+  const expAutoplayStatusText = document.getElementById("expandedAutoplayStatusText");
+  if (btnExpAutoplay) {
+    btnExpAutoplay.classList.toggle("active", isAutoplay);
+  }
+  if (expAutoplayStatusText) {
+    expAutoplayStatusText.textContent = isAutoplay ? "Autoplay Radio: ON" : "Autoplay Radio: OFF";
+  }
+
+  // 5. Also sync bottom bar / queue view radio buttons if present
+  const btnQueueAutoplay = document.getElementById("btnToggleAutoplay");
+  if (btnQueueAutoplay) {
+    btnQueueAutoplay.classList.toggle("active", isAutoplay);
+    const span = btnQueueAutoplay.querySelector("span:not(.radio-pulse-dot)");
+    if (span) span.textContent = `Autoplay Radio: ${isAutoplay ? "On" : "Off"}`;
+  }
+}
+window.updateRadioUI = updateRadioUI;
 
 function updatePlayPauseIcons(isPlaying) {
   const svg = document.getElementById("mainPlayPauseSvg");
@@ -5151,7 +5351,10 @@ function openExpandedPlayer() {
 
   if (cur) {
     updateUIWithTrack(cur, activeSystemChannel === "browser" ? BrowserPlayer.isPlaying() : currentState?.playing);
+  } else {
+    updateUIWithTrack(null, false);
   }
+  if (typeof updateRadioUI === "function") updateRadioUI();
 
   // Update repeat / shuffle / heart indicators on expanded controls
   if (typeof updateHeartButtonStatus === "function") updateHeartButtonStatus();
@@ -6063,6 +6266,36 @@ function initEventListeners() {
     }
   });
   document.getElementById("btnExpandedHeart")?.addEventListener("click", toggleCurrentSongLike);
+
+  // Spotify Infinite Radio quick-actions inside Expanded Player
+  const handleLaunchRadio = () => {
+    const track = BrowserPlayer.currentTrack || BrowserPlayer.activeRadioSeed || (BrowserPlayer.history.length > 0 ? BrowserPlayer.history[BrowserPlayer.history.length - 1] : null);
+    if (track) {
+      BrowserPlayer.startRadioForTrack(track);
+    } else {
+      const defaultStation = CURATED_RADIO_STATIONS[0];
+      BrowserPlayer.startRadioForTrack({
+        title: defaultStation.seedTitle,
+        author: defaultStation.seedArtist,
+        artworkUrl: defaultStation.coverUrl
+      });
+    }
+  };
+
+  document.getElementById("btnExpandedRadio")?.addEventListener("click", handleLaunchRadio);
+  document.getElementById("btnExpandedRadioPill")?.addEventListener("click", handleLaunchRadio);
+
+  document.getElementById("btnExpandedRadioAutoplay")?.addEventListener("click", () => {
+    BrowserPlayer.toggleAutoplay();
+  });
+
+  document.getElementById("seeAllSpotifyRadio")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeExpandedPlayer();
+    switchView("home");
+    const el = document.getElementById("sectionSpotifyRadioStations");
+    if (el) el.scrollIntoView({ behavior: "smooth" });
+  });
   document.getElementById("btnExpandedRouting")?.addEventListener("click", () => {
     const cycle = { browser: "app", app: "bot", bot: "all", all: "browser" };
     switchSystemChannel(cycle[activeSystemChannel] || "browser");
@@ -6212,9 +6445,19 @@ window.addEventListener("wheel", (e) => {
   stage.scrollTop += e.deltaY;
 }, { passive: true });
 
-// Hash Route Controller (Supports direct links like #quran, #search, #home, #queue, #liked)
+// Hash Route Controller (Supports direct links like #quran, #search, #home, #queue, #liked, #nowplaying, #radio)
 function handleHashRoute() {
   const hash = (window.location.hash || "").replace(/^#/, "").toLowerCase();
+  if (hash === "nowplaying" || hash === "now-playing") {
+    if (typeof openExpandedPlayer === "function") openExpandedPlayer();
+    return;
+  }
+  if (hash === "radio") {
+    if (typeof switchView === "function") switchView("home");
+    const radioSec = document.getElementById("sectionSpotifyRadioStations");
+    if (radioSec) radioSec.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
   if (["home", "search", "quran", "queue", "liked"].includes(hash)) {
     if (typeof switchView === "function") switchView(hash);
   }
@@ -6461,6 +6704,8 @@ document.addEventListener("DOMContentLoaded", () => {
   renderIslamicVibes();
   renderSearchGenres();
   renderSidebarLibrary("all");
+  renderSpotifyRadioStations();
+  updateRadioUI();
   initEventListeners();
   initShelfScrollButtons();
   initMouseHoverEffects();

@@ -75,8 +75,20 @@
     "favorites": [],
     "queue": [],
     "createdAt": 1791997060165,
-    "lastActive": 1792000843413,
-    "_id": "6ad3c313090b90edc7cc0578"
+    "lastActive": 1792279459322,
+    "_id": "6ad3c313090b90edc7cc0578",
+    "tasteProfile": {
+      "listenedTracks": [],
+      "artistAffinity": {},
+      "genreAffinity": {},
+      "preferredGenres": [
+        "bollywood",
+        "romantic"
+      ],
+      "lastUpdatedDate": "",
+      "dailyMixes": [],
+      "historyCount": 0
+    }
   },
   "discord_485711640075960321": {
     "id": "discord_485711640075960321",
@@ -5530,7 +5542,7 @@
       }
     },
     "createdAt": 1792224238977,
-    "lastActive": 1792262930569,
+    "lastActive": 1792279243542,
     "_id": "6ad3c313090b90edc7cc0582"
   },
   "customer_reloadtest_example_com": {
