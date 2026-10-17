@@ -1633,4 +1633,26 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(" ⚡ Dedicated Event Loop: 100% CPU dedicated to Audio & Streaming");
   console.log(" ⚡ TLS Keep-Alive & TCP NoDelay Active (0ms Overhead)");
   console.log("================================================================");
+
+  // Automatic Cloud Discord Bot Runner:
+  // If DISCORD_TOKEN is present in Render/cloud environment, automatically spawn the Discord Music Bot!
+  if (process.env.DISCORD_TOKEN) {
+    try {
+      const { fork } = require("child_process");
+      const botPath = path.resolve(__dirname, "..", "discord-bot", "bot.js");
+      if (fs.existsSync(botPath)) {
+        console.log("🤖 [Discord Bot Auto-Launch] DISCORD_TOKEN detected! Launching Discord Music Bot in background...");
+        const botEnv = { ...process.env, PORT: "3051", BOT_PORT: "3051" };
+        const botWorker = fork(botPath, [], {
+          cwd: path.resolve(__dirname, "..", "discord-bot"),
+          env: botEnv
+        });
+        botWorker.on("error", (err) => console.error("Discord Bot Worker error:", err.message));
+        botWorker.on("exit", (code) => console.warn(`Discord Bot Worker exited with code ${code}`));
+      }
+    } catch (launchErr) {
+      console.error("Failed to auto-launch Discord Bot:", launchErr.message);
+    }
+  }
 });
+

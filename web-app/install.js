@@ -35,5 +35,17 @@ if (process.platform !== "win32") {
   }
 }
 
+// 3. Ensure discord-bot dependencies are installed if present
+const botDir = path.resolve(__dirname, "..", "discord-bot");
+if (fs.existsSync(botDir) && fs.existsSync(path.join(botDir, "package.json"))) {
+  try {
+    console.log("📦 Installing discord-bot dependencies for cloud runner...");
+    execSync("npm install --no-audit --no-fund", { cwd: botDir, stdio: "inherit", timeout: 60000 });
+    console.log("✅ discord-bot dependencies ready.");
+  } catch (botErr) {
+    console.log("ℹ️ discord-bot npm install note:", botErr.message);
+  }
+}
+
 console.log("🎉 Build setup completed successfully.");
 process.exit(0);

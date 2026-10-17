@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "web": "node web-app/server.js",
-    "postinstall": "cd web-app && npm install"
+    "bot": "node discord-bot/bot.js",
+    "postinstall": "cd web-app && npm install && cd ../discord-bot && npm install"
   },
   "dependencies": {
     "dotenv": "^18.0.7",

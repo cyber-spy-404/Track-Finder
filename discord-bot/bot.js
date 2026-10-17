@@ -1,5 +1,6 @@
 const {
   Client,
+  Events,
   GatewayIntentBits,
   ActionRowBuilder,
   ButtonBuilder,
@@ -465,15 +466,63 @@ const client = new Client({
   ]
 });
 
-const lavalink = new LavalinkManager({
-  nodes: [
-    {
-      authorization: process.env.LAVALINK_AUTH || "youshallnotpass",
-      host: process.env.LAVALINK_HOST || "127.0.0.1",
+function buildLavalinkNodes() {
+  const nodes = [];
+  const auth = process.env.LAVALINK_AUTH || "youshallnotpass";
+  const isCloud = Boolean(process.env.RENDER || process.env.RAILWAY_ENVIRONMENT || process.env.HEROKU_APP_NAME || process.env.FLY_APP_NAME);
+
+  if (process.env.LAVALINK_URL) {
+    try {
+      const u = new URL(process.env.LAVALINK_URL);
+      nodes.push({
+        id: "env-lavalink",
+        authorization: auth,
+        host: u.hostname,
+        port: u.port ? parseInt(u.port, 10) : (u.protocol === "https:" ? 443 : 80),
+        secure: u.protocol === "https:" || u.port === "443"
+      });
+    } catch (e) {
+      console.warn("Failed to parse LAVALINK_URL:", e.message);
+    }
+  } else if (process.env.LAVALINK_HOST) {
+    nodes.push({
+      id: "env-host",
+      authorization: auth,
+      host: process.env.LAVALINK_HOST,
       port: parseInt(process.env.LAVALINK_PORT || "2334", 10),
       secure: process.env.LAVALINK_SECURE === "true"
-    }
-  ],
+    });
+  }
+
+  const cloudNode = {
+    id: "jirayu-cloud",
+    authorization: auth,
+    host: "lavalink.jirayu.net",
+    port: 13592,
+    secure: false
+  };
+
+  const localNode = {
+    id: "local-lavalink",
+    authorization: auth,
+    host: "127.0.0.1",
+    port: 2334,
+    secure: false
+  };
+
+  if (isCloud) {
+    nodes.push(cloudNode);
+    nodes.push(localNode);
+  } else {
+    nodes.push(localNode);
+    nodes.push(cloudNode);
+  }
+
+  return nodes;
+}
+
+const lavalink = new LavalinkManager({
+  nodes: buildLavalinkNodes(),
   sendToShard: (guildId, payload) => client.guilds.cache.get(guildId)?.shard?.send(payload),
   client: {
     id: process.env.CLIENT_ID || "1559615126406168646",
@@ -3372,11 +3421,19 @@ webServer.on("error", (err) => {
   }
 });
 
-webServer.listen(3050, "0.0.0.0", () => {
-  console.log("🌐 Spy Sec Music Web Player live at http://localhost:3050");
+const BOT_PORT = parseInt(process.env.PORT || process.env.BOT_PORT || "3050", 10);
+webServer.listen(BOT_PORT, "0.0.0.0", () => {
+  console.log(`🌐 Spy Sec Music Web Player live on port ${BOT_PORT}`);
+});
+webServer.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.warn(`⚠️ [Bot Web Server] Port ${BOT_PORT} in use. Running bot headlessly in background.`);
+  } else {
+    console.error("Web server error:", err.message);
+  }
 });
 
-client.once("clientReady", async () => {
+client.once("ready", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   loadStoredAnnouncements();
   channelsVersion = Date.now();
@@ -3421,4 +3478,16 @@ client.on("guildUpdate", (oldGuild, newGuild) => {
 
 process.on("unhandledRejection", (e) => console.error("Unhandled Rejection:", e));
 
-client.login(process.env.DISCORD_TOKEN);
+if (!process.env.DISCORD_TOKEN) {
+  console.error("❌ [CRITICAL] DISCORD_TOKEN is missing in environment variables!");
+  console.error("👉 Please add DISCORD_TOKEN to your Render Environment Variables dashboard.");
+  if (process.env.RENDER) {
+    console.log("ℹ️ Running Web Server on Render without Discord Gateway connection.");
+  } else {
+    process.exit(1);
+  }
+} else {
+  client.login(process.env.DISCORD_TOKEN).catch(err => {
+    console.error("❌ [Discord Bot Login Failed]:", err.message);
+  });
+}

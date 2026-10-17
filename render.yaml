@@ -12,8 +12,36 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        value: "1559615126406168646"
       - key: APK_DOWNLOAD_URL
         sync: false
+      - key: LAVALINK_URL
+        value: "http://lavalink.jirayu.net:13592"
+      - key: LAVALINK_AUTH
+        value: "youshallnotpass"
+      - key: MONGODB_URI
+        sync: false
+
+  - type: web
+    name: discord-bot
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: discord-bot
+    buildCommand: npm install && node install.js
+    startCommand: node bot.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        value: "1559615126406168646"
       - key: LAVALINK_URL
         value: "http://lavalink.jirayu.net:13592"
       - key: LAVALINK_AUTH

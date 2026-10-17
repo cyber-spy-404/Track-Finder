@@ -5,6 +5,8 @@
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",
+    "build": "node install.js",
+    "postinstall": "node install.js",
     "tunnel": "ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R 80:localhost:3050 nokey@localhost.run",
     "tunnel:lt": "npx localtunnel --port 3050",
     "test": "echo \"Error: no test specified\" && exit 1"
