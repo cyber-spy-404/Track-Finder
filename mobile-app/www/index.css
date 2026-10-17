@@ -709,6 +709,45 @@ button:active:not(:disabled),
   color: #F87171;
 }
 
+/* Top Header Queue Button */
+.btn-top-queue {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+.btn-top-queue:hover {
+  background: var(--bg-pill-hover);
+  border-color: var(--border-medium);
+}
+.btn-top-queue:active {
+  transform: scale(0.96);
+}
+.top-queue-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--spotify-green);
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 700;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 9999px;
+  padding: 0 4px;
+}
+
 /* Download App Button */
 .btn-install-app {
   display: inline-flex;
@@ -731,6 +770,9 @@ button:active:not(:disabled),
   background: var(--bg-pill-hover);
   border-color: var(--border-medium);
   color: var(--text-primary);
+}
+.btn-install-app:active {
+  transform: scale(0.96);
 }
 
 /* ==========================================================================
@@ -1272,6 +1314,8 @@ button:active:not(:disabled),
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 .stage-greeting-title {
   font-family: var(--font-title);
@@ -1279,6 +1323,63 @@ button:active:not(:disabled),
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--text-primary);
+}
+.stage-greeting-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.btn-home-queue {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+.btn-home-queue:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+.btn-home-queue:active {
+  transform: scale(0.96) translateY(0);
+}
+.home-queue-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--spotify-green);
+  color: #000;
+  font-size: 0.72rem;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  padding: 0 5px;
+  line-height: 1;
+}
+.sidebar-queue-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  padding: 0 5px;
 }
 .active-route-pill {
   display: inline-flex;
@@ -2480,6 +2581,24 @@ button:active:not(:disabled),
   cursor: pointer;
   padding: 4px;
 }
+.mobile-queue-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+.mobile-queue-btn:hover {
+  color: var(--text-primary);
+}
+.mobile-queue-btn:active {
+  transform: scale(0.92);
+}
 .mobile-micro-progress {
   position: absolute;
   bottom: 0;
@@ -2538,7 +2657,12 @@ button:active:not(:disabled),
 .mobile-nav-item svg {
   width: 20px;
   height: 20px;
+}
+.mobile-nav-item svg:not([stroke]) {
   fill: currentColor;
+}
+.mobile-nav-item svg[stroke] {
+  stroke: currentColor;
 }
 
 /* ==========================================================================

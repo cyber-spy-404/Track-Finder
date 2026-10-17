@@ -46,7 +46,8 @@ function getApiBaseUrl() {
     (window.location?.origin && (window.location.origin.includes("capacitor") || window.location.origin === "http://localhost"))
   );
   if (isCapacitorNative) {
-    return "http://localhost:3050";
+    // In native Android APK, default to live production server so songs stream immediately with zero setup!
+    return "https://track-finder.onrender.com";
   }
   return "";
 }
@@ -399,15 +400,20 @@ const BrowserPlayer = {
 
   prime() {
     this.init();
-    if (this.audio && this.audio.paused && !this.audio.src) {
-      const p = this.audio.play();
-      if (p !== undefined) p.catch(() => {});
+    if (this.audio) {
+      // Synchronously unlock audio element inside the caller's tap gesture
+      if (!this.audio.src || this.audio.src.startsWith("data:")) {
+        this.audio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+        const p = this.audio.play();
+        if (p !== undefined) p.catch(() => {});
+      }
     }
   },
 
   async playTrack(track) {
     if (!track) return;
     this.init();
+    this.prime(); // Unlock audio immediately within caller's synchronous tap/click gesture!
 
     // Dynamically resolve audio stream if track was enqueued without direct URL
     if (!track.streamUrl && !track.proxyStreamUrl) {
@@ -467,11 +473,21 @@ const BrowserPlayer = {
       }).catch(err => {
         console.warn("Direct browser audio play note:", err.message);
         showToast(`Tap anywhere to start audio: ${track.title}`);
+        const resumeOnTap = () => {
+          this.audio.play().then(() => {
+            showToast(`▶ Playing: ${track.title}`);
+          }).catch(() => {});
+          window.removeEventListener("pointerdown", resumeOnTap);
+          window.removeEventListener("click", resumeOnTap);
+        };
+        window.addEventListener("pointerdown", resumeOnTap, { once: true });
+        window.addEventListener("click", resumeOnTap, { once: true });
       });
     }
 
     sendAction("set_track", null, { targetChannel: "browser", track }).catch(() => {});
     updateUIWithTrack(track, true);
+    if (typeof updateAllQueueBadges === "function") updateAllQueueBadges();
     if (typeof updateHeartButtonStatus === "function") updateHeartButtonStatus();
     if (typeof savePlaybackState === "function") savePlaybackState();
     if (typeof recordTrackTaste === "function") recordTrackTaste(track, "play");
@@ -791,10 +807,39 @@ const BrowserPlayer = {
 
   onError(e) {
     console.error("Browser audio error:", e);
-    if (this.currentTrack && this.audio?.src && !this.audio.src.includes("/api/stream-audio")) {
-      console.log("Switching to bulletproof stream proxy...");
-      this.audio.src = resolveApiUrl(`/api/stream-audio?channel=browser&t=${Date.now()}`);
+    if (!this.currentTrack) return;
+
+    // Retry Strategy 1: Switch to Render server stream proxy with explicit direct URL
+    if (this.audio?.src && !this.audio.src.includes("/api/stream-audio") && this.currentTrack.streamUrl) {
+      console.log("Direct stream failed, falling back to server audio proxy...");
+      this.audio.src = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(this.currentTrack.streamUrl)}&t=${Date.now()}`);
       this.audio.play().catch(() => {});
+      return;
+    }
+
+    // Retry Strategy 2: If proxy also failed or was blocked, re-resolve via JioSaavn CDN
+    if (!this.currentTrack._fallbackAttempted) {
+      this.currentTrack._fallbackAttempted = true;
+      const query = `${this.currentTrack.title} ${this.currentTrack.author || ""}`.trim();
+      console.log(`Re-resolving fallback audio for: ${query}`);
+      fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=filterless&channel=browser&forceSaavn=true`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.track?.streamUrl) {
+            this.currentTrack.streamUrl = d.track.streamUrl;
+            this.currentTrack.proxyStreamUrl = d.track.proxyStreamUrl;
+            const fallbackSrc = d.track.streamUrl.includes("saavncdn.com") ? d.track.streamUrl : resolveApiUrl(d.track.proxyStreamUrl);
+            this.audio.src = fallbackSrc;
+            this.audio.play().catch(() => {});
+          } else if (this.queue.length > 0) {
+            this.next();
+          }
+        })
+        .catch(() => {
+          if (this.queue.length > 0) this.next();
+        });
+    } else if (this.queue.length > 0) {
+      this.next();
     }
   },
 
@@ -934,6 +979,8 @@ function switchView(viewName, addToHistory = true, isForward = false) {
   } else if (viewName === "queue") {
     const el = document.getElementById("viewQueue");
     if (el) el.style.display = "block";
+    document.getElementById("navLinkQueue")?.classList.add("active");
+    document.getElementById("mobileNavQueue")?.classList.add("active");
     renderQueueView();
   } else if (viewName === "liked") {
     const el = document.getElementById("viewLiked");
@@ -1865,8 +1912,33 @@ function renderSidebarLibrary(filter = "all") {
   }
 }
 
+// Universal Queue Badges Synchronizer
+function updateAllQueueBadges() {
+  const isBrowser = activeSystemChannel === "browser";
+  const queue = isBrowser ? BrowserPlayer.queue : (currentState?.channels?.bot?.queue || currentState?.queue || []);
+  const count = Array.isArray(queue) ? queue.length : 0;
+
+  const bHome = document.getElementById("homeQueueBadge");
+  if (bHome) {
+    bHome.textContent = count;
+    bHome.style.display = count > 0 ? "inline-flex" : "none";
+  }
+  const bTop = document.getElementById("topQueueBadge");
+  if (bTop) {
+    bTop.textContent = count;
+    bTop.style.display = count > 0 ? "inline-flex" : "none";
+  }
+  const bSide = document.getElementById("sidebarQueueBadge");
+  if (bSide) {
+    bSide.textContent = count;
+    bSide.style.display = count > 0 ? "inline-flex" : "none";
+  }
+}
+window.updateAllQueueBadges = updateAllQueueBadges;
+
 // Render Queue & History View
 function renderQueueView() {
+  updateAllQueueBadges();
   const tbody = document.getElementById("queueTableBody");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -4749,8 +4821,12 @@ function initEventListeners() {
     closeExpandedPlayer();
   });
 
-  // Queue View Toggle
+  // Queue View Toggles (Desktop, Top Header, Homepage, Mobile Player Pill, Mobile Nav)
   document.getElementById("btnToggleQueueView")?.addEventListener("click", () => switchView("queue"));
+  document.getElementById("btnHomeQueue")?.addEventListener("click", () => switchView("queue"));
+  document.getElementById("navLinkQueue")?.addEventListener("click", () => switchView("queue"));
+  document.getElementById("btnTopQueue")?.addEventListener("click", () => switchView("queue"));
+  document.getElementById("btnMobileQueue")?.addEventListener("click", () => switchView("queue"));
 
   // Device Route Button
   document.getElementById("btnDeviceRoute")?.addEventListener("click", () => {
@@ -4758,9 +4834,10 @@ function initEventListeners() {
     switchSystemChannel(cycle[activeSystemChannel] || "browser");
   });
 
-  // Mobile Bottom Navigation
+  // Mobile Bottom Navigation (5 tabs)
   document.getElementById("mobileNavHome")?.addEventListener("click", () => switchView("home"));
   document.getElementById("mobileNavSearch")?.addEventListener("click", () => switchView("search"));
+  document.getElementById("mobileNavQueue")?.addEventListener("click", () => switchView("queue"));
   document.getElementById("mobileNavLibrary")?.addEventListener("click", () => {
     switchView("liked");
   });
@@ -4768,6 +4845,15 @@ function initEventListeners() {
     const cycle = { browser: "app", app: "bot", bot: "all", all: "browser" };
     switchSystemChannel(cycle[activeSystemChannel] || "browser");
   });
+
+  // Proactive Audio Unlock on first user touch / pointer gesture anywhere
+  const proactiveUnlock = () => {
+    BrowserPlayer.prime();
+    window.removeEventListener("pointerdown", proactiveUnlock);
+    window.removeEventListener("touchstart", proactiveUnlock);
+  };
+  window.addEventListener("pointerdown", proactiveUnlock, { passive: true });
+  window.addEventListener("touchstart", proactiveUnlock, { passive: true });
 
   // Mobile / Android APK Install Button Handler
   const installBtn = document.getElementById("btnInstallPwa");

@@ -726,6 +726,7 @@ const server = http.createServer(async (req, res) => {
     const q = parsedUrl.searchParams.get("q") || "";
     const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
     const targetChannel = parsedUrl.searchParams.get("channel") || "browser";
+    const forceSaavn = parsedUrl.searchParams.get("forceSaavn") === "true";
 
     if (!q) {
       res.writeHead(400, { "Content-Type": "application/json" });
@@ -733,6 +734,33 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
+      if (forceSaavn) {
+        try {
+          const saavnResults = await searchJioSaavn(q, 3);
+          if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
+            const top = saavnResults[0];
+            const track = {
+              title: top.title,
+              author: top.author,
+              duration: top.duration,
+              streamUrl: top.streamUrl,
+              rawStreamUrl: top.streamUrl,
+              artworkUrl: top.artworkUrl,
+              filterMode
+            };
+            res.writeHead(200, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({
+              success: true,
+              channel: targetChannel,
+              track: {
+                ...track,
+                proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(track.streamUrl)}`
+              }
+            }));
+          }
+        } catch (e) {}
+      }
+
       const track = await resolveMediaTrack(q, filterMode);
       if (track) {
         const shouldSet = parsedUrl.searchParams.get("set") === "true";
