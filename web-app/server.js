@@ -993,7 +993,32 @@ const server = http.createServer(async (req, res) => {
   if (pathname === "/api/user/me") {
     const user = getSessionUser(req);
     res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ success: true, user: user || null }));
+    return res.end(JSON.stringify({ success: true, authenticated: Boolean(user), user: user || null }));
+  }
+
+  if (pathname === "/api/user/rehydrate" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const { vault } = JSON.parse(body || "{}");
+        const result = userStore.rehydrateUser(vault);
+        if (result.success) {
+          res.writeHead(200, {
+            "Content-Type": "application/json",
+            "Set-Cookie": `ahm_auth_token=${encodeURIComponent(result.token)}; Path=/; Max-Age=2592000; SameSite=Lax`
+          });
+          return res.end(JSON.stringify(result));
+        } else {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify(result));
+        }
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
   }
 
   // --------------------------------------------------------------------------

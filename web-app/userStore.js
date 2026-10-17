@@ -11,9 +11,50 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// In-memory data store with disk persistence
+// In-memory data store with disk persistence & optional MongoDB Atlas cloud persistence
 let users = {};
 const sessions = new Map(); // token -> { userId, expiresAt }
+
+// Optional Cloud Database Support (MongoDB Atlas Free Tier - Zero Credit Card Required)
+let mongoClient = null;
+let mongoDb = null;
+const MONGODB_URI = process.env.MONGODB_URI || process.env.DATABASE_URL;
+
+async function initMongo() {
+  if (!MONGODB_URI) return;
+  try {
+    const { MongoClient } = require("mongodb");
+    mongoClient = new MongoClient(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000
+    });
+    await mongoClient.connect();
+    mongoDb = mongoClient.db("track_finder");
+    console.log("✅ Successfully connected to persistent MongoDB Atlas cluster!");
+
+    // Load users from Mongo & merge with local
+    const usersColl = mongoDb.collection("users");
+    const dbUsers = await usersColl.find({}).toArray();
+    for (const u of dbUsers) {
+      if (u && u.id) {
+        users[u.id] = { ...users[u.id], ...u };
+      }
+    }
+    saveUsers(false); // sync locally
+
+    // Load active sessions from Mongo
+    const sessColl = mongoDb.collection("sessions");
+    const dbSessions = await sessColl.find({ expiresAt: { $gt: Date.now() } }).toArray();
+    for (const s of dbSessions) {
+      if (s && s.token && s.userId) {
+        sessions.set(s.token, { userId: s.userId, expiresAt: s.expiresAt });
+      }
+    }
+    saveSessions(false); // sync locally
+  } catch (err) {
+    console.warn("MongoDB Atlas connection notice (running on local JSON & Vault rehydration fallback):", err.message);
+  }
+}
 
 // Load users from disk
 function loadUsers() {
@@ -23,7 +64,7 @@ function loadUsers() {
       users = JSON.parse(data || "{}");
     } else {
       users = {};
-      saveUsers();
+      saveUsers(false);
     }
   } catch (err) {
     console.error("Error loading users.json:", err.message);
@@ -31,12 +72,30 @@ function loadUsers() {
   }
 }
 
-// Save users to disk
-function saveUsers() {
+// Save users to disk and sync to MongoDB Atlas if connected
+function saveUsers(syncMongo = true) {
   try {
     fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf-8");
   } catch (err) {
     console.error("Error saving users.json:", err.message);
+  }
+
+  if (syncMongo && mongoDb) {
+    (async () => {
+      try {
+        const usersColl = mongoDb.collection("users");
+        const ops = Object.values(users).map(u => ({
+          replaceOne: {
+            filter: { id: u.id },
+            replacement: u,
+            upsert: true
+          }
+        }));
+        if (ops.length > 0) await usersColl.bulkWrite(ops);
+      } catch (e) {
+        console.warn("Mongo users sync note:", e.message);
+      }
+    })();
   }
 }
 
@@ -58,8 +117,8 @@ function loadSessions() {
   }
 }
 
-// Save sessions to disk
-function saveSessions() {
+// Save sessions to disk and sync to MongoDB Atlas if connected
+function saveSessions(syncMongo = true) {
   try {
     const obj = {};
     const now = Date.now();
@@ -72,11 +131,95 @@ function saveSessions() {
   } catch (err) {
     console.error("Error saving sessions.json:", err.message);
   }
+
+  if (syncMongo && mongoDb) {
+    (async () => {
+      try {
+        const sessColl = mongoDb.collection("sessions");
+        const now = Date.now();
+        const docs = [];
+        for (const [token, sess] of sessions.entries()) {
+          if (sess && sess.expiresAt > now) {
+            docs.push({ token, userId: sess.userId, expiresAt: sess.expiresAt });
+          }
+        }
+        if (docs.length > 0) {
+          const ops = docs.map(d => ({
+            replaceOne: {
+              filter: { token: d.token },
+              replacement: d,
+              upsert: true
+            }
+          }));
+          await sessColl.bulkWrite(ops);
+        }
+      } catch (e) {
+        console.warn("Mongo sessions sync note:", e.message);
+      }
+    })();
+  }
 }
 
 // Initialize on startup
 loadUsers();
 loadSessions();
+initMongo();
+
+/**
+ * Rehydrates a user and session from a client-provided vault
+ * (Called when the server was restarted or redeployed from a push so user accounts & likes are never lost)
+ */
+function rehydrateUser(vault) {
+  if (!vault || !vault.user || !vault.user.id) {
+    return { success: false, error: "Invalid user vault data" };
+  }
+  const u = vault.user;
+  const id = u.id;
+
+  // Restore user into in-memory store
+  if (!users[id]) {
+    users[id] = {
+      ...u,
+      favorites: Array.isArray(vault.favorites) && vault.favorites.length > 0 ? vault.favorites : (u.favorites || []),
+      queue: Array.isArray(vault.queue) ? vault.queue : (u.queue || []),
+      tasteProfile: vault.tasteProfile || u.tasteProfile || {
+        listenedTracks: [],
+        artistAffinity: {},
+        genreAffinity: {},
+        preferredGenres: ["bollywood", "romantic"],
+        lastUpdatedDate: "",
+        dailyMixes: [],
+        historyCount: 0
+      },
+      lastActive: Date.now()
+    };
+  } else {
+    // Merge favorites & taste profile if vault has newer data
+    if (Array.isArray(vault.favorites) && vault.favorites.length > (users[id].favorites?.length || 0)) {
+      users[id].favorites = vault.favorites;
+    }
+    if (vault.tasteProfile) {
+      users[id].tasteProfile = { ...users[id].tasteProfile, ...vault.tasteProfile };
+    }
+    users[id].lastActive = Date.now();
+  }
+
+  // Restore session token with 60-day longevity
+  const token = vault.sessionToken || vault.token || generateToken();
+  sessions.set(token, {
+    userId: id,
+    expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000 // 60 days
+  });
+
+  saveUsers();
+  saveSessions();
+
+  return {
+    success: true,
+    user: users[id],
+    token
+  };
+}
 
 /**
  * Generates a secure random session token
@@ -1033,6 +1176,8 @@ module.exports = {
   loginCustomer,
   calibrateUserTaste,
   hashPassword,
+  rehydrateUser,
+  initMongo,
   MASTER_GENRE_CATALOG
 };
 

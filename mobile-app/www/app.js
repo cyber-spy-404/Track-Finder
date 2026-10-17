@@ -2437,30 +2437,117 @@ async function initUserAuth() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  const token = localStorage.getItem("ahm_session_token");
+  let token = localStorage.getItem("ahm_session_token");
+
+  // Restore immediate UI from cache so no blank state flickers
+  try {
+    const cachedUser = localStorage.getItem("ahm_cached_user");
+    if (cachedUser) {
+      currentUser = JSON.parse(cachedUser);
+      updateUserProfileUI();
+    }
+  } catch(e) {}
+
   if (!token) {
+    // If no token in key but vault exists, recover sessionToken from vault
+    try {
+      const vRaw = localStorage.getItem("ahm_user_vault");
+      if (vRaw) {
+        const v = JSON.parse(vRaw);
+        if (v && v.sessionToken) {
+          token = v.sessionToken;
+          localStorage.setItem("ahm_session_token", token);
+        }
+      }
+    } catch(e) {}
+  }
+
+  if (!token) {
+    const vaultRaw = localStorage.getItem("ahm_user_vault");
+    if (vaultRaw) {
+      try {
+        const vault = JSON.parse(vaultRaw);
+        if (vault?.sessionToken) {
+          token = vault.sessionToken;
+          localStorage.setItem("ahm_session_token", token);
+        } else if (vault?.user?.id) {
+          // Rehydrate directly if token missing but vault present
+          const rRes = await fetch("/api/user/rehydrate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ vault })
+          });
+          const rData = await rRes.json();
+          if (rData.success && rData.user) {
+            currentUser = rData.user;
+            if (rData.token) {
+              token = rData.token;
+              localStorage.setItem("ahm_session_token", token);
+            }
+            localStorage.setItem("ahm_cached_user", JSON.stringify(rData.user));
+            saveUserVault();
+            showToast(`Session restored: Welcome back, ${currentUser.displayName || currentUser.username}!`);
+          }
+        }
+      } catch (e) {
+        console.warn("Vault recovery error:", e);
+      }
+    }
+  }
+
+  if (!token && !currentUser) {
     currentUser = null;
     localStorage.removeItem("ahm_cached_user");
     updateUserProfileUI();
     return;
   }
 
-  try {
-    const headers = { "Authorization": `Bearer ${token}` };
-    const res = await fetch("/api/user/me", { headers });
-    const data = await res.json();
-    if (data.authenticated && data.user) {
-      currentUser = data.user;
-      localStorage.setItem("ahm_cached_user", JSON.stringify(data.user));
-    } else {
-      // Session has explicitly been invalidated or expired on server
-      currentUser = null;
-      localStorage.removeItem("ahm_session_token");
-      localStorage.removeItem("ahm_cached_user");
+  if (!currentUser) {
+    try {
+      const headers = { "Authorization": `Bearer ${token}` };
+      const res = await fetch("/api/user/me", { headers });
+      const data = await res.json();
+      if (data.authenticated && data.user) {
+        currentUser = data.user;
+        localStorage.setItem("ahm_cached_user", JSON.stringify(data.user));
+        saveUserVault();
+      } else {
+        // Server was redeployed or memory restarted: auto-rehydrate from local vault!
+        const vaultRaw = localStorage.getItem("ahm_user_vault");
+        if (vaultRaw) {
+          try {
+            const vault = JSON.parse(vaultRaw);
+            if (vault && vault.user && vault.user.id) {
+              console.log("Auto-rehydrating user session after server push/restart...");
+              const rRes = await fetch("/api/user/rehydrate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ vault })
+              });
+              const rData = await rRes.json();
+              if (rData.success && rData.user) {
+                currentUser = rData.user;
+                if (rData.token) localStorage.setItem("ahm_session_token", rData.token);
+                localStorage.setItem("ahm_cached_user", JSON.stringify(rData.user));
+                saveUserVault();
+                showToast(`Session restored: Welcome back, ${currentUser.displayName || currentUser.username}!`);
+              }
+            }
+          } catch(rErr) {
+            console.warn("Auto-rehydrate error:", rErr);
+          }
+        }
+
+        if (!currentUser) {
+          currentUser = null;
+          localStorage.removeItem("ahm_session_token");
+          localStorage.removeItem("ahm_cached_user");
+        }
+      }
+    } catch (e) {
+      // Transient network or server reboot error: KEEP cached session so user is never abruptly logged out!
+      console.warn("Could not reach auth server, keeping cached user session:", e.message);
     }
-  } catch (e) {
-    // Transient network or server reboot error: KEEP cached session so user is never abruptly logged out!
-    console.warn("Could not reach auth server, keeping cached user session:", e.message);
   }
 
   updateUserProfileUI();
@@ -2470,6 +2557,23 @@ async function initUserAuth() {
     await loadDailyRecommendations(false);
   }
 }
+
+// Resilient User Vault Persistence
+function saveUserVault() {
+  if (!currentUser) return;
+  try {
+    const vault = {
+      user: currentUser,
+      sessionToken: localStorage.getItem("ahm_session_token"),
+      favorites: userFavorites || [],
+      customPlaylists: customPlaylists || [],
+      tasteProfile: userTasteProfile || currentUser.tasteProfile || null,
+      updatedAt: Date.now()
+    };
+    localStorage.setItem("ahm_user_vault", JSON.stringify(vault));
+  } catch (e) {}
+}
+window.saveUserVault = saveUserVault;
 
 function updateUserProfileUI() {
   const avatarMini = document.getElementById("userAvatarMini");
@@ -2531,6 +2635,7 @@ async function handleLogout() {
   } catch(e) {}
   localStorage.removeItem("ahm_session_token");
   localStorage.removeItem("ahm_cached_user");
+  localStorage.removeItem("ahm_user_vault");
   currentUser = null;
   userFavorites = [];
   favoriteTrackIds = new Set();
@@ -2543,15 +2648,31 @@ async function handleLogout() {
 window.handleLogout = handleLogout;
 
 async function loadUserFavorites() {
+  // 1. Instant local restoration from vault
+  try {
+    const vRaw = localStorage.getItem("ahm_user_vault");
+    if (vRaw) {
+      const v = JSON.parse(vRaw);
+      if (Array.isArray(v.favorites) && v.favorites.length > 0 && userFavorites.length === 0) {
+        userFavorites = v.favorites;
+        favoriteTrackIds = new Set(userFavorites.map(f => (f.title || "").trim().toLowerCase()));
+        updateFavoritesCounters();
+      }
+    }
+  } catch(e) {}
+
   try {
     const token = localStorage.getItem("ahm_session_token");
     const headers = token ? { "Authorization": `Bearer ${token}` } : {};
     const res = await fetch("/api/user/favorites", { headers });
     const data = await res.json();
     if (data.success && Array.isArray(data.favorites)) {
-      userFavorites = data.favorites;
-      favoriteTrackIds = new Set(data.favorites.map(f => (f.title || "").trim().toLowerCase()));
-      updateFavoritesCounters();
+      if (data.favorites.length >= userFavorites.length) {
+        userFavorites = data.favorites;
+        favoriteTrackIds = new Set(data.favorites.map(f => (f.title || "").trim().toLowerCase()));
+        updateFavoritesCounters();
+        saveUserVault();
+      }
     }
   } catch(e) {}
 }
@@ -2588,6 +2709,7 @@ async function toggleTrackFavorite(track) {
       favoriteTrackIds = new Set(userFavorites.map(f => (f.title || "").trim().toLowerCase()));
       updateFavoritesCounters();
       renderLikedSongsView();
+      saveUserVault();
       if (data.isFavorite) {
         recordTrackTaste(track, "like");
       }
@@ -3212,6 +3334,7 @@ function openProfileModal() {
           await loadUserFavorites();
           await loadUserQueue();
           await loadDailyRecommendations(true);
+          saveUserVault();
           closeProfileModal();
           showToast(`Welcome back, ${data.user.displayName || data.user.email}! Your daily taste mixes are loaded.`);
         } catch (postErr) {
@@ -3296,6 +3419,7 @@ function openProfileModal() {
           await loadUserFavorites();
           await loadUserQueue();
           await loadDailyRecommendations(true);
+          saveUserVault();
           closeProfileModal();
           showToast(`Account created! Welcome, ${data.user.displayName || data.user.email}! Today's taste mix is ready.`);
         } catch (postErr) {
@@ -3382,6 +3506,7 @@ function openProfileModal() {
           await loadUserFavorites();
           await loadUserQueue();
           await loadDailyRecommendations(true);
+          saveUserVault();
           closeProfileModal();
           showToast(`Welcome, ${data.user.displayName}! Verified server member.`);
         } else {

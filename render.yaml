@@ -18,3 +18,5 @@ services:
         value: "http://lavalink.jirayu.net:13592"
       - key: LAVALINK_AUTH
         value: "youshallnotpass"
+      - key: MONGODB_URI
+        sync: false
