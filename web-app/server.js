@@ -593,6 +593,109 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
   return null;
 }
 
+// ==========================================================================
+// SPOTIFY INFINITE RADIO & AUTOPLAY GENERATION ENGINE
+// ==========================================================================
+async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterless", limit = 15, signal = null) {
+  if (signal?.aborted) return [];
+  const normTitle = (seedTitle || "").trim().toLowerCase();
+  const normArtist = (seedArtist || "").trim();
+
+  // 1. Quran Surah Progressive Recitation Radio
+  if (normTitle.includes("surah")) {
+    const match = normTitle.match(/surah\s*(\d+)/i);
+    const startNum = match ? parseInt(match[1], 10) : 1;
+    const radio = [];
+    for (let i = 1; i <= limit; i++) {
+      const nextNum = ((startNum - 1 + i) % 114) + 1;
+      const padded = String(nextNum).padStart(3, "0");
+      const name = SURAH_NAMES[nextNum] || `Surah ${nextNum}`;
+      const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+      radio.push({
+        id: `quran_surah_${nextNum}`,
+        title: `Surah ${nextNum}: ${name}`,
+        author: normArtist || "Mishary Rashid Alafasy",
+        duration: 180000,
+        artworkUrl: "logo.png",
+        streamUrl: quranUrl,
+        rawStreamUrl: quranUrl,
+        proxyStreamUrl: `/api/stream-audio?channel=browser&url=${encodeURIComponent(quranUrl)}`,
+        source: "quran",
+        isRadio: true,
+        radioSeed: seedTitle
+      });
+    }
+    return radio;
+  }
+
+  // 2. Music Radio via JioSaavn & YouTube Multi-Source Search
+  const primaryArtist = (normArtist || "").split(/[,&x/]|feat\.|ft\./i)[0].trim();
+  const cleanTitle = (seedTitle || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+  const normalizedSeed = cleanTitle.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const queryA = primaryArtist ? `${primaryArtist} top songs` : `${cleanTitle} hits`;
+  const queryB = primaryArtist ? `${cleanTitle} ${primaryArtist}` : `${cleanTitle} similar`;
+
+  const [resA, resB] = await Promise.all([
+    searchJioSaavn(queryA, Math.min(limit, 12), signal).catch(() => []),
+    searchJioSaavn(queryB, Math.min(limit, 12), signal).catch(() => [])
+  ]);
+
+  if (signal?.aborted) return [];
+
+  const rawList = [...resA, ...resB];
+  const seen = new Set();
+  const tracks = [];
+
+  for (const t of rawList) {
+    if (!t || !t.title) continue;
+    const tNorm = t.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normalizedSeed && (tNorm.includes(normalizedSeed) || normalizedSeed.includes(tNorm))) continue;
+    if (seen.has(tNorm)) continue;
+    seen.add(tNorm);
+
+    const validation = validateByFilterMode(filterMode, t);
+    if (!validation.allowed) continue;
+
+    tracks.push({
+      ...t,
+      isRadio: true,
+      radioSeed: seedTitle,
+      proxyStreamUrl: t.streamUrl ? `/api/stream-audio?channel=browser&url=${encodeURIComponent(t.streamUrl)}` : null
+    });
+
+    if (tracks.length >= limit) break;
+  }
+
+  // If fewer than 5 tracks found from JioSaavn, augment with searchYouTubeMulti
+  if (tracks.length < 5 && !signal?.aborted) {
+    try {
+      const ytQuery = primaryArtist ? `${primaryArtist} mix playlist` : `${cleanTitle} radio`;
+      const ytResults = await searchYouTubeMulti(ytQuery, limit - tracks.length, signal);
+      for (const yt of ytResults) {
+        if (!yt || !yt.title) continue;
+        const ytNorm = yt.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (normalizedSeed && (ytNorm.includes(normalizedSeed) || normalizedSeed.includes(ytNorm))) continue;
+        if (seen.has(ytNorm)) continue;
+        seen.add(ytNorm);
+
+        const validation = validateByFilterMode(filterMode, yt);
+        if (!validation.allowed) continue;
+
+        tracks.push({
+          ...yt,
+          isRadio: true,
+          radioSeed: seedTitle,
+          proxyStreamUrl: `/api/stream-audio?channel=browser&url=${encodeURIComponent(yt.url || yt.title)}`
+        });
+        if (tracks.length >= limit) break;
+      }
+    } catch (e) {}
+  }
+
+  return tracks;
+}
+
 // User Session Extraction Helper
 function getSessionUser(req) {
   let token = null;
@@ -635,6 +738,7 @@ function getClientIp(req) {
 function getRequestCategory(pathname, parsedUrl) {
   if (pathname === "/api/search") return "search";
   if (pathname === "/api/resolve-track") return "resolve";
+  if (pathname === "/api/radio") return "radio";
   if (pathname === "/api/stream-audio") {
     const channel = parsedUrl.searchParams.get("channel") || "browser";
     return `stream:${channel}`;
@@ -1338,6 +1442,26 @@ const server = http.createServer(async (req, res) => {
     const recs = userStore.getDailyRecommendations(userId, force);
     res.writeHead(200, { "Content-Type": "application/json" });
     return res.end(JSON.stringify({ success: true, recommendations: recs }));
+  }
+
+  if (pathname === "/api/radio") {
+    const seedTitle = (parsedUrl.searchParams.get("seedTitle") || "").trim();
+    const seedArtist = (parsedUrl.searchParams.get("seedArtist") || "").trim();
+    const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
+    const limit = Math.min(Math.max(parseInt(parsedUrl.searchParams.get("limit") || "15", 10), 5), 30);
+
+    const radioTracks = await generateRadioStation(seedTitle, seedArtist, filterMode, limit, abortController?.signal);
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "public, max-age=180"
+    });
+    return res.end(JSON.stringify({
+      success: true,
+      seed: { title: seedTitle, artist: seedArtist },
+      station: `${seedTitle || seedArtist || "Spotify"} Radio`,
+      tracks: radioTracks
+    }));
   }
 
   if (pathname === "/api/apk-link") {

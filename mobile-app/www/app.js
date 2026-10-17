@@ -361,6 +361,11 @@ const BrowserPlayer = {
   isInitialized: false,
   lastReportTime: 0,
   savedPosition: 0,
+  // Spotify Infinite Radio & Autoplay State
+  autoplayRadioEnabled: localStorage.getItem("ahm_autoplay_radio") !== "false",
+  isRadioActive: false,
+  activeRadioSeed: null,
+  isFetchingRadio: false,
 
   init() {
     if (this.isInitialized) return;
@@ -681,21 +686,169 @@ const BrowserPlayer = {
       await this.playTrack(nextTrack);
       renderQueueView();
       if (typeof saveUserQueue === "function") saveUserQueue();
-    } else {
-      if (this.repeatMode === "queue" && this.history.length > 0) {
-        this.queue = [...this.history];
-        this.history = [];
-        const nextTrack = this.queue.shift();
-        await this.playTrack(nextTrack);
-        renderQueueView();
-        if (typeof saveUserQueue === "function") saveUserQueue();
-      } else {
-        this.stop();
-        showToast("Browser queue finished");
-        renderQueueView();
-        if (typeof saveUserQueue === "function") saveUserQueue();
+
+      // Seamlessly prefetch more radio tracks if running low so playback is truly infinite
+      if (this.isRadioActive && this.queue.length <= 2 && !this.isFetchingRadio && this.activeRadioSeed) {
+        this.prefetchInfiniteRadio();
+      }
+      return;
+    }
+
+    if (this.repeatMode === "queue" && this.history.length > 0) {
+      this.queue = [...this.history];
+      this.history = [];
+      const nextTrack = this.queue.shift();
+      await this.playTrack(nextTrack);
+      renderQueueView();
+      if (typeof saveUserQueue === "function") saveUserQueue();
+      return;
+    }
+
+    // SPOTIFY INFINITE RADIO & AUTOPLAY:
+    // If queue finishes, connect to a radio channel related to the last song of queue.
+    // If no queue existed, connect to a radio channel related to the last song played.
+    if (this.autoplayRadioEnabled) {
+      const seedTrack = this.currentTrack || (this.history.length > 0 ? this.history[this.history.length - 1] : null);
+      if (seedTrack) {
+        const seedTitle = seedTrack.title || seedTrack.info?.title || "Music";
+        showToast(`📻 Queue complete! Connecting to ${seedTitle} Radio...`);
+        this.activeRadioSeed = seedTrack;
+        this.isRadioActive = true;
+        if (this.currentTrack) {
+          this.history.push(this.currentTrack);
+          this.currentTrack = null;
+        }
+
+        const radioTracks = await this.fetchRadioTracks(seedTrack, 15);
+        if (radioTracks && radioTracks.length > 0) {
+          const firstTrack = radioTracks[0];
+          this.queue = radioTracks.slice(1);
+          await this.playTrack(firstTrack);
+          showToast(`📻 Now Playing ${seedTitle} Radio`);
+          renderQueueView();
+          if (typeof saveUserQueue === "function") saveUserQueue();
+          return;
+        }
       }
     }
+
+    this.stop();
+    showToast("Playback completed");
+    renderQueueView();
+    if (typeof saveUserQueue === "function") saveUserQueue();
+  },
+
+  async fetchRadioTracks(seedTrack, limit = 15) {
+    if (!seedTrack) return [];
+    this.isFetchingRadio = true;
+    const title = seedTrack.title || seedTrack.info?.title || "";
+    const author = seedTrack.author || seedTrack.artist || seedTrack.info?.author || "";
+    const filterMode = seedTrack.filterMode || currentFilterMode || "filterless";
+
+    try {
+      const url = `/api/radio?seedTitle=${encodeURIComponent(title)}&seedArtist=${encodeURIComponent(author)}&filterMode=${encodeURIComponent(filterMode)}&limit=${limit}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        return data.tracks.map(t => ({
+          ...t,
+          isRadio: true,
+          radioSeedTitle: title
+        }));
+      }
+    } catch (err) {
+      console.warn("fetchRadioTracks API warning, using client fallback:", err);
+    } finally {
+      this.isFetchingRadio = false;
+    }
+
+    // Client-side fallback via search
+    try {
+      const cleanArtist = author.split(/[,&x/]|feat\.|ft\./i)[0].trim();
+      const query = cleanArtist ? `${cleanArtist} hits` : `${title} similar`;
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(currentFilterMode)}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tracks) && data.tracks.length > 0) {
+        const normSeed = title.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return data.tracks
+          .filter(t => {
+            const tNorm = (t.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            return !tNorm.includes(normSeed) && !normSeed.includes(tNorm);
+          })
+          .map(t => ({
+            ...t,
+            isRadio: true,
+            radioSeedTitle: title
+          }));
+      }
+    } catch (e) {}
+
+    return [];
+  },
+
+  async prefetchInfiniteRadio() {
+    if (!this.activeRadioSeed || this.isFetchingRadio) return;
+    this.isFetchingRadio = true;
+    try {
+      const baseSeed = this.queue.length > 0 ? this.queue[this.queue.length - 1] : this.activeRadioSeed;
+      const moreTracks = await this.fetchRadioTracks(baseSeed, 8);
+      if (moreTracks && moreTracks.length > 0) {
+        const existingTitles = new Set([
+          ...this.history.map(t => (t.title || "").toLowerCase()),
+          ...this.queue.map(t => (t.title || "").toLowerCase()),
+          (this.currentTrack?.title || "").toLowerCase()
+        ]);
+        const fresh = moreTracks.filter(t => !existingTitles.has((t.title || "").toLowerCase()));
+        if (fresh.length > 0) {
+          this.queue.push(...fresh);
+          renderQueueView();
+          if (typeof saveUserQueue === "function") saveUserQueue();
+        }
+      }
+    } catch (e) {
+    } finally {
+      this.isFetchingRadio = false;
+    }
+  },
+
+  async startRadioForTrack(track) {
+    if (!track) return;
+    this.prime();
+    showToast(`📻 Tuning in to ${track.title} Radio...`);
+    this.activeRadioSeed = track;
+    this.isRadioActive = true;
+    if (this.currentTrack) {
+      this.history.push(this.currentTrack);
+      this.currentTrack = null;
+    }
+    const radioTracks = await this.fetchRadioTracks(track, 15);
+    if (radioTracks && radioTracks.length > 0) {
+      const first = radioTracks[0];
+      this.queue = radioTracks.slice(1);
+      await this.playTrack(first);
+      showToast(`📻 Connected to ${track.title} Radio`);
+      renderQueueView();
+      if (typeof saveUserQueue === "function") saveUserQueue();
+    } else {
+      await this.playTrack(track);
+    }
+  },
+
+  toggleAutoplay() {
+    this.autoplayRadioEnabled = !this.autoplayRadioEnabled;
+    const isEnabled = this.autoplayRadioEnabled;
+    localStorage.setItem("ahm_autoplay_radio", isEnabled ? "true" : "false");
+    showToast(`Spotify Autoplay Radio: ${isEnabled ? "ON (Infinite Music)" : "OFF"}`);
+    
+    const btnBar = document.getElementById("btnAutoplayRadio");
+    const btnQueue = document.getElementById("btnToggleAutoplay");
+    if (btnBar) btnBar.classList.toggle("active", isEnabled);
+    if (btnQueue) {
+      btnQueue.classList.toggle("active", isEnabled);
+      const textSpan = btnQueue.querySelector("span:not(.radio-pulse-dot)");
+      if (textSpan) textSpan.textContent = `Autoplay Radio: ${isEnabled ? "On" : "Off"}`;
+    }
+    return isEnabled;
   },
 
   async prev() {
@@ -2013,11 +2166,40 @@ function renderQueueView() {
   const headerEl = document.getElementById("queueSectionHeader");
   const countBadge = document.getElementById("queueCountBadge");
   const clearBtn = document.getElementById("btnClearBrowserQueue");
+  const radioBanner = document.getElementById("queueRadioStationBanner");
+  const radioSub = document.getElementById("queueRadioStationSub");
+  const radioTitle = document.getElementById("queueRadioStationTitle");
+  const btnToggleAuto = document.getElementById("btnToggleAutoplay");
+
+  // Sync Autoplay Toggle Button state
+  if (btnToggleAuto) {
+    btnToggleAuto.classList.toggle("active", BrowserPlayer.autoplayRadioEnabled);
+    const txt = btnToggleAuto.querySelector("span:not(.radio-pulse-dot)");
+    if (txt) txt.textContent = `Autoplay Radio: ${BrowserPlayer.autoplayRadioEnabled ? "On" : "Off"}`;
+  }
+
+  // Display Spotify Infinite Radio Banner when active
+  const hasRadioTracks = currentTab === "queue" && (BrowserPlayer.isRadioActive || queue.some(t => t.isRadio));
+  if (radioBanner) {
+    if (hasRadioTracks) {
+      radioBanner.style.display = "flex";
+      if (radioTitle) {
+        const seed = BrowserPlayer.activeRadioSeed || (BrowserPlayer.history.length > 0 ? BrowserPlayer.history[BrowserPlayer.history.length - 1] : null);
+        radioTitle.textContent = `Playing songs related to "${seed?.title || "your music"}"`;
+      }
+      if (radioSub) {
+        const count = queue.filter(t => t.isRadio).length;
+        radioSub.textContent = `Infinite Stream • ${count} queued`;
+      }
+    } else {
+      radioBanner.style.display = "none";
+    }
+  }
 
   const list = currentTab === "queue" ? queue : history;
 
   if (headerEl) {
-    headerEl.textContent = currentTab === "queue" ? "Next in Queue" : "Recently Played";
+    headerEl.textContent = currentTab === "queue" ? (hasRadioTracks ? "📻 Next in Radio Queue" : "Next in Queue") : "Recently Played";
   }
   if (countBadge) {
     countBadge.textContent = `${list.length} track${list.length === 1 ? "" : "s"}`;
@@ -2044,7 +2226,7 @@ function renderQueueView() {
             ${currentTab === "queue" ? "Your queue is empty" : "No recently played tracks"}
           </div>
           <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">
-            ${currentTab === "queue" ? "Add tracks using the Enqueue button in search or play any playlist." : "Tracks you play will appear here."}
+            ${currentTab === "queue" ? "Autoplay is active. When songs finish, continuous radio connects automatically." : "Tracks you play will appear here."}
           </div>
           ${currentTab === "queue" ? `
             <button type="button" class="btn-play-now-pill" onclick="switchView('search')" style="margin: 0 auto; display: inline-flex; align-items: center; gap: 6px;">
@@ -2065,6 +2247,7 @@ function renderQueueView() {
     const author = t.author || t.artist || t.info?.author || "Artist";
     const dur = t.duration || t.info?.duration || 0;
     const art = t.artworkUrl || t.info?.artworkUrl || "logo.png";
+    const isRadioTrack = Boolean(t.isRadio);
 
     tr.innerHTML = `
       <td class="td-num">${i + 1}</td>
@@ -2072,7 +2255,10 @@ function renderQueueView() {
         <div class="song-info-cell">
           <img class="song-cell-art" src="${art}" alt="Track Art">
           <div class="song-title-group">
-            <span class="song-title">${escapeHtml(title)}</span>
+            <span class="song-title">
+              ${escapeHtml(title)}
+              ${isRadioTrack ? '<span class="badge-radio-tag" title="Auto-recommended continuous track">📻 Radio</span>' : ''}
+            </span>
             <span class="song-artist">${escapeHtml(author)}</span>
           </div>
         </div>
@@ -2084,11 +2270,17 @@ function renderQueueView() {
             ${isBrowser ? `<button class="btn-queue-remove" title="Remove from queue" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; cursor:pointer; font-size:12px; border-radius:4px; padding:3px 8px;">✕</button>` : ""}
           ` : `
             <button class="btn-play-now-mini btn-queue-play" title="Play again">▶ Play</button>
+            <button class="btn-play-now-mini btn-start-track-radio" title="Start continuous radio based on this track" style="background: rgba(30,215,96,0.14); border: 1px solid rgba(30,215,96,0.3); color: var(--emerald, #1ed760);">📻 Radio</button>
           `}
         </div>
       </td>
       <td class="song-time-cell">${formatTime(dur)}</td>
     `;
+
+    tr.querySelector(".btn-start-track-radio")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      BrowserPlayer.startRadioForTrack(t);
+    });
 
     tr.querySelector(".btn-queue-play")?.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -4841,6 +5033,13 @@ function initEventListeners() {
       sendAction("loop");
     }
   });
+
+  // Spotify Infinite Radio & Autoplay Toggles
+  const handleToggleAutoplay = () => {
+    BrowserPlayer.toggleAutoplay();
+  };
+  document.getElementById("btnAutoplayRadio")?.addEventListener("click", handleToggleAutoplay);
+  document.getElementById("btnToggleAutoplay")?.addEventListener("click", handleToggleAutoplay);
 
   // Scrubber / Progress Bar Click & Drag
   const progressTrack = document.getElementById("playbackProgressTrack");

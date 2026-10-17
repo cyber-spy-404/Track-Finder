@@ -4776,4 +4776,130 @@ button:active:not(:disabled),
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
+/* ==========================================================================
+   SPOTIFY INFINITE RADIO & AUTOPLAY BANNER STYLES
+   ========================================================================== */
+.queue-radio-station-banner {
+  background: linear-gradient(135deg, rgba(30, 215, 96, 0.14) 0%, rgba(20, 24, 30, 0.85) 100%);
+  border: 1px solid rgba(30, 215, 96, 0.32);
+  border-radius: 14px;
+  padding: 12px 18px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: fadeIn 0.35s ease-out;
+}
+
+.radio-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.radio-live-disc {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(30, 215, 96, 0.16);
+  border: 1px solid rgba(30, 215, 96, 0.4);
+  color: var(--emerald, #1ed760);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 14px rgba(30, 215, 96, 0.3);
+}
+
+.radio-banner-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.radio-station-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.radio-station-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--emerald, #1ed760);
+  background: rgba(30, 215, 96, 0.18);
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+
+.radio-station-sub {
+  font-size: 0.72rem;
+  color: var(--text-subdued);
+  font-weight: 500;
+}
+
+.radio-station-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radio-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--emerald, #1ed760);
+  display: inline-block;
+  margin-right: 6px;
+  box-shadow: 0 0 8px rgba(30, 215, 96, 0.8);
+  animation: radioPulse 1.8s infinite;
+}
+
+@keyframes radioPulse {
+  0% { transform: scale(0.95); opacity: 0.6; }
+  50% { transform: scale(1.25); opacity: 1; box-shadow: 0 0 12px rgba(30, 215, 96, 1); }
+  100% { transform: scale(0.95); opacity: 0.6; }
+}
+
+.badge-radio-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(30, 215, 96, 0.14);
+  color: var(--emerald, #1ed760);
+  border: 1px solid rgba(30, 215, 96, 0.25);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+#btnAutoplayRadio.active {
+  color: var(--emerald, #1ed760) !important;
+}
+
+#btnToggleAutoplay.active {
+  background: rgba(30, 215, 96, 0.16) !important;
+  border-color: rgba(30, 215, 96, 0.35) !important;
+  color: var(--emerald, #1ed760) !important;
+}
+
+[data-theme="light"] .queue-radio-station-banner {
+  background: linear-gradient(135deg, rgba(30, 215, 96, 0.16) 0%, rgba(255, 255, 255, 0.92) 100%);
+  border: 1px solid rgba(30, 215, 96, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+
 

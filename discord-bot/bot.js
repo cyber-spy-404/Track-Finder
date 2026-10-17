@@ -57,6 +57,7 @@ async function searchYouTubeMulti(query, limit = 20) {
   }
 
   // Fast path 1: Lavalink REST search (ultra-fast, ~900ms, no channel clutter)
+  try {
     const protocol = process.env.LAVALINK_SECURE === "true" ? "https" : "http";
     const lHost = process.env.LAVALINK_HOST || "127.0.0.1";
     const lPort = process.env.LAVALINK_PORT || "2334";
@@ -683,6 +684,41 @@ lavalink.on("trackStuck", (player, track, payload) => {
   console.error(`⚠️ [Lavalink] Track stuck:`, payload);
 });
 
+lavalink.on("queueEnd", async (player, track, payload) => {
+  const seed = track || (player.queue?.previous?.length > 0 ? player.queue.previous[player.queue.previous.length - 1] : null);
+  if (!seed) return;
+  const targetChannelId = getAnnouncementChannelId(player.guildId, player.textChannelId);
+  const textChannel = client.channels.cache.get(targetChannelId);
+
+  try {
+    const seedTitle = seed.info?.title || seed.title || "";
+    const seedAuthor = seed.info?.author || seed.author || "";
+    const mode = track?.userData?.filterMode || "filterless";
+    console.log(`📻 [Lavalink Autoplay] Voice queue finished! Generating radio for: "${seedTitle}" by "${seedAuthor}"`);
+
+    const radio = await generateRadioStation(seedTitle, seedAuthor, mode, 6);
+    if (radio && radio.length > 0) {
+      for (const t of radio) {
+        const q = t.url || `${t.title} ${t.author}`;
+        const res = await player.search({ query: q }, track?.userData?.requester || { username: "Spotify Radio" });
+        if (res?.tracks?.length) {
+          const found = res.tracks[0];
+          found.userData = { ...(track?.userData || {}), isRadio: true, radioSeed: seedTitle };
+          player.queue.add(found);
+        }
+      }
+      if (!player.playing && player.queue.tracks.length > 0) {
+        await player.play();
+        textChannel?.send({
+          content: `📻 **Spotify Infinite Radio Active:** Queue finished! Auto-playing songs inspired by **"${seedTitle}"** 🎧`
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.error("Lavalink queueEnd radio error:", err.message);
+  }
+});
+
 const SURAH_NAMES = {
   1: "Al-Fatihah", 2: "Al-Baqarah", 3: "Ali 'Imran", 4: "An-Nisa", 5: "Al-Ma'idah",
   6: "Al-An'am", 7: "Al-A'raf", 8: "Al-Anfal", 9: "At-Tawbah", 10: "Yunus",
@@ -747,6 +783,116 @@ function createProgressBar(currentMs, totalMs, size = 14) {
   return `${cur} ${bar} ${tot} [${pct}%]`;
 }
 
+// ==========================================================================
+// SPOTIFY INFINITE RADIO & AUTOPLAY GENERATION ENGINE
+// ==========================================================================
+async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterless", limit = 15) {
+  const normTitle = (seedTitle || "").trim().toLowerCase();
+  const normArtist = (seedArtist || "").trim();
+
+  // 1. Quran Surah Progressive Recitation Radio
+  if (normTitle.includes("surah")) {
+    const match = normTitle.match(/surah\s*(\d+)/i);
+    const startNum = match ? parseInt(match[1], 10) : 1;
+    const radio = [];
+    for (let i = 1; i <= limit; i++) {
+      const nextNum = ((startNum - 1 + i) % 114) + 1;
+      const padded = String(nextNum).padStart(3, "0");
+      const name = SURAH_NAMES[nextNum] || `Surah ${nextNum}`;
+      const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+      radio.push({
+        id: `quran_surah_${nextNum}`,
+        title: `Surah ${nextNum}: ${name}`,
+        author: normArtist || "Mishary Rashid Alafasy",
+        duration: 180000,
+        artworkUrl: "logo.png",
+        streamUrl: quranUrl,
+        rawStreamUrl: quranUrl,
+        url: quranUrl,
+        source: "quran",
+        isRadio: true,
+        radioSeed: seedTitle
+      });
+    }
+    return radio;
+  }
+
+  // 2. Music Radio via JioSaavn Search API & Multi Search
+  const primaryArtist = (normArtist || "").split(/[,&x/]|feat\.|ft\./i)[0].trim();
+  const cleanTitle = (seedTitle || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+  const normalizedSeed = cleanTitle.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const queryA = primaryArtist ? `${primaryArtist} top songs` : `${cleanTitle} hits`;
+  const queryB = primaryArtist ? `${cleanTitle} ${primaryArtist}` : `${cleanTitle} similar`;
+
+  const urlA = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=10&p=1&q=${encodeURIComponent(queryA)}`;
+  const urlB = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=10&p=1&q=${encodeURIComponent(queryB)}`;
+
+  const [resA, resB] = await Promise.all([
+    fetch(urlA).then(r => r.json()).catch(() => ({ results: [] })),
+    fetch(urlB).then(r => r.json()).catch(() => ({ results: [] }))
+  ]);
+
+  const rawList = [...(resA.results || []), ...(resB.results || [])];
+  const seen = new Set();
+  const tracks = [];
+
+  for (const r of rawList) {
+    if (!r || !r.title) continue;
+    const tNorm = r.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normalizedSeed && (tNorm.includes(normalizedSeed) || normalizedSeed.includes(tNorm))) continue;
+    if (seen.has(tNorm)) continue;
+    seen.add(tNorm);
+
+    const cleanT = r.title.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+    const artists = r.more_info?.artistMap?.primary_artists?.map(a => a.name).join(", ") || r.subtitle || "Artist";
+    const trackObj = {
+      id: `saavn_${r.id}`,
+      title: cleanT,
+      author: artists,
+      duration: Math.round(parseFloat(r.more_info?.duration || 0) * 1000),
+      artworkUrl: (r.image || "").replace("150x150", "500x500"),
+      url: r.perma_url || `https://www.jiosaavn.com/song/${r.id}`,
+      source: "jiosaavn",
+      isRadio: true,
+      radioSeed: seedTitle
+    };
+
+    const validation = validateByFilterMode(filterMode, trackObj);
+    if (!validation.allowed) continue;
+
+    tracks.push(trackObj);
+    if (tracks.length >= limit) break;
+  }
+
+  // If fewer than 5 tracks found from JioSaavn, augment with searchYouTubeMulti
+  if (tracks.length < 5) {
+    try {
+      const ytQuery = primaryArtist ? `${primaryArtist} mix playlist` : `${cleanTitle} radio`;
+      const ytResults = await searchYouTubeMulti(ytQuery, limit - tracks.length);
+      for (const yt of ytResults) {
+        if (!yt || !yt.title) continue;
+        const ytNorm = yt.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (normalizedSeed && (ytNorm.includes(normalizedSeed) || normalizedSeed.includes(ytNorm))) continue;
+        if (seen.has(ytNorm)) continue;
+        seen.add(ytNorm);
+
+        const validation = validateByFilterMode(filterMode, yt);
+        if (!validation.allowed) continue;
+
+        tracks.push({
+          ...yt,
+          isRadio: true,
+          radioSeed: seedTitle
+        });
+        if (tracks.length >= limit) break;
+      }
+    } catch (e) {}
+  }
+
+  return tracks;
+}
+
 // Navigation & Loop Handlers
 async function handlePrevious(player) {
   if (!player) return "No active player!";
@@ -791,6 +937,38 @@ async function handleNext(player) {
     await player.skip();
     return `⏭️ Skipped to: **${player.queue.current?.info?.title || "Next track"}**`;
   } else {
+    // When queue is empty, connect to Spotify radio based on the seed track (current song or last song played)
+    const seedTrack = player.queue.current || (trackHistory.get(player.guildId)?.length > 0 ? trackHistory.get(player.guildId).slice(-1)[0] : null);
+    if (seedTrack) {
+      const seedTitle = seedTrack.info?.title || seedTrack.title || "";
+      const seedAuthor = seedTrack.info?.author || seedTrack.author || "";
+      const mode = seedTrack.userData?.filterMode || "filterless";
+      if (player.queue.current) {
+        addToHistory(player.guildId, player.queue.current);
+      }
+      try {
+        console.log(`📻 [Voice Autoplay] User requested next with empty queue! Connecting to radio for: "${seedTitle}" by "${seedAuthor}"`);
+        const radio = await generateRadioStation(seedTitle, seedAuthor, mode, 8);
+        if (radio && radio.length > 0) {
+          for (const t of radio) {
+            const q = t.url || `${t.title} ${t.author}`;
+            const res = await player.search({ query: q }, seedTrack.userData?.requester || { username: "Spotify Radio" });
+            if (res?.tracks?.length) {
+              const found = res.tracks[0];
+              found.userData = { ...(seedTrack.userData || {}), isRadio: true, radioSeed: seedTitle };
+              player.queue.add(found);
+            }
+          }
+          if (player.queue.tracks.length > 0) {
+            await player.skip();
+            return `📻 Connected to **${seedTitle} Radio**! Playing: **${player.queue.current?.info?.title || "Radio Track"}**`;
+          }
+        }
+      } catch (err) {
+        console.error("Voice Autoplay next error:", err.message);
+      }
+    }
+
     if (player.queue.current) {
       addToHistory(player.guildId, player.queue.current);
     }
@@ -1747,6 +1925,28 @@ async function handleLocalChannelAction(chanKey, action, value, bodyObj = {}) {
       chan.position = 0;
       return `${chan.name} playing next: ${chan.current.title}`;
     }
+    // Queue is empty: check for seed track (current playing song, or last song played in history)
+    const seedTrack = chan.current || (chan.history.length > 0 ? chan.history[chan.history.length - 1] : null);
+    if (seedTrack) {
+      const seedTitle = seedTrack.title || "";
+      const seedArtist = seedTrack.author || "";
+      const mode = seedTrack.filterMode || "filterless";
+      try {
+        console.log(`📻 [Local Channel Radio] Queue finished for ${chan.name}! Connecting to radio for: "${seedTitle}" by "${seedArtist}"`);
+        const radio = await generateRadioStation(seedTitle, seedArtist, mode, 10);
+        if (radio && radio.length > 0) {
+          if (chan.current) chan.history.push(chan.current);
+          chan.current = radio.shift();
+          chan.queue.push(...radio);
+          chan.isPlaying = true;
+          chan.isPaused = false;
+          chan.position = 0;
+          return `${chan.name} connected to radio for "${seedTitle}": playing ${chan.current.title}`;
+        }
+      } catch (err) {
+        console.error("Local channel radio error:", err.message);
+      }
+    }
     if (chan.current) {
       chan.history.push(chan.current);
       chan.current = null;
@@ -2001,6 +2201,32 @@ const webServer = http.createServer(async (req, res) => {
     } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+  }
+
+  // Radio Station Endpoint (Spotify-like Infinite Radio)
+  if (pathname === "/api/radio") {
+    const seedTitle = (parsedUrl.searchParams.get("seedTitle") || "").trim();
+    const seedArtist = (parsedUrl.searchParams.get("seedArtist") || "").trim();
+    const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
+    const limit = Math.min(Math.max(parseInt(parsedUrl.searchParams.get("limit") || "15", 10), 5), 30);
+
+    try {
+      const radioTracks = await generateRadioStation(seedTitle, seedArtist, filterMode, limit);
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=180"
+      });
+      return res.end(JSON.stringify({
+        success: true,
+        seed: { title: seedTitle, artist: seedArtist },
+        station: `${seedTitle || seedArtist || "Spotify"} Radio`,
+        tracks: radioTracks
+      }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: err.message }));
     }
   }
 
