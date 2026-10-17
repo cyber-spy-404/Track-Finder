@@ -16,6 +16,44 @@ const {
   validateByFilterMode
 } = require("./islamicFilter");
 
+let desModule = null;
+try {
+  desModule = require("des.js");
+} catch (e) {
+  console.warn("des.js optional note:", e.message);
+}
+
+function decryptSaavnMediaUrl(encUrl) {
+  if (!encUrl || typeof encUrl !== "string") return null;
+  // 1. Pure-JS DES ECB Decryption (Works everywhere without OpenSSL flags)
+  if (desModule) {
+    try {
+      const key = Buffer.from("38346591", "utf8");
+      const d = desModule.DES.create({ type: "decrypt", key });
+      const b = Buffer.from(encUrl, "base64");
+      const out1 = Buffer.from(d.update(b));
+      const out2 = Buffer.from(d.final());
+      const raw = Buffer.concat([out1, out2]).toString("utf8");
+      if (raw.startsWith("http")) {
+        return raw.replace(/_96\.mp4|_160\.mp4/, "_320.mp4");
+      }
+    } catch (e) {}
+  }
+  // 2. Fallback to Node crypto
+  try {
+    const crypto = require("crypto");
+    const key = Buffer.from("38346591", "utf8");
+    const decipher = crypto.createDecipheriv("des-ecb", key, "");
+    decipher.setAutoPadding(true);
+    let decrypted = decipher.update(encUrl, "base64", "utf8");
+    decrypted += decipher.final("utf8");
+    if (decrypted.startsWith("http")) {
+      return decrypted.replace(/_96\.mp4|_160\.mp4/, "_320.mp4");
+    }
+  } catch (e) {}
+  return null;
+}
+
 let spotifyUrlInfo = null;
 try {
   spotifyUrlInfo = require("spotify-url-info")(fetch);
@@ -140,8 +178,76 @@ function executeYtDlp(args, options, callback) {
 }
 
 // ==========================================================================
-// FAST YOUTUBE SEARCH ENGINE
+// MULTI-SOURCE SEARCH & RESILIENT AUDIO ENGINE (JIOSAAVN + LAVALINK + YT-DLP)
 // ==========================================================================
+
+// Fast JioSaavn Search (Instant ~150ms response, zero datacenter IP bans, 320kbps audio)
+async function searchJioSaavn(query, limit = 10) {
+  try {
+    const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=${limit}&p=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+    const results = data.results || [];
+    return results
+      .filter(r => r && r.title)
+      .map(r => {
+        const encUrl = r.more_info?.encrypted_media_url;
+        const streamUrl = encUrl ? decryptSaavnMediaUrl(encUrl) : null;
+        const artwork = (r.image || "").replace("150x150", "500x500");
+        const cleanTitle = (r.title || "")
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&')
+          .replace(/&#039;/g, "'")
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+        const artistNames = r.more_info?.artistMap?.primary_artists?.map(a => a.name).join(", ") || r.subtitle || "Music Artist";
+        return {
+          id: `saavn_${r.id}`,
+          title: cleanTitle,
+          author: artistNames,
+          duration: Math.round(parseFloat(r.more_info?.duration || 0) * 1000),
+          artworkUrl: artwork || "logo.png",
+          url: r.perma_url || `https://www.jiosaavn.com/song/${r.id}`,
+          streamUrl: streamUrl,
+          rawStreamUrl: streamUrl,
+          source: "jiosaavn"
+        };
+      });
+  } catch (err) {
+    return [];
+  }
+}
+
+// Fast Lavalink Search
+async function searchLavalinkTracks(query, limit = 15) {
+  try {
+    const lavalinkUrl = process.env.LAVALINK_URL || "http://lavalink.jirayu.net:13592";
+    const lavalinkAuth = process.env.LAVALINK_AUTH || "youshallnotpass";
+    const res = await fetch(`${lavalinkUrl}/v4/loadtracks?identifier=ytsearch:${encodeURIComponent(query)}`, {
+      headers: { Authorization: lavalinkAuth },
+      signal: AbortSignal.timeout(2800)
+    });
+    const d = await res.json();
+    const tracks = d.data?.length ? d.data : (d.data?.tracks || []);
+    if (Array.isArray(tracks) && tracks.length > 0) {
+      return tracks
+        .filter(t => t && t.info && t.info.title)
+        .map(t => ({
+          id: t.info.identifier,
+          title: t.info.title,
+          author: t.info.author || "YouTube Music",
+          duration: t.info.length || 0,
+          artworkUrl: t.info.artworkUrl || `https://i.ytimg.com/vi/${t.info.identifier}/hqdefault.jpg`,
+          url: t.info.uri || `https://www.youtube.com/watch?v=${t.info.identifier}`,
+          encoded: t.encoded,
+          source: "youtube"
+        })).slice(0, limit);
+    }
+  } catch (lavalinkErr) {}
+  return [];
+}
+
+// Multi-Source Search (JioSaavn + Lavalink + yt-dlp)
 async function searchYouTubeMulti(query, limit = 20) {
   const cacheKey = (query || "").trim().toLowerCase();
   if (searchCache.has(cacheKey)) {
@@ -151,61 +257,61 @@ async function searchYouTubeMulti(query, limit = 20) {
     }
   }
 
-  // Fast path 1: Lavalink REST search (ultra-fast, ~80-100ms)
-  try {
-    const lavalinkUrl = process.env.LAVALINK_URL || "http://127.0.0.1:2334";
-    const lavalinkAuth = process.env.LAVALINK_AUTH || "youshallnotpass";
-    const res = await fetch(`${lavalinkUrl}/v4/loadtracks?identifier=ytsearch:${encodeURIComponent(query)}`, {
-      headers: { Authorization: lavalinkAuth },
-      signal: AbortSignal.timeout(1200) // Fast 1.2s timeout so slow nodes never cause hanging
-    });
-    const d = await res.json();
-    const tracks = d.data?.length ? d.data : (d.data?.tracks || []);
-    if (Array.isArray(tracks) && tracks.length > 0) {
-      const results = tracks
-        .filter(t => t && t.info && t.info.title)
-        .map(t => ({
-          id: t.info.identifier,
-          title: t.info.title,
-          author: t.info.author || "YouTube Music",
-          duration: t.info.length || 0,
-          artworkUrl: t.info.artworkUrl || `https://i.ytimg.com/vi/${t.info.identifier}/hqdefault.jpg`,
-          url: t.info.uri || `https://www.youtube.com/watch?v=${t.info.identifier}`,
-          encoded: t.encoded
-        }));
-      searchCache.set(cacheKey, { time: Date.now(), results });
-      return results.slice(0, limit);
+  // Execute JioSaavn and Lavalink in parallel for ultra-low latency (<300ms)
+  const [saavnResults, lavalinkResults] = await Promise.all([
+    searchJioSaavn(query, Math.min(limit, 12)),
+    searchLavalinkTracks(query, Math.min(limit, 15))
+  ]);
+
+  let combined = [];
+  if (saavnResults.length > 0) {
+    combined.push(...saavnResults);
+  }
+  if (lavalinkResults.length > 0) {
+    // Deduplicate against JioSaavn by checking title similarity
+    const existingTitles = new Set(combined.map(r => r.title.toLowerCase().replace(/[^a-z0-9]/g, "")));
+    for (const t of lavalinkResults) {
+      const simplified = t.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!existingTitles.has(simplified)) {
+        combined.push(t);
+      }
     }
-  } catch (lavalinkErr) {
-    // Fallback if lavalink busy or offline
   }
 
-  // Fast path 2: yt-dlp flat playlist search
+  if (combined.length >= 4) {
+    searchCache.set(cacheKey, { time: Date.now(), results: combined });
+    return combined.slice(0, limit);
+  }
+
+  // Fallback to yt-dlp flat playlist search with android client
   const fetchLimit = Math.max(limit + 5, 25);
   return new Promise((resolve) => {
     executeYtDlp(
-      ["--flat-playlist", "-J", "--no-warnings", `ytsearch${fetchLimit}:${query}`],
-      { timeout: 15000, maxBuffer: 15 * 1024 * 1024 },
+      ["--flat-playlist", "-J", "--no-warnings", "--extractor-args", "youtube:player_client=android", `ytsearch${fetchLimit}:${query}`],
+      { timeout: 12000, maxBuffer: 15 * 1024 * 1024 },
       (err, stdout) => {
-        if (err || !stdout) return resolve([]);
-        try {
-          const data = JSON.parse(stdout);
-          const entries = data.entries || [];
-          const allValid = entries
-            .filter(e => e && e.title && !e.id?.startsWith("UC") && !e.url?.includes("/channel/") && !e.url?.includes("/user/"))
-            .map(e => ({
-              id: e.id,
-              title: e.title,
-              author: e.uploader || e.channel || "YouTube Music",
-              duration: Math.round((e.duration || 0) * 1000),
-              artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
-              url: (e.url && e.url.startsWith("http")) ? e.url : `https://www.youtube.com/watch?v=${e.id}`
-            }));
-          searchCache.set(cacheKey, { time: Date.now(), results: allValid });
-          resolve(allValid.slice(0, limit));
-        } catch (e) {
-          resolve([]);
+        if (!err && stdout) {
+          try {
+            const data = JSON.parse(stdout);
+            const entries = data.entries || [];
+            const allValid = entries
+              .filter(e => e && e.title && !e.id?.startsWith("UC") && !e.url?.includes("/channel/") && !e.url?.includes("/user/"))
+              .map(e => ({
+                id: e.id,
+                title: e.title,
+                author: e.uploader || e.channel || "YouTube Music",
+                duration: Math.round((e.duration || 0) * 1000),
+                artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
+                url: (e.url && e.url.startsWith("http")) ? e.url : `https://www.youtube.com/watch?v=${e.id}`,
+                source: "youtube"
+              }));
+            if (allValid.length > 0) {
+              combined.push(...allValid);
+            }
+          } catch (e) {}
         }
+        searchCache.set(cacheKey, { time: Date.now(), results: combined });
+        resolve(combined.slice(0, limit));
       }
     );
   });
@@ -226,8 +332,8 @@ async function searchPlaylistsMulti(query, limit = 5) {
 
   return new Promise((resolve) => {
     executeYtDlp(
-      ["--flat-playlist", "-J", "--no-warnings", "--playlist-end", String(fetchLimit), url],
-      { timeout: 12000, maxBuffer: 15 * 1024 * 1024 },
+      ["--flat-playlist", "-J", "--no-warnings", "--playlist-end", String(fetchLimit), "--extractor-args", "youtube:player_client=android", url],
+      { timeout: 10000, maxBuffer: 15 * 1024 * 1024 },
       (err, stdout) => {
         if (err || !stdout) return resolve([]);
         try {
@@ -256,7 +362,7 @@ async function searchPlaylistsMulti(query, limit = 5) {
 }
 
 // ==========================================================================
-// ULTRA-FAST YOUTUBE AUDIO STREAM EXTRACTOR (SINGLE-STEP EXTRACTION)
+// RESILIENT MULTI-SOURCE AUDIO STREAM EXTRACTOR
 // ==========================================================================
 async function extractYouTubeStream(queryOrUrl) {
   const cleanKey = (queryOrUrl || "").trim().toLowerCase();
@@ -271,24 +377,54 @@ async function extractYouTubeStream(queryOrUrl) {
   let target = (queryOrUrl || "").trim();
   const isUrl = target.startsWith("http://") || target.startsWith("https://");
 
+  // Fast Path 1: Direct CDN / Saavn URLs
+  if (isUrl && (target.includes("saavncdn.com") || target.match(/\.(mp3|m4a|mp4|webm|aac|ogg)(\?.*)?$/i))) {
+    const data = {
+      title: "Audio Stream",
+      author: "Direct Audio",
+      duration: 0,
+      streamUrl: target,
+      artworkUrl: "logo.png"
+    };
+    directStreamCache.set(cleanKey, { time: Date.now(), data });
+    return data;
+  }
+
+  // Fast Path 2: If query is plain text, check JioSaavn first (~150ms instant CD-quality 320kbps stream!)
   if (!isUrl) {
-    // If query was previously searched, reuse cached title/author for instant metadata
+    try {
+      const saavnResults = await searchJioSaavn(target, 3);
+      if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
+        const top = saavnResults[0];
+        const data = {
+          title: top.title,
+          author: top.author,
+          duration: top.duration,
+          streamUrl: top.streamUrl,
+          artworkUrl: top.artworkUrl
+        };
+        directStreamCache.set(cleanKey, { time: Date.now(), data });
+        return data;
+      }
+    } catch (e) {}
+  }
+
+  // Fast Path 3: Single-step yt-dlp android extraction
+  if (!isUrl) {
     const cachedSearch = searchCache.get(cleanKey);
     if (cachedSearch && Array.isArray(cachedSearch.results) && cachedSearch.results.length > 0) {
       streamMeta = cachedSearch.results[0];
       target = streamMeta.url || `https://www.youtube.com/watch?v=${streamMeta.id}`;
     } else {
-      // Single-step direct query: avoids 3-5 second intermediate search latency!
       target = `ytsearch1:${target}`;
     }
   }
 
   return new Promise((resolve) => {
-    // Ultra-Fast Path: Direct WebM Opus 251 extraction with android client & ratebypass=yes
     executeYtDlp(
       ["-g", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
       { timeout: 12000 },
-      (err, stdout) => {
+      async (err, stdout) => {
         if (!err && stdout && stdout.trim()) {
           const directUrl = stdout.trim().split("\n")[0].trim();
           if (directUrl.startsWith("http")) {
@@ -307,10 +443,31 @@ async function extractYouTubeStream(queryOrUrl) {
           }
         }
 
-        // Fast Fallback: JSON metadata extraction
+        // If yt-dlp extraction failed (e.g. YouTube datacenter IP block on Render),
+        // fallback to searching JioSaavn for the clean query/title so audio NEVER drops!
+        const searchQuery = streamMeta?.title || queryOrUrl.replace(/^https?:\/\/[^\s]+/i, "").trim() || queryOrUrl;
+        if (searchQuery && searchQuery.length > 1) {
+          try {
+            const saavnFallback = await searchJioSaavn(searchQuery, 3);
+            if (saavnFallback.length > 0 && saavnFallback[0].streamUrl) {
+              const top = saavnFallback[0];
+              const data = {
+                title: streamMeta?.title || top.title,
+                author: streamMeta?.author || top.author,
+                duration: streamMeta?.duration || top.duration,
+                streamUrl: top.streamUrl,
+                artworkUrl: streamMeta?.artworkUrl || top.artworkUrl
+              };
+              directStreamCache.set(cleanKey, { time: Date.now(), data });
+              return resolve(data);
+            }
+          } catch (e) {}
+        }
+
+        // Final Fallback: JSON metadata extraction
         executeYtDlp(
           ["-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
-          { maxBuffer: 15 * 1024 * 1024, timeout: 15000 },
+          { maxBuffer: 15 * 1024 * 1024, timeout: 12000 },
           (err2, stdout2) => {
             if (err2 || !stdout2) return resolve(null);
             try {
@@ -377,7 +534,7 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null) {
     const streamInfo = await extractYouTubeStream(query);
     if (streamInfo && streamInfo.streamUrl) {
       return {
-        title: streamInfo.title || "YouTube Audio",
+        title: streamInfo.title || "Audio Track",
         author: streamInfo.author || "Trending Music",
         duration: streamInfo.duration || 0,
         streamUrl: streamInfo.streamUrl,

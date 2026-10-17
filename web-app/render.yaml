@@ -14,6 +14,6 @@ services:
       - key: APK_DOWNLOAD_URL
         sync: false
       - key: LAVALINK_URL
-        sync: false
+        value: "http://lavalink.jirayu.net:13592"
       - key: LAVALINK_AUTH
-        sync: false
+        value: "youshallnotpass"

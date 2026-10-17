@@ -341,12 +341,10 @@ function isSpotifyUrl(url) {
 const isMobileAppEnvironment = Boolean(
   window.Capacitor?.isNativePlatform?.() ||
   window.location?.protocol === "file:" ||
-  (window.location?.origin && window.location.origin.includes("capacitor")) ||
-  (navigator.userAgent && navigator.userAgent.toLowerCase().includes("android")) ||
-  (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches)
+  (window.location?.origin && window.location.origin.includes("capacitor"))
 );
 
-let activeSystemChannel = isMobileAppEnvironment ? "app" : "browser"; // "browser" | "app" | "bot" | "all"
+let activeSystemChannel = "browser"; // Always default to "browser" for immediate local audio playback on all devices!
 
 // ==========================================================================
 // BULLETPROOF DIRECT NATIVE BROWSER AUDIO ENGINE
@@ -438,7 +436,9 @@ const BrowserPlayer = {
     // Ultra-Low Latency Audio Path:
     // Prefer proxyStreamUrl (Render server stream) to avoid Google Video IP-mismatch 403 & throttling
     let src = null;
-    if (track.proxyStreamUrl) {
+    if (track.streamUrl && track.streamUrl.includes("saavncdn.com")) {
+      src = track.streamUrl;
+    } else if (track.proxyStreamUrl) {
       src = resolveApiUrl(track.proxyStreamUrl);
     } else if (track.streamUrl && (track.streamUrl.startsWith("http://") || track.streamUrl.startsWith("https://"))) {
       src = track.streamUrl;
@@ -2086,7 +2086,9 @@ function dispatchPlayTrack(queryOrTrack, filterMode = currentFilterMode, immedia
   const rawStr = isObj ? `${queryOrTrack.title || ""} ${queryOrTrack.author || queryOrTrack.artist || ""}`.trim() : String(queryOrTrack || "").trim();
   const cleanedStr = rawStr.replace(/^(!|\/)?(playnow|play-now|play\s+now|pn|play|now)\s+/i, "").trim();
 
-  if (activeSystemChannel === "browser") {
+  const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
+
+  if (isLocalPlayer) {
     if (isObj) {
       if (immediate) {
         BrowserPlayer.playNow(queryOrTrack, filterMode);
@@ -2096,15 +2098,11 @@ function dispatchPlayTrack(queryOrTrack, filterMode = currentFilterMode, immedia
     } else {
       BrowserPlayer.playQuery(cleanedStr, filterMode, immediate);
     }
-  } else if (activeSystemChannel === "all") {
-    if (isObj) {
-      if (immediate) BrowserPlayer.playNow(queryOrTrack, filterMode);
-      else BrowserPlayer.enqueue(queryOrTrack, filterMode);
-    } else {
-      BrowserPlayer.playQuery(cleanedStr, filterMode, immediate);
-    }
+  }
+
+  if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
     sendAction(immediate ? "play_now" : "play_query", cleanedStr, { targetChannel: "bot", filterMode, immediate });
-  } else {
+  } else if (!isLocalPlayer) {
     sendAction(immediate ? "play_now" : "play_query", cleanedStr, { targetChannel: activeSystemChannel, filterMode, immediate });
   }
 }
@@ -2129,28 +2127,30 @@ window.dispatchPlayNow = dispatchPlayNow;
 window.dispatchEnqueue = dispatchEnqueue;
 
 function dispatchPlaySurah(surahNum, immediate = true) {
-  if (activeSystemChannel === "browser") {
+  const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
+  if (isLocalPlayer) {
     BrowserPlayer.playSurah(surahNum, immediate);
-  } else if (activeSystemChannel === "all") {
-    BrowserPlayer.playSurah(surahNum, immediate);
+  }
+  if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
     sendAction(immediate ? "play_now" : "play_surah", surahNum, { targetChannel: "bot", immediate });
-  } else {
+  } else if (!isLocalPlayer) {
     sendAction(immediate ? "play_now" : "play_surah", surahNum, { targetChannel: activeSystemChannel, immediate });
   }
 }
 
 function dispatchPlayPlaylist(playlist, immediate = true) {
-  if (activeSystemChannel === "browser") {
+  const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
+  if (isLocalPlayer) {
     BrowserPlayer.playPlaylist(playlist);
-  } else if (activeSystemChannel === "all") {
-    BrowserPlayer.playPlaylist(playlist);
+  }
+  if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
     sendAction("play_playlist", null, {
       targetChannel: "bot",
       name: playlist.name,
       immediate,
       tracks: (playlist.tracks || []).map(t => `${t.title} ${t.artist}`)
     });
-  } else {
+  } else if (!isLocalPlayer) {
     sendAction("play_playlist", null, {
       targetChannel: activeSystemChannel,
       name: playlist.name,
@@ -4471,13 +4471,12 @@ function initEventListeners() {
 
   // Main Play / Pause Controls
   const handlePlayPause = () => {
-    if (activeSystemChannel === "browser") {
+    const isLocal = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
+    if (isLocal) {
       BrowserPlayer.playPause();
-    } else if (activeSystemChannel === "all") {
-      BrowserPlayer.playPause();
+    }
+    if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
       sendAction("play_pause", null, { targetChannel: "bot" });
-    } else {
-      sendAction("play_pause");
     }
   };
 
@@ -4489,21 +4488,21 @@ function initEventListeners() {
 
   // Next & Previous
   document.getElementById("btnNextTrack")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") BrowserPlayer.next();
-    else sendAction("next");
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.next();
+    if (activeSystemChannel === "bot") sendAction("next");
   });
   document.getElementById("btnPrevTrack")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") BrowserPlayer.prev();
-    else sendAction("prev");
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.prev();
+    if (activeSystemChannel === "bot") sendAction("prev");
   });
 
   // Shuffle & Repeat
   document.getElementById("btnShuffle")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") BrowserPlayer.toggleShuffle();
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.toggleShuffle();
     else showToast("Shuffle applied");
   });
   document.getElementById("btnRepeat")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") {
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") {
       BrowserPlayer.toggleRepeat();
     } else {
       sendAction("loop");
