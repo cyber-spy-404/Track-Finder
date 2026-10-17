@@ -436,14 +436,14 @@ const BrowserPlayer = {
     this.currentTrack = track;
 
     // Ultra-Low Latency Audio Path:
-    // Prefer direct CDN stream (Google Video edge) for instant 0ms startup, falling back to tuned proxy if direct fails
+    // Prefer proxyStreamUrl (Render server stream) to avoid Google Video IP-mismatch 403 & throttling
     let src = null;
-    if (track.streamUrl && (track.streamUrl.startsWith("http://") || track.streamUrl.startsWith("https://"))) {
+    if (track.proxyStreamUrl) {
+      src = resolveApiUrl(track.proxyStreamUrl);
+    } else if (track.streamUrl && (track.streamUrl.startsWith("http://") || track.streamUrl.startsWith("https://"))) {
       src = track.streamUrl;
     } else if (track.rawStreamUrl && (track.rawStreamUrl.startsWith("http://") || track.rawStreamUrl.startsWith("https://"))) {
       src = track.rawStreamUrl;
-    } else if (track.proxyStreamUrl) {
-      src = resolveApiUrl(track.proxyStreamUrl);
     }
 
     if (!src) {

@@ -157,7 +157,7 @@ async function searchYouTubeMulti(query, limit = 20) {
     const lavalinkAuth = process.env.LAVALINK_AUTH || "youshallnotpass";
     const res = await fetch(`${lavalinkUrl}/v4/loadtracks?identifier=ytsearch:${encodeURIComponent(query)}`, {
       headers: { Authorization: lavalinkAuth },
-      signal: AbortSignal.timeout(3000)
+      signal: AbortSignal.timeout(1200) // Fast 1.2s timeout so slow nodes never cause hanging
     });
     const d = await res.json();
     const tracks = d.data?.length ? d.data : (d.data?.tracks || []);
@@ -256,13 +256,13 @@ async function searchPlaylistsMulti(query, limit = 5) {
 }
 
 // ==========================================================================
-// ULTRA-FAST YOUTUBE AUDIO STREAM EXTRACTOR
+// ULTRA-FAST YOUTUBE AUDIO STREAM EXTRACTOR (SINGLE-STEP EXTRACTION)
 // ==========================================================================
 async function extractYouTubeStream(queryOrUrl) {
   const cleanKey = (queryOrUrl || "").trim().toLowerCase();
   if (directStreamCache.has(cleanKey)) {
     const cached = directStreamCache.get(cleanKey);
-    if (Date.now() - cached.time < 7200000) { // 2 hour cache
+    if (Date.now() - cached.time < 14400000) { // 4 hour cache
       return cached.data;
     }
   }
@@ -272,30 +272,28 @@ async function extractYouTubeStream(queryOrUrl) {
   const isUrl = target.startsWith("http://") || target.startsWith("https://");
 
   if (!isUrl) {
-    try {
-      const searchRes = await searchYouTubeMulti(queryOrUrl, 1);
-      if (searchRes && searchRes.length > 0 && searchRes[0].url) {
-        streamMeta = searchRes[0];
-        target = streamMeta.url;
-      } else {
-        target = `ytsearch1:${queryOrUrl}`;
-      }
-    } catch (e) {
-      target = `ytsearch1:${queryOrUrl}`;
+    // If query was previously searched, reuse cached title/author for instant metadata
+    const cachedSearch = searchCache.get(cleanKey);
+    if (cachedSearch && Array.isArray(cachedSearch.results) && cachedSearch.results.length > 0) {
+      streamMeta = cachedSearch.results[0];
+      target = streamMeta.url || `https://www.youtube.com/watch?v=${streamMeta.id}`;
+    } else {
+      // Single-step direct query: avoids 3-5 second intermediate search latency!
+      target = `ytsearch1:${target}`;
     }
   }
 
   return new Promise((resolve) => {
-    // Ultra-Fast Path: Android client delivers ratebypass=yes + WebM Opus 251 for instant 0ms startup
+    // Ultra-Fast Path: Direct WebM Opus 251 extraction with android client & ratebypass=yes
     executeYtDlp(
       ["-g", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
-      { timeout: 15000 },
+      { timeout: 12000 },
       (err, stdout) => {
         if (!err && stdout && stdout.trim()) {
           const directUrl = stdout.trim().split("\n")[0].trim();
           if (directUrl.startsWith("http")) {
             const data = {
-              title: streamMeta?.title || "YouTube Audio",
+              title: streamMeta?.title || "Audio Track",
               author: streamMeta?.author || "Trending Music",
               duration: streamMeta?.duration || 0,
               streamUrl: directUrl,
@@ -309,17 +307,17 @@ async function extractYouTubeStream(queryOrUrl) {
           }
         }
 
-        // Fallback: full JSON extraction if -g failed
+        // Fast Fallback: JSON metadata extraction
         executeYtDlp(
           ["-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
-          { maxBuffer: 15 * 1024 * 1024, timeout: 20000 },
+          { maxBuffer: 15 * 1024 * 1024, timeout: 15000 },
           (err2, stdout2) => {
             if (err2 || !stdout2) return resolve(null);
             try {
               const info = JSON.parse(stdout2.trim().split("\n")[0]);
               if (info && info.url) {
                 const data = {
-                  title: streamMeta?.title || info.title || "YouTube Audio",
+                  title: streamMeta?.title || info.title || "Audio Track",
                   author: streamMeta?.author || info.uploader || info.channel || "YouTube",
                   duration: streamMeta?.duration || Math.round((info.duration || 0) * 1000),
                   streamUrl: info.url,
