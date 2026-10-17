@@ -5,7 +5,7 @@ services:
     plan: free
     region: oregon
     rootDir: web-app
-    buildCommand: npm install && (python3 -m pip install --no-cache-dir yt-dlp || pip install --no-cache-dir yt-dlp || curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ./yt-dlp && chmod +x ./yt-dlp)
+    buildCommand: npm install && node install.js
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
