@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.*
+!.env.example
+data/sessions.json
+yt-dlp
+*.log
+*.part

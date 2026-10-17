@@ -1,0 +1,2 @@
+#cd C:\Users\mdasw\Downloads\Compressed\SlugYZeon-4.6.2\mobile-app; node copy-assets.js; $env:ANDROID_PREFS_ROOT=$null; cd android; .\gradlew.bat assembleDebug
+#cd C:\Users\mdasw\Downloads\Compressed\SlugYZeon-4.6.2\mobile-app; node copy-assets.js; $env:ANDROID_PREFS_ROOT=$null; cd android; .\gradlew.bat installDebug

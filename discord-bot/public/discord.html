@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Spy Sec Music — Dedicated Administrative Web Dashboard</title>
+  <meta name="description" content="Dedicated Administrative Web Dashboard for Spy Sec Music Discord Bot. Manage voice channel audio, announcement channels, volume, equalizer presets, and queue remotely.">
+  <meta name="theme-color" content="#090A0D">
+
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="discord.css?v=2.0">
+  <script>
+    (function(){
+      const t = localStorage.getItem('spysec_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- Floating Toast Notification -->
+  <div id="toastNotice" class="toast-notice hidden">Command executed successfully</div>
+
+  <div class="dashboard-wrapper">
+
+    <!-- ======================================================================
+         TOP HEADER BAR
+         ====================================================================== -->
+    <header class="dash-header">
+      <div class="dash-brand">
+        <div class="bot-avatar-wrap">
+          <img src="logo.png" alt="Spy Sec Music Bot" class="bot-avatar" id="headerBotAvatar">
+          <span class="status-dot-online" title="Bot Online & Lavalink Connected"></span>
+        </div>
+        <div class="dash-brand-texts">
+          <div class="dash-title">
+            <span>Spy Sec Music</span>
+            <span class="bot-tag">BOT</span>
+            <span style="font-size: 0.8rem; color: #949BA4; font-weight: normal;">#6459</span>
+          </div>
+          <span class="dash-subtext">LiquidGlass Discord Voice Audio Core • 24/7 E2EE</span>
+        </div>
+      </div>
+
+      <div class="header-badges-row">
+        <div class="badge-item" id="badgeVoiceChannel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+          <span>Voice: <strong id="voiceChannelLabel">General</strong></span>
+        </div>
+        <div class="badge-item" id="badgeBitrate">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+          <span>Quality: <strong>96kbps Stereo</strong></span>
+        </div>
+        <div class="badge-item" id="badgeAnnounce">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span>Announce: <strong id="headerAnnounceLabel">#music</strong></span>
+        </div>
+        <div class="badge-item" id="headerUserAuthBadge" style="display: none;">
+          <img src="logo.png" id="dashUserAvatar" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover;">
+          <span id="dashUserName">Verified Member</span>
+        </div>
+        <!-- Theme Switcher (Separate Dark & Light Mode Controls) -->
+        <div class="theme-switch-group" id="dashThemeSwitchGroup" role="group" aria-label="Theme Selection">
+          <button type="button" class="theme-choice-btn active" id="btnDashThemeDark" data-set-theme="dark" title="Switch to Dark Mode" aria-pressed="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            <span>Dark</span>
+          </button>
+          <button type="button" class="theme-choice-btn" id="btnDashThemeLight" data-set-theme="light" title="Switch to Light Mode" aria-pressed="false">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <span>Light</span>
+          </button>
+        </div>
+        <button id="btnDashLogout" class="btn-dash-logout" type="button" style="display: none;" title="Log out from Discord session">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Log Out</span>
+        </button>
+        <a href="/" class="btn-open-player" title="Switch to Spy Sec Music Web Player">
+          <img src="logo_clean.png" alt="Spy Sec Music" class="dash-player-logo-icon" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover;">
+          <span>Spy Sec Player</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- ======================================================================
+         MAIN DASHBOARD GRID
+         ====================================================================== -->
+    <div class="dash-grid">
+
+      <!-- CARD 1: NOW PLAYING ON DISCORD VOICE -->
+      <section class="dash-card">
+        <div class="card-title-row">
+          <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+            <span>Discord Voice Playback</span>
+          </h2>
+          <span class="card-badge" id="botPlaybackStatusBadge">
+            <span id="botPlaybackStatusText">Standby</span>
+            <span class="sound-wave-indicator" id="dashWaveIndicator" style="display: none;">
+              <span class="sound-wave-bar"></span>
+              <span class="sound-wave-bar"></span>
+              <span class="sound-wave-bar"></span>
+              <span class="sound-wave-bar"></span>
+            </span>
+          </span>
+        </div>
+
+        <div class="now-playing-box">
+          <img id="botTrackArt" src="logo.png" alt="Track Art" class="now-playing-art">
+          <div class="now-playing-meta">
+            <span class="track-name" id="botTrackTitle">Ready for playback</span>
+            <span class="track-author" id="botTrackAuthor">Voice channel connected to General</span>
+            <span class="track-status-pill" id="botFilterPill">Filterless</span>
+          </div>
+        </div>
+
+        <!-- Scrubber Progress Bar -->
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+          <span id="botCurrentTime" style="font-size: 0.75rem; color: var(--text-muted); min-width: 40px; font-variant-numeric: tabular-nums;">0:00</span>
+          <input type="range" id="botScrubber" class="dash-slider" min="0" max="100" value="0" style="flex: 1;">
+          <span id="botTotalTime" style="font-size: 0.75rem; color: var(--text-muted); min-width: 40px; text-align: right; font-variant-numeric: tabular-nums;">0:00</span>
+        </div>
+
+        <!-- Transport Controls -->
+        <div class="bot-controls-row">
+          <button class="btn-ctrl" id="btnBotPrev" title="Previous Track">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="3"></line></svg>
+          </button>
+          <button class="btn-ctrl btn-ctrl-primary" id="btnBotPlayPause" title="Play / Resume">
+            <svg id="botPlayPauseSvg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          </button>
+          <button class="btn-ctrl" id="btnBotNext" title="Skip to Next Track">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="3"></line></svg>
+          </button>
+          <button class="btn-ctrl" id="btnBotLoop" title="Loop Current Song">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+          </button>
+          <button class="btn-ctrl btn-ctrl-stop" id="btnBotStop" title="Stop Playback & Disconnect">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+          </button>
+        </div>
+
+        <!-- Bot Voice Volume Slider -->
+        <div class="bot-slider-wrap">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+            Volume:
+          </span>
+          <input type="range" id="botVolumeSlider" class="dash-slider" min="1" max="200" value="100">
+          <strong id="botVolumeVal" style="min-width: 48px; color: var(--text-header);">100%</strong>
+        </div>
+        <div class="dash-chip-row" style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap;">
+          <button class="btn-chip" data-vol="50">50%</button>
+          <button class="btn-chip" data-vol="100">100%</button>
+          <button class="btn-chip" data-vol="150">150%</button>
+          <button class="btn-chip" data-vol="200">200% Max</button>
+        </div>
+      </section>
+
+      <!-- CARD 2: EQUALIZER & AUDIO ENHANCEMENTS -->
+      <section class="dash-card">
+        <div class="card-title-row">
+          <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            <span>Equalizer & Audio Processing</span>
+          </h2>
+          <span class="card-badge">Lavalink FilterManager</span>
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Apply real-time high-fidelity equalizer presets and hardware-accelerated sound curves to the Discord voice stream.
+        </p>
+
+        <div class="eq-grid">
+          <button class="btn-eq" data-eq="better" id="eqBtnBetter">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+            <span>BetterMusic</span>
+            <small style="color: var(--text-muted); font-size: 0.65rem;">Vocal Clarity</small>
+          </button>
+          <button class="btn-eq" data-eq="full" id="eqBtnFull">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+            <span>FullSound</span>
+            <small style="color: var(--text-muted); font-size: 0.65rem;">Acoustic Depth</small>
+          </button>
+          <button class="btn-eq" data-eq="bass" id="eqBtnBass">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h2a2 2 0 0 0 2-2V7a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v10a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v14a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-5a2 2 0 0 1 2-2h2"></path></svg>
+            <span>BassBoost</span>
+            <small style="color: var(--text-muted); font-size: 0.65rem;">Warm Low-End</small>
+          </button>
+          <button class="btn-eq active" data-eq="flat" id="eqBtnFlat">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <span>Flat / Studio</span>
+            <small style="color: var(--text-muted); font-size: 0.65rem;">Clean Master</small>
+          </button>
+        </div>
+
+        <div style="margin-top: 10px; border-top: 1px solid var(--border-subtle); padding-top: 14px;">
+          <h4 style="font-size: 0.9rem; color: var(--text-header); margin-bottom: 8px;">Audio Routing Mode</h4>
+          <div class="dash-chip-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-chip" id="btnRouteBotOnly" style="flex: 1; padding: 10px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path></svg>
+              <span>Bot Voice Only</span>
+            </button>
+            <button class="btn-chip" id="btnRouteBoth" style="flex: 1; padding: 10px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>Synchronized (Bot + Web)</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- CARD 3: SONG ANNOUNCEMENT CHANNEL CONFIGURATION -->
+      <section class="dash-card">
+        <div class="card-title-row">
+          <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <span>Announcement Channel</span>
+          </h2>
+          <span class="card-badge">
+            Default: #music
+          </span>
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Specify the Discord text channel where the bot posts rich "Now Playing" embeds, interactive reaction controls, and track updates.
+        </p>
+
+        <div class="channel-select-row">
+          <select id="selectAnnounceChannel" class="dash-select">
+            <option value="1559799364732452915">#music</option>
+          </select>
+          <button id="btnUpdateAnnounceChannel" class="btn-dash-primary">Save Channel</button>
+        </div>
+
+        <div class="hint-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <span>Tip: You can also change the channel in Discord chat anytime by typing <code>!send #channel-name</code> or <code>!music</code>.</span>
+        </div>
+
+        <button id="btnPostControlEmbed" class="btn-dash-primary" style="width: 100%; margin-top: 4px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          <span>Re-send Control Panel Embed</span>
+        </button>
+      </section>
+
+      <!-- CARD 4: SEARCH & ENQUEUE INTO DISCORD BOT -->
+      <section class="dash-card">
+        <div class="card-title-row">
+          <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <span>Instant Search & Enqueue</span>
+          </h2>
+          <span class="card-badge">Direct to Discord</span>
+        </div>
+
+        <!-- Filter Mode Radios -->
+        <div class="dash-chip-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn-chip active" id="chipFilterFilterless" data-fmode="filterless">Filterless (All Music)</button>
+          <button class="btn-chip" id="chipFilterStrict" data-fmode="strict">Strict Halal (#)</button>
+          <button class="btn-chip" id="chipFilterRemix" data-fmode="remix">Islamic Vibes (*)</button>
+        </div>
+
+        <div class="search-enqueue-row">
+          <input type="text" id="discordQueryInput" class="dash-input" placeholder="Search song title, YouTube URL, or paste Spotify playlist link...">
+          <button id="btnDiscordPlayNow" class="btn-dash-primary" title="Interrupt current track and play immediately in Discord voice">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Play Now</span>
+          </button>
+          <button id="btnDiscordPlay" class="btn-dash-primary" title="Add to end of queue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>Enqueue</span>
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 14px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path><path d="M12 8v8"></path></svg>
+            <span style="font-size: 0.85rem; color: var(--text-header); font-weight: 600;">Play Spotify Playlist via Link:</span>
+          </div>
+          <button type="button" class="btn-chip" id="btnQuickSpotifyPaste" style="font-weight: 700;">+ Paste Spotify Link</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">QUICK SURAH ENQUEUE:</span>
+          <div class="quick-chips-row">
+            <button class="btn-chip" data-surah="55">Surah Ar-Rahman (55)</button>
+            <button class="btn-chip" data-surah="36">Surah Yasin (36)</button>
+            <button class="btn-chip" data-surah="67">Surah Al-Mulk (67)</button>
+            <button class="btn-chip" data-surah="18">Surah Al-Kahf (18)</button>
+            <button class="btn-chip" data-surah="1">Surah Al-Fatihah (1)</button>
+            <button class="btn-chip" data-surah="112">Surah Al-Ikhlas (112)</button>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">QUICK INDIAN SPOTIFY PLAYLIST ENQUEUE:</span>
+          <div class="quick-chips-row">
+            <button class="btn-chip" data-plist="trending-india">Trending Now India</button>
+            <button class="btn-chip" data-plist="bollywood-central">Bollywood Central</button>
+            <button class="btn-chip" data-plist="punjabi-101">Punjabi 101</button>
+            <button class="btn-chip" data-plist="arijit-singh">Best of Arijit Singh</button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ======================================================================
+         CARD 5: DISCORD BOT QUEUE & HISTORY (FULL WIDTH)
+         ====================================================================== -->
+    <section class="dash-card">
+      <div class="card-title-row">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+            <span>Discord Server Voice Queue</span>
+          </h2>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button class="btn-chip active" id="tabShowQueue">Upcoming (<span id="queueBadgeCount">0</span>)</button>
+            <button class="btn-chip" id="tabShowHistory">History (<span id="historyBadgeCount">0</span>)</button>
+          </div>
+        </div>
+        <button class="btn-ctrl-stop" id="btnClearDiscordQueue" style="padding: 6px 14px; border-radius: 6px; font-size: 0.78rem; font-weight: 700;">
+          Clear Queue
+        </button>
+      </div>
+
+      <div class="queue-list" id="discordQueueContainer">
+        <!-- Populated dynamically via discord.js -->
+        <div style="text-align: center; padding: 32px 0; color: var(--text-muted); font-size: 0.9rem;">
+          No upcoming tracks in Discord voice queue. Search above to add songs!
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         CARD 6: DISCORD CHAT COMMAND CHEATSHEET
+         ====================================================================== -->
+    <section class="dash-card" style="margin-bottom: 24px;">
+      <div class="card-title-row">
+        <h2 class="card-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+          <span>Discord Text Commands Quick Reference</span>
+        </h2>
+        <span class="card-badge">Prefix: !</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+        <div class="hint-box">
+          <code>!play [song/url]</code>
+          <span>Standard playback</span>
+        </div>
+        <div class="hint-box">
+          <code>!send #channel</code>
+          <span>Change announcement channel</span>
+        </div>
+        <div class="hint-box">
+          <code>!# [song]</code>
+          <span>Enforces strict halal filter</span>
+        </div>
+        <div class="hint-box">
+          <code>!* [song]</code>
+          <span>Enforces Islamic vibes filter</span>
+        </div>
+        <div class="hint-box">
+          <code>!eq [better|full|flat]</code>
+          <span>Switch equalizer preset</span>
+        </div>
+        <div class="hint-box">
+          <code>!vol [1-200]</code>
+          <span>Adjust playback volume</span>
+        </div>
+        <div class="hint-box">
+          <code>!music</code>
+          <span>Display current song controller embed</span>
+        </div>
+        <div class="hint-box">
+          <code>!stop / !skip</code>
+          <span>Stop or skip track</span>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ======================================================================
+       DISCORD SERVER MEMBERSHIP AUTHENTICATION GATE
+       ====================================================================== -->
+  <div id="discordAuthGate" class="auth-gate-backdrop" style="display: none;">
+    <div class="auth-gate-card">
+      <div class="auth-gate-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="#5865F2">
+          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+        </svg>
+      </div>
+
+      <h2 class="auth-gate-title">Authentication Required</h2>
+      <p class="auth-gate-desc">
+        Sign in with your <strong>Email & Password</strong> or verify your <strong>Discord Server</strong> account to manage bot playback and queue controls.
+      </p>
+
+      <div class="auth-gate-actions">
+        <!-- EMAIL & PASSWORD LOGIN SECTION -->
+        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; width: 100%; box-sizing: border-box; text-align: left; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--spotify-green); text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <span>Log In with Email & Password</span>
+          </div>
+          <div>
+            <input type="email" id="inputDashEmail" class="dash-input" placeholder="Email address (name@example.com)" autocomplete="email" style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div>
+            <input type="password" id="inputDashPassword" class="dash-input" placeholder="Password" autocomplete="current-password" style="width: 100%; box-sizing: border-box;">
+          </div>
+          <div id="dashEmailErrorBox" class="verify-error-box" style="display: none;"></div>
+          <button type="button" id="btnDashEmailLogin" class="btn-dash-primary" style="background-color: var(--spotify-green); color: #000; font-weight: 700; justify-content: center; width: 100%;">
+            Log In & Unlock Dashboard
+          </button>
+        </div>
+
+        <div class="auth-gate-divider" style="margin: 6px 0;">
+          <span>OR DISCORD SERVER LOGIN</span>
+        </div>
+
+        <a href="/auth/discord" class="btn-gate-discord">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
+            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+          </svg>
+          <span>Log In with Discord OAuth2</span>
+        </a>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; text-align: left; width: 100%;">
+          <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Quick Select Server Member:</span>
+          <div id="dashServerMembersChips" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; max-width: 100%;"></div>
+        </div>
+
+        <div class="auth-gate-input-group">
+          <input type="text" id="inputDiscordVerify" class="dash-input" placeholder="Enter Discord ID or Username...">
+          <button type="button" id="btnVerifyDiscordMember" class="btn-dash-primary" style="background-color: var(--discord-green); white-space: nowrap;">
+            Verify
+          </button>
+        </div>
+
+        <div id="verifyErrorBox" class="verify-error-box" style="display: none;"></div>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <a href="/" class="btn-chip" style="flex: 1; text-align: center; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            <span>Return to Spy Sec Player</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="discord.js?v=2.0"></script>
+</body>
+</html>

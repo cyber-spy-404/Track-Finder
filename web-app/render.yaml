@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: track-finder
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && (python3 -m pip install --no-cache-dir yt-dlp || pip install --no-cache-dir yt-dlp || curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ./yt-dlp && chmod +x ./yt-dlp)
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: APK_DOWNLOAD_URL
+        sync: false
+      - key: LAVALINK_URL
+        sync: false
+      - key: LAVALINK_AUTH
+        sync: false

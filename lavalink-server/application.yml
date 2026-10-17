@@ -1,0 +1,83 @@
+server:
+  port: 2334
+  address: 0.0.0.0
+  http2:
+    enabled: false
+
+lavalink:
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
+      snapshot: false
+  server:
+    password: "youshallnotpass"
+    sources:
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: true
+      rotation: true
+      channelMix: true
+      lowPass: true
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: HIGH
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+
+plugins:
+  youtube:
+    enabled: true
+    v2:
+      enabled: true
+    oauth:
+      enabled: false
+    clients:
+      - TVHTML5_SIMPLY
+      - ANDROID
+      - WEBEMBEDDED
+      - TV
+      - MUSIC
+      - ANDROID_VR
+      - ANDROID_MUSIC
+      - IOS
+      - MWEB
+      - WEB
+  slugyzeon:
+    islamicOnly: false
+    strictFiltering: false
+    sources:
+      spotify: true
+      gaana: true
+      amazonmusic: true
+      pandora: true
+      youtube: false
+    spotify:
+      clientId: ""
+      clientSecret: ""
+      countryCode: "US"
+      playlistLoadLimit: 6
+      albumLoadLimit: 6
+      resolveArtistsInSearch: true
+
+logging:
+  file:
+    path: ./logs/lavalink.log
+  level:
+    root: INFO
+    lavalink: DEBUG
+    moe.kyokobot.koe: DEBUG
+    com.slugyzeon: INFO

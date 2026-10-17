@@ -1,0 +1,15 @@
+{
+  "name": "track-finder",
+  "version": "1.0.0",
+  "description": "Track Finder - Ultra-Low-Latency Web Audio & Music Streaming Platform",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "web": "node web-app/server.js",
+    "postinstall": "cd web-app && npm install"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.7",
+    "spotify-url-info": "^3.3.3"
+  }
+}

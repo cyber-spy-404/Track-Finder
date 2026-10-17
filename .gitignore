@@ -1,0 +1,31 @@
+.gradle/
+build/
+bin/
+*.class
+*.war
+*.ear
+*.iml
+.idea/
+*.log
+out/
+.settings/
+.project
+.classpath
+
+# Node & Environment
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Temporary, Binary and Media files
+*.jar
+*.apk
+*.log
+*.part
+scratch/
+test_stream.part
+data/sessions.json
+screenshot*.png
+view_*.png
+

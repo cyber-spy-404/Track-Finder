@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Spy Sec Music — Sovereign Web Player & Audio Hub</title>
+  <meta name="description" content="Spy Sec Music Web Client — Stream trending Indian playlists, Bollywood, Punjabi, Arijit Singh, and 114 Surahs across Web Browser, Mobile App, and Discord Bot.">
+  <meta name="theme-color" content="#000000">
+
+  <!-- PWA & Mobile Web Capabilities -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+  <link rel="stylesheet" href="index.css?v=8.1">
+  <script>
+    (function(){
+      const t = localStorage.getItem('spysec_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+  <!-- Floating Toast Notification -->
+  <div id="toastNotification" class="toast-notification hidden"></div>
+
+  <!-- Spotify Link Import Modal -->
+  <div id="spotifyLinkModal" class="spotify-link-modal-overlay hidden">
+    <div class="spotify-link-modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.305c-.215.352-.676.463-1.028.247-2.823-1.725-6.377-2.115-10.562-1.158-.403.092-.806-.157-.899-.56-.092-.403.157-.806.56-.899 4.582-1.047 8.513-.604 11.681 1.332.352.216.463.676.248 1.038zm1.468-3.262c-.27.439-.846.58-1.285.31-3.23-1.986-8.156-2.56-11.977-1.4-497.151-1.026-.135-1.177-.633-.151-.497.135-1.026.633-1.177 4.37-1.326 9.8-0.686 13.5 1.591.439.27.58.846.31 1.285zm.126-3.41c-3.874-2.3-10.258-2.513-13.947-1.393-.594.181-1.222-.154-1.403-.748-.181-.594.154-1.222.748-1.403 4.244-1.289 11.294-1.042 15.753 1.606.534.317.708 1.011.391 1.545-.317.534-1.011.708-1.542.393z"/>
+          </svg>
+          <h3 style="color: var(--text-primary); font-size: 1.1rem; font-weight: 700;">Play Spotify Playlist via Link</h3>
+        </div>
+        <button class="modal-close-btn" id="btnCloseSpotifyModal" type="button">✕</button>
+      </div>
+      <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 6px; margin-bottom: 14px;">
+        Paste any public Spotify playlist, album, or track link to stream in your Browser or on Discord Bot.
+      </p>
+      <input type="text" id="spotifyModalInput" class="modal-input" placeholder="https://open.spotify.com/playlist/..." autocomplete="off">
+      
+      <div class="modal-quick-suggestions">
+        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">POPULAR SPOTIFY PLAYLISTS:</span>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+          <button type="button" class="btn-modal-sample" data-sample="https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M">Today's Top Hits</button>
+          <button type="button" class="btn-modal-sample" data-sample="https://open.spotify.com/playlist/37i9dQZF1DX4WYpdgoIcn6">Chill Tracks</button>
+          <button type="button" class="btn-modal-sample" data-sample="https://open.spotify.com/playlist/37i9dQZF1DX186v5Bul7kv">Bollywood Acoustic</button>
+        </div>
+      </div>
+
+      <div class="modal-actions-row">
+        <button type="button" class="btn-modal-play-browser" id="btnPlaySpotifyInBrowser">Play in Browser</button>
+        <button type="button" class="btn-modal-play-bot" id="btnPlaySpotifyOnBot">Play on Discord Bot</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Master App Container -->
+  <div class="spotify-app" id="spotifyAppRoot">
+
+    <!-- ======================================================================
+         TOPBAR / NAVBAR
+         ====================================================================== -->
+    <header class="spotify-topbar">
+      <!-- Left: Logo & History Navigation -->
+      <div class="topbar-left">
+        <div class="spotify-brand" id="brandLogoHome" title="Spy Sec Music Web Player">
+          <img src="logo_clean.png" alt="Spy Sec Music Logo" class="brand-logo-img">
+          <span>Spy Sec Music</span>
+          <span class="brand-badge">Player</span>
+        </div>
+
+        <div class="nav-history-buttons">
+          <button type="button" class="nav-history-btn" id="btnNavBack" title="Go back (Alt+Left)" aria-label="Go back" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <button type="button" class="nav-history-btn nav-forward-desktop" id="btnNavForward" title="Go forward (Alt+Right)" aria-label="Go forward" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Center: Spotify Rounded Search Pill + Paste Link Button -->
+      <div class="topbar-center">
+        <div class="search-input-wrapper">
+          <svg class="search-icon" viewBox="0 0 24 24">
+            <path d="M10.533 1.279C5.352 1.279 1.126 5.419 1.126 10.558c0 5.139 4.226 9.279 9.407 9.279 2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.38 9.38 0 0 0 2.077-5.816c0-5.139-4.226-9.279-9.407-9.279zm-7.407 9.279c0-4.006 3.302-7.279 7.407-7.279s7.407 3.273 7.407 7.279-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.279z"/>
+          </svg>
+          <input id="masterSearchInput" class="search-input" type="search" placeholder="What do you want to play?" autocomplete="off">
+          <span id="btnSearchClear" class="search-clear-btn">✕</span>
+        </div>
+
+        <button id="btnOpenSpotifyModal" class="btn-spotify-link" type="button" title="Paste any Spotify playlist, album, or track link">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.305c-.215.352-.676.463-1.028.247-2.823-1.725-6.377-2.115-10.562-1.158-.403.092-.806-.157-.899-.56-.092-.403.157-.806.56-.899 4.582-1.047 8.513-.604 11.681 1.332.352.216.463.676.248 1.038zm1.468-3.262c-.27.439-.846.58-1.285.31-3.23-1.986-8.156-2.56-11.977-1.4-497.151-1.026-.135-1.177-.633-.151-.497.135-1.026.633-1.177 4.37-1.326 9.8-0.686 13.5 1.591.439.27.58.846.31 1.285zm.126-3.41c-3.874-2.3-10.258-2.513-13.947-1.393-.594.181-1.222-.154-1.403-.748-.181-.594.154-1.222.748-1.403 4.244-1.289 11.294-1.042 15.753 1.606.534.317.708 1.011.391 1.545-.317.534-1.011.708-1.542.393z"/>
+          </svg>
+          <span>+ Spotify Link</span>
+        </button>
+      </div>
+
+      <!-- Right: System Channels Switcher & Announcement Channel -->
+      <div class="topbar-right">
+        <!-- 3 Independent System Channels Switcher -->
+        <div class="sys-channel-group" title="Select which system channel to control">
+          <button type="button" class="sys-tab active" data-channel="browser" id="sysTabBrowser">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <span>Browser</span>
+            <span class="sys-dot"></span>
+          </button>
+          <button type="button" class="sys-tab" data-channel="app" id="sysTabApp">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+            <span>App</span>
+            <span class="sys-dot"></span>
+          </button>
+          <button type="button" class="sys-tab" data-channel="bot" id="sysTabBot">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+            <span>Discord</span>
+            <span class="sys-dot"></span>
+          </button>
+          <button type="button" class="sys-tab" data-channel="all" id="sysTabAll">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <span>All 3</span>
+          </button>
+        </div>
+
+        <!-- Song Announcement Channel Selector (Defaults to #music) -->
+        <div class="announcement-pill" title="Discord Channel for Song Embeds (Change via !send #channel)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+          <select id="announcementChannelSelect" class="announcement-select">
+            <option value="1559799364732452915">#music</option>
+          </select>
+        </div>
+
+        <!-- Filter Mode Selector Chips -->
+        <div class="filter-mode-group">
+          <button class="filter-chip active" data-mode="filterless" title="Filterless: Play any song without restrictions"><span class="chip-dot"></span><span>Filterless</span></button>
+          <button class="filter-chip" data-mode="strict" title="Strict Halal: Quran & Instrument-free vocal only"><span class="chip-dot"></span><span>Strict</span></button>
+          <button class="filter-chip" data-mode="remix" title="Islamic Vibes: Devotional vocal ambient"><span class="chip-dot"></span><span>Vibes</span></button>
+        </div>
+
+        <!-- Link to Dedicated Discord Bot Web Management UI -->
+        <a href="/discord" class="btn-discord-hub" title="Open Dedicated Discord Bot Management Dashboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+          <span>Discord Bot UI</span>
+        </a>
+
+        <!-- User Profile & Authentication Pill -->
+        <button id="btnUserProfile" class="btn-user-profile btn-user-taste-pill" type="button" title="User Profile, Music Taste & Account">
+          <div class="user-avatar-mini" id="userAvatarMini">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          </div>
+          <span id="userNameMini">Log In / Sign Up</span>
+          <span class="user-taste-status-tag" id="userTasteStatusTag">✨ Taste AI</span>
+        </button>
+
+        <!-- Direct Quick Logout Button (Visible when logged in) -->
+        <button id="btnTopLogout" class="btn-top-logout" type="button" style="display: none;" title="Log out of your account">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          <span>Log Out</span>
+        </button>
+
+        <!-- Theme Switcher (Separate Dark & Light Mode Controls) -->
+        <div class="theme-switch-group" id="themeSwitchGroup" role="group" aria-label="Theme Selection">
+          <button type="button" class="theme-choice-btn active" id="btnThemeDark" data-set-theme="dark" title="Switch to Dark Mode" aria-pressed="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            <span>Dark</span>
+          </button>
+          <button type="button" class="theme-choice-btn" id="btnThemeLight" data-set-theme="light" title="Switch to Light Mode" aria-pressed="false">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <span>Light</span>
+          </button>
+        </div>
+
+        <!-- Install / Download Mobile App (Android APK) -->
+        <button id="btnInstallPwa" class="btn-install-app" type="button" title="Download & Install Spy Sec Music Android APK">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span id="installBtnText">Download App</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ======================================================================
+         LEFT SIDEBAR (NAVIGATION & YOUR LIBRARY)
+         ====================================================================== -->
+    <aside class="spotify-sidebar">
+      <!-- Upper Navigation Card -->
+      <div class="nav-card">
+        <a class="nav-item active" id="navLinkHome" href="#home">
+          <svg viewBox="0 0 24 24">
+            <path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v6H20V7.577l-7.5-4.33zm-2-1.732a3 3 0 0 1 3 0l7.5 4.33a2 2 0 0 1 1 1.732V21a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1v-6h-3v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.577a2 2 0 0 1 1-1.732l7.5-4.33z"/>
+          </svg>
+          <span>Home</span>
+        </a>
+        <a class="nav-item" id="navLinkSearch" href="#search">
+          <svg viewBox="0 0 24 24">
+            <path d="M10.533 1.279C5.352 1.279 1.126 5.419 1.126 10.558c0 5.139 4.226 9.279 9.407 9.279 2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.38 9.38 0 0 0 2.077-5.816c0-5.139-4.226-9.279-9.407-9.279zm-7.407 9.279c0-4.006 3.302-7.279 7.407-7.279s7.407 3.273 7.407 7.279-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.279z"/>
+          </svg>
+          <span>Search</span>
+        </a>
+        <a class="nav-item" id="navLinkQuran" href="#quran">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          <span>Quran (114 Surahs)</span>
+        </a>
+        <a class="nav-item nav-item-discord" id="navLinkDiscord" href="/discord" title="Dedicated Discord Bot Dashboard">
+          <svg viewBox="0 0 24 24">
+            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.893.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+          </svg>
+          <span>Discord Bot UI ↗</span>
+        </a>
+      </div>
+
+      <!-- Taste Engine Card in Sidebar -->
+      <div class="sidebar-taste-card" id="sidebarTasteCard">
+        <div class="sidebar-taste-top">
+          <div class="sidebar-taste-badge">
+            <span class="taste-pulse-dot"></span>
+            <span id="sidebarTasteStatus">DAILY TASTE ENGINE</span>
+          </div>
+          <button type="button" class="sidebar-taste-tune-btn" id="btnSidebarTuneTaste" title="Tune Taste Preferences">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
+        </div>
+        <div class="sidebar-taste-title" id="sidebarTasteUserTitle">Daily Music Taste</div>
+        <div class="sidebar-taste-affinity" id="sidebarTasteAffinity">Loading personalized recommendations...</div>
+      </div>
+
+      <!-- Main Library Card -->
+      <div class="library-card">
+        <div class="library-header">
+          <button class="library-title-btn" id="btnToggleLibrary">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 22a1 1 0 0 1-1-1V3a1 1 0 0 1 2 0v18a1 1 0 0 1-1 1zM15.5 2.134A1 1 0 0 0 14 3v18a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6.464a1 1 0 0 0-.5-.866l-6-3.464zM9 2a1 1 0 0 0-1 1v18a1 1 0 1 0 2 0V3a1 1 0 0 0-1-1z"/>
+            </svg>
+            <span>Your Library</span>
+          </button>
+          <div class="library-actions">
+            <button class="lib-icon-btn" id="btnLibSearch" title="Search inside library" aria-label="Search inside library">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+            <button class="lib-icon-btn" id="btnLibAdd" title="Create playlist / browse" aria-label="Create playlist">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Library Filter Pills -->
+        <div class="library-filter-scroll">
+          <button class="lib-pill active" data-lib="all">All</button>
+          <button class="lib-pill" data-lib="playlists">Playlists</button>
+          <button class="lib-pill" data-lib="surahs">Surahs</button>
+          <button class="lib-pill" data-lib="queue">Queue</button>
+        </div>
+
+        <!-- Liked Songs Permanent Playlist Item -->
+        <div class="library-item library-item-liked" id="libLikedSongs" title="Liked Songs">
+          <div class="liked-heart-square">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </div>
+          <div class="lib-meta">
+            <span class="lib-name">Liked Songs</span>
+            <span class="lib-sub" id="libLikedSongsCount">0 favorite songs</span>
+          </div>
+        </div>
+
+        <!-- Scrollable Library Items -->
+        <div class="library-list" id="sidebarLibraryList">
+          <!-- Populated dynamically via app.js -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- ======================================================================
+         CENTER MAIN STAGE (DYNAMIC VIEWS)
+         ====================================================================== -->
+    <main class="spotify-main-stage" id="spotifyMainStage">
+      <!-- Ambient Top Gradient -->
+      <div class="stage-ambient-gradient" id="stageAmbientGradient"></div>
+
+      <div class="stage-content">
+        <!-- ==================================================================
+             VIEW 1: HOME DASHBOARD
+             ================================================================== -->
+        <div id="viewHome" class="stage-view active">
+          <!-- Greeting Row -->
+          <div class="stage-greeting-row">
+            <h1 class="stage-greeting-title" id="stageGreetingTitle">Good afternoon</h1>
+            <div class="active-route-pill" id="activeRoutePill">
+              <span class="pulse-dot"></span>
+              <span id="activeRoutePillText">Active: Web Browser</span>
+            </div>
+          </div>
+
+          <!-- Dynamic Last Played Music Continue Card -->
+          <div class="resume-track-card" id="resumeTrackCard" style="display: none;">
+            <div class="resume-card-left" id="resumeCardClick" title="Click to view now playing">
+              <div class="resume-cover-wrap">
+                <img id="resumeTrackCover" src="logo.png" alt="Cover" class="resume-card-img">
+                <div class="resume-mini-play-indicator">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
+                </div>
+              </div>
+              <div class="resume-card-info">
+                <span class="resume-badge">CONTINUE LISTENING</span>
+                <span class="resume-title" id="resumeTrackTitle">Track Title</span>
+                <span class="resume-artist" id="resumeTrackArtist">Artist • 0:00 / 0:00</span>
+              </div>
+            </div>
+            <div class="resume-card-actions">
+              <button type="button" class="btn-resume-play" id="btnResumePlay" title="Resume Playback">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
+                </svg>
+                <span>Resume</span>
+              </button>
+              <button type="button" class="btn-resume-dismiss" id="btnResumeDismiss" title="Dismiss">✕</button>
+            </div>
+          </div>
+
+          <!-- Personalized Music Taste Banner (Updates Daily) -->
+          <div class="home-taste-banner" id="homeTasteBanner">
+            <div class="taste-banner-left">
+              <div class="taste-banner-sparkle">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8L12 2z"/></svg>
+              </div>
+              <div class="taste-banner-text">
+                <div class="taste-banner-badge" id="tasteBannerBadge">DAILY TASTE ENGINE • UPDATED TODAY</div>
+                <h3 class="taste-banner-heading" id="tasteBannerHeading">Your Daily Music Taste Mix is Ready</h3>
+                <p class="taste-banner-sub" id="tasteBannerSub">Curating recommendations from your listening patterns & favorite genres</p>
+              </div>
+            </div>
+            <div class="taste-banner-actions">
+              <button type="button" class="btn-taste-action btn-taste-tune" id="btnBannerTuneTaste">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <span>Tune Taste</span>
+              </button>
+              <button type="button" class="btn-taste-action btn-taste-auth" id="btnBannerAuthTrigger">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                <span id="btnBannerAuthText">Log In / Sign Up</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Spotify 2x4 Quick Access Hero Grid (Personalized Daily) -->
+          <div class="hero-quick-grid" id="heroQuickGrid">
+            <!-- Populated dynamically via app.js -->
+          </div>
+
+          <!-- Section: Made For You • Daily Taste Mixes (Personalized Everyday) -->
+          <section class="shelf-section" id="sectionDailyTasteMixes">
+            <div class="shelf-header">
+              <div class="shelf-header-left" style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+                <div class="shelf-header-emblem" style="background: linear-gradient(135deg, rgba(30, 215, 96, 0.2), rgba(88, 101, 242, 0.2)); border: 1px solid var(--border-subtle); width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--spotify-green);">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/></svg>
+                </div>
+                <div style="min-width: 0;">
+                  <h2 class="shelf-title" id="tasteMixesShelfTitle" style="margin: 0; line-height: 1.2;">Made For You • Daily Mixes</h2>
+                  <div style="font-size: 0.76rem; color: var(--text-subdued); display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap;">
+                    <span id="tasteMixesDateBadge">Updated Today • AI Taste Engine</span>
+                    <span>•</span>
+                    <button type="button" id="btnRefreshDailyTaste" class="trending-sync-btn" title="Recalculate today's taste mixes">↻ Refresh Today's Mix</button>
+                    <span>•</span>
+                    <button type="button" id="btnTuneTastePrefs" class="taste-tune-chip" title="Tune music taste preferences">⚙ Tune Taste</button>
+                  </div>
+                </div>
+              </div>
+              <div class="shelf-header-actions">
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridDailyTasteMixes" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridDailyTasteMixes" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="spotify-card-grid" id="gridDailyTasteMixes">
+              <!-- Populated dynamically via app.js -->
+            </div>
+          </section>
+
+          <!-- Section: Because You Love [Artist / Genre] (Dynamic Recommendations) -->
+          <section class="shelf-section" id="sectionBecauseYouLove">
+            <div class="shelf-header">
+              <div>
+                <h2 class="shelf-title" id="becauseYouLoveTitle" style="margin: 0;">Because You Love Music</h2>
+                <span id="becauseYouLoveSubtitle" style="font-size: 0.78rem; color: var(--text-subdued);">Curated based on your listening taste pattern</span>
+              </div>
+              <div class="shelf-header-actions">
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridBecauseYouLove" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridBecauseYouLove" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="spotify-card-grid" id="gridBecauseYouLove">
+              <!-- Populated dynamically via app.js -->
+            </div>
+          </section>
+
+          <!-- Section: Daily Trending on Spotify (Imported Daily) -->
+          <section class="shelf-section" id="sectionDailyTrendingSpotify">
+            <div class="shelf-header">
+              <div class="shelf-header-left" style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-subtle); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--text-secondary)"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.498 17.305c-.215.352-.676.463-1.028.247-2.823-1.725-6.377-2.115-10.562-1.158-.403.092-.806-.157-.899-.56-.092-.403.157-.806.56-.899 4.582-1.047 8.513-.604 11.681 1.332.352.216.463.676.248 1.038zm1.468-3.262c-.27.439-.846.58-1.285.31-3.23-1.986-8.156-2.56-11.977-1.4-497.151-1.026-.135-1.177-.633-.151-.497.135-1.026.633-1.177 4.37-1.326 9.8-0.686 13.5 1.591.439.27.58.846.31 1.285zm.126-3.41c-3.874-2.3-10.258-2.513-13.947-1.393-.594.181-1.222-.154-1.403-.748-.181-.594.154-1.222.748-1.403 4.244-1.289 11.294-1.042 15.753 1.606.534.317.708 1.011.391 1.545-.317.534-1.011.708-1.542.393z"/></svg>
+                </div>
+                <div style="min-width: 0;">
+                  <h2 class="shelf-title" style="margin: 0; line-height: 1.2;">Daily Trending in India</h2>
+                  <div style="font-size: 0.76rem; color: var(--text-subdued); display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap;">
+                    <span id="spotifyTrendingMetaBadge">Spotify Charts</span>
+                    <span>•</span>
+                    <button type="button" id="btnRefreshSpotifyTrending" class="trending-sync-btn" title="Sync latest trending charts now">↻ Sync</button>
+                  </div>
+                </div>
+              </div>
+              <div class="shelf-header-actions">
+                <span class="shelf-see-all" id="btnSeeAllTrending">Show all</span>
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridDailyTrendingSpotify" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridDailyTrendingSpotify" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="spotify-card-grid" id="gridDailyTrendingSpotify">
+              <!-- Rendered dynamically with real Spotify album arts via app.js -->
+            </div>
+          </section>
+
+          <!-- Section: Hot Tracks Right Now (Instant 1-Click Stream) -->
+          <section class="shelf-section" id="sectionTrendingTracksRow">
+            <div class="shelf-header">
+              <div>
+                <h2 class="shelf-title" style="margin: 0;">Hot Tracks in India Today</h2>
+                <span style="font-size: 0.78rem; color: var(--text-subdued);">Today's top-streamed chartbusters in India • 1-Click Stream</span>
+              </div>
+              <div class="shelf-header-actions">
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridTrendingTracksPills" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridTrendingTracksPills" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="trending-tracks-pill-grid" id="gridTrendingTracksPills">
+              <!-- Quick 1-click play pills dynamically rendered via app.js -->
+            </div>
+          </section>
+
+          <!-- Section: Curated Indian Genres & Masterpieces -->
+          <section class="shelf-section">
+            <div class="shelf-header">
+              <h2 class="shelf-title">Curated Indian Genres & Masterpieces</h2>
+              <div class="shelf-header-actions">
+                <span class="shelf-see-all" id="btnSeeAllPlaylists">Show all</span>
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridIndianPlaylists" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridIndianPlaylists" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="spotify-card-grid" id="gridIndianPlaylists">
+              <!-- Cards populated via app.js -->
+            </div>
+          </section>
+
+          <!-- Section: Featured Quran Recitations -->
+          <section class="shelf-section">
+            <div class="shelf-header">
+              <h2 class="shelf-title">Sovereign Quran Recitations</h2>
+              <div class="shelf-header-actions">
+                <span class="shelf-see-all" id="btnSeeAllQuran">Browse 114 Surahs</span>
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridFeaturedQuran" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridFeaturedQuran" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="spotify-card-grid" id="gridFeaturedQuran">
+              <!-- Surah cards populated via app.js -->
+            </div>
+          </section>
+
+          <!-- Section: Islamic Status & Vibes -->
+          <section class="shelf-section">
+            <div class="shelf-header">
+              <h2 class="shelf-title">Islamic Status, Bayans & Vibes</h2>
+              <div class="shelf-header-actions">
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridIslamicVibes" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridIslamicVibes" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="spotify-card-grid" id="gridIslamicVibes">
+              <!-- Spoken kalam / vibes cards populated via app.js -->
+            </div>
+          </section>
+        </div>
+
+        <!-- ==================================================================
+             VIEW 2: SEARCH & BROWSE GENRES
+             ================================================================== -->
+        <div id="viewSearch" class="stage-view" style="display: none;">
+          <!-- Sub-view Navigation Header -->
+          <div class="view-header-nav-bar">
+            <button type="button" class="view-back-nav-btn" onclick="window.navigateAppBack()" title="Back to Previous Page">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back</span>
+            </button>
+          </div>
+
+          <!-- Dedicated In-Page & Mobile Search Bar -->
+          <div class="stage-search-header" style="margin-bottom: 24px;">
+            <div class="stage-search-bar" style="position: relative; display: flex; align-items: center; background: var(--bg-card-elevated); border-radius: 500px; padding: 10px 18px; border: 1px solid var(--border-medium); box-shadow: var(--shadow-sm);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--text-tertiary)" style="flex-shrink: 0; margin-right: 12px;">
+                <path d="M10.533 1.279C5.352 1.279 1.126 5.419 1.126 10.558c0 5.139 4.226 9.279 9.407 9.279 2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.38 9.38 0 0 0 2.077-5.816c0-5.139-4.226-9.279-9.407-9.279zm-7.407 9.279c0-4.006 3.302-7.279 7.407-7.279s7.407 3.273 7.407 7.279-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.279z"/>
+              </svg>
+              <input id="inPageSearchInput" type="search" placeholder="What do you want to play? (#strict, *vibes, ~free)" style="flex: 1; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 1rem; font-family: inherit;" autocomplete="off">
+              <span id="btnInPageSearchClear" style="cursor: pointer; color: var(--text-tertiary); font-size: 14px; padding: 4px; display: none;">✕</span>
+            </div>
+            <!-- Mobile Filter Chips -->
+            <div class="mobile-filter-row" style="display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px;">
+              <button type="button" class="mobile-filter-chip active" data-filter="filterless" style="background: var(--bg-surface); border: 1px solid var(--border-medium); color: var(--text-primary); border-radius: 50px; padding: 6px 14px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap;">Filterless</button>
+              <button type="button" class="mobile-filter-chip" data-filter="strict" style="background: var(--bg-hover); border: 1px solid var(--border-subtle); color: var(--text-secondary); border-radius: 50px; padding: 6px 14px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap;">Strict Halal (#)</button>
+              <button type="button" class="mobile-filter-chip" data-filter="remix" style="background: var(--bg-hover); border: 1px solid var(--border-subtle); color: var(--text-secondary); border-radius: 50px; padding: 6px 14px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap;">Islamic Vibes (*)</button>
+            </div>
+          </div>
+
+          <!-- Playlists Shelf Section (Approx 5 Playlists related to keyword) -->
+          <div id="searchPlaylistsSection" style="display: none; margin-bottom: 32px;">
+            <div class="shelf-header" style="margin-bottom: 14px;">
+              <h2 class="shelf-title" style="margin: 0;">Playlists</h2>
+              <div class="shelf-header-actions">
+                <span id="searchPlaylistsCountBadge" style="font-size: 0.8rem; color: var(--text-subdued);">Top 5 Playlists</span>
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridSearchPlaylists" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridSearchPlaylists" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="spotify-card-grid" id="gridSearchPlaylists">
+              <!-- Populated dynamically via app.js -->
+            </div>
+          </div>
+
+          <!-- Live search results section (Approx 20 Tracks) -->
+          <div id="searchResultsSection" style="display: none; margin-bottom: 32px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+              <h2 style="font-size: 1.4rem; font-weight: 800; color: #fff; margin: 0;">Songs</h2>
+              <span id="searchResultFilterBadge" style="font-size: 0.8rem; color: var(--text-subdued);">Top 20 Tracks</span>
+            </div>
+            <div class="songs-table-container">
+              <table class="songs-table" id="searchResultsTable">
+                <thead class="songs-table-header">
+                  <tr>
+                    <th class="th-num">#</th>
+                    <th>Title</th>
+                    <th>Actions</th>
+                    <th class="th-time">Time</th>
+                  </tr>
+                </thead>
+                <tbody id="searchResultsBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Browse Categories Section -->
+          <div id="browseCategoriesSection">
+            <h2 class="shelf-title" style="margin-bottom: 16px;">Browse All Categories</h2>
+            <!-- Genre Card Grid -->
+            <div class="spotify-card-grid" id="gridSearchGenres">
+              <!-- Populated via app.js with vibrant gradient cards -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             VIEW 3: PLAYLIST DETAILS PAGE
+             ================================================================== -->
+        <div id="viewPlaylist" class="stage-view playlist-page" style="display: none;">
+          <!-- Sub-view Navigation Header -->
+          <div class="view-header-nav-bar">
+            <button type="button" class="view-back-nav-btn" onclick="window.navigateAppBack()" title="Back to Previous Page">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back</span>
+            </button>
+          </div>
+
+          <div class="playlist-hero" id="playlistHero">
+            <img id="playlistHeroCover" class="playlist-hero-cover" src="logo.png" alt="Playlist Cover">
+            <div class="playlist-hero-details">
+              <span class="playlist-hero-type">Public Playlist</span>
+              <h1 id="playlistHeroTitle" class="playlist-hero-title">Trending Indian</h1>
+              <p id="playlistHeroDesc" class="playlist-hero-desc">Chartbusters & viral tracks</p>
+              <div class="playlist-hero-meta">
+                <strong id="playlistHeroAuthor">Spotify Official</strong>
+                <span class="sep">•</span>
+                <span id="playlistHeroTracksCount">8 songs</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Bar: Big Green Play Circle + Like Button -->
+          <div class="playlist-action-bar">
+            <button class="circle-play big" id="btnPlaylistHeroPlay" title="Play playlist">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button class="heart-like" id="btnPlaylistHeroLike" title="Save to Your Library">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Authentic Songs Table -->
+          <table class="songs-table">
+            <thead class="songs-table-header">
+              <tr>
+                <th class="th-num">#</th>
+                <th>Title</th>
+                <th>Artist / Album</th>
+                <th class="th-time">Time</th>
+              </tr>
+            </thead>
+            <tbody id="playlistSongsTableBody">
+              <!-- Rows populated via app.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ==================================================================
+             VIEW: LIKED SONGS & FAVORITES
+             ================================================================== -->
+        <div id="viewLiked" class="stage-view playlist-page" style="display: none;">
+          <!-- Sub-view Navigation Header -->
+          <div class="view-header-nav-bar">
+            <button type="button" class="view-back-nav-btn" onclick="window.navigateAppBack()" title="Back to Previous Page">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back</span>
+            </button>
+          </div>
+
+          <div class="playlist-hero">
+            <div class="liked-hero-heart-box">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </div>
+            <div class="playlist-hero-details">
+              <span class="playlist-hero-type">Playlist</span>
+              <h1 class="playlist-hero-title">Liked Songs</h1>
+              <p class="playlist-hero-desc">Your personal collection of favorite tracks, synced across Web and Mobile.</p>
+              <div class="playlist-hero-meta">
+                <strong id="likedHeroAuthor">User Profile</strong>
+                <span class="sep">•</span>
+                <span id="likedHeroTracksCount">0 songs</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="playlist-action-bar">
+            <button class="circle-play big" id="btnPlayAllLiked" title="Play All Liked Songs">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <span style="color: var(--text-subdued); font-size: 0.9rem;" id="likedSongsStatusHint">Click the heart icon on any song to add it to your favorites</span>
+          </div>
+
+          <table class="songs-table">
+            <thead class="songs-table-header">
+              <tr>
+                <th class="th-num">#</th>
+                <th>Title</th>
+                <th>Artist</th>
+                <th>Action</th>
+                <th class="th-time">Time</th>
+              </tr>
+            </thead>
+            <tbody id="likedSongsTableBody">
+              <!-- Populated via app.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ==================================================================
+             VIEW 4: ALL 114 SURAHS QURAN BROWSER
+             ================================================================== -->
+        <div id="viewQuran" class="stage-view" style="display: none;">
+          <!-- Sub-view Navigation Header -->
+          <div class="view-header-nav-bar">
+            <button type="button" class="view-back-nav-btn" onclick="window.navigateAppBack()" title="Back to Previous Page">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back</span>
+            </button>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <h2 class="shelf-title">The Holy Quran (114 Surahs)</h2>
+            <input type="text" id="quranFilterInput" class="search-input" style="max-width: 300px; height: 38px;" placeholder="Filter Surahs by name or number...">
+          </div>
+          <div class="spotify-card-grid" id="gridAll114Surahs">
+            <!-- 114 Surahs populated via app.js -->
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             VIEW 5: PLAYBACK QUEUE & HISTORY
+             ================================================================== -->
+        <div id="viewQueue" class="stage-view" style="display: none;">
+          <!-- Sub-view Navigation Header -->
+          <div class="view-header-nav-bar">
+            <button type="button" class="view-back-nav-btn" onclick="window.navigateAppBack()" title="Back to Previous Page">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back</span>
+            </button>
+          </div>
+
+          <h2 class="shelf-title" style="margin-bottom: 16px;">Queue</h2>
+
+          <!-- Now Playing Card in Queue View -->
+          <div class="queue-now-playing-card" id="queueNowPlayingCard" style="display: none; margin-bottom: 24px;">
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--spotify-green); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+              <span class="pulse-dot"></span> NOW PLAYING
+            </div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <img id="queueNowPlayingArt" class="song-cell-art" src="logo.png" alt="Cover Art">
+              <div style="flex: 1; min-width: 0;">
+                <div id="queueNowPlayingTitle" style="font-size: 1.05rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">No song playing</div>
+                <div id="queueNowPlayingAuthor" style="font-size: 0.85rem; color: var(--text-subdued); margin-top: 2px;">Select a song or playlist</div>
+              </div>
+              <div id="queueNowPlayingTime" style="font-size: 0.85rem; color: var(--text-subdued); font-variant-numeric: tabular-nums;">0:00</div>
+            </div>
+          </div>
+
+          <!-- Queue Navigation & Actions Bar -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+            <div class="library-filter-scroll" style="margin-bottom: 0;">
+              <button class="lib-pill active" id="tabQueueBtn">Upcoming Queue</button>
+              <button class="lib-pill" id="tabHistoryBtn">Recently Played</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span id="queueCountBadge" style="font-size: 0.78rem; color: var(--text-subdued); background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 12px; font-weight: 600;">0 songs</span>
+              <button id="btnClearBrowserQueue" type="button" class="btn-clear-queue" title="Clear all upcoming tracks">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>Clear Queue</span>
+              </button>
+            </div>
+          </div>
+
+          <table class="songs-table" id="queueSongsTable">
+            <thead class="songs-table-header">
+              <tr>
+                <th class="th-num">#</th>
+                <th>Title</th>
+                <th>Actions</th>
+                <th class="th-time">Time</th>
+              </tr>
+            </thead>
+            <tbody id="queueTableBody">
+              <!-- Populated via app.js -->
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- ======================================================================
+         RIGHT PANEL: NOW PLAYING VIEW (COLLAPSIBLE)
+         ====================================================================== -->
+    <aside class="spotify-right-panel" id="rightNowPlayingPanel" style="display: none;">
+      <div class="right-panel-header">
+        <span class="right-panel-title">Now Playing</span>
+        <button class="right-panel-close" id="btnCloseRightPanel">✕</button>
+      </div>
+
+      <div class="right-art-container">
+        <img id="rightTrackArt" src="logo.png" alt="Cover Art">
+      </div>
+
+      <div class="right-track-info">
+        <div class="right-track-texts">
+          <span class="right-track-title" id="rightTrackTitle">Web Browser Ready</span>
+          <span class="right-track-author" id="rightTrackAuthor">Select any track or playlist</span>
+        </div>
+        <button class="heart-like" id="btnRightLike">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="right-destination-badge" id="rightDestinationBadge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        <span id="rightDestinationText">Playing on: Web Browser</span>
+      </div>
+
+      <!-- Animated Visualizer Waves -->
+      <div class="visualizer-bars" id="rightVisualizerBars">
+        <span class="visualizer-bar"></span>
+        <span class="visualizer-bar"></span>
+        <span class="visualizer-bar"></span>
+        <span class="visualizer-bar"></span>
+      </div>
+    </aside>
+
+    <!-- ======================================================================
+         BOTTOM PERSISTENT PLAYER BAR (.playing-bar)
+         ====================================================================== -->
+    <footer class="spotify-player-bar" id="spotifyPlayerBar">
+      <!-- Left: Track Details -->
+      <div class="player-left">
+        <div class="player-thumb-wrap" id="playerThumbClick">
+          <img id="playerTrackImg" src="logo.png" alt="Track Cover">
+        </div>
+        <div class="player-track-info">
+          <span class="player-track-title" id="playerTrackTitle">Web Browser Ready</span>
+          <span class="player-track-artist" id="playerTrackArtist">Select a song or playlist</span>
+        </div>
+        <button class="heart-like" id="btnPlayerHeart" title="Save to Your Library">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Center: Controls & Scrubber -->
+      <div class="player-center">
+        <div class="player-controls-row">
+          <button class="ctrl-btn" id="btnShuffle" title="Shuffle">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356a2.25 2.25 0 0 1 1.724-.804h1.947l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="btnPrevTrack" title="Previous">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v12.575a.7.7 0 0 1-1.05.607L4 9.149V14.3a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7V1.7a.7.7 0 0 1 .7-.7h1.6z"/>
+            </svg>
+          </button>
+          <button class="play-pause-circle" id="btnMainPlayPause" title="Play / Pause">
+            <svg id="mainPlayPauseSvg" viewBox="0 0 16 16"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
+          </button>
+          <button class="ctrl-btn" id="btnNextTrack" title="Next">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.107A.7.7 0 0 0 1 1.712v12.575a.7.7 0 0 0 1.05.607L12 9.149V14.3a.7.7 0 0 0 .7.7h1.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-1.6z"/>
+            </svg>
+          </button>
+          <button class="ctrl-btn" id="btnRepeat" title="Repeat mode">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h8.5A3.75 3.75 0 0 1 16 4.75v5a3.75 3.75 0 0 1-3.75 3.75H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439a2.25 2.25 0 0 0 2.25-2.25v-5a2.25 2.25 0 0 0-2.25-2.25h-8.5A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5z"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Scrubber -->
+        <div class="playback-bar-wrap">
+          <span class="time-label" id="currentTimeLabel">0:00</span>
+          <div class="progress-track" id="playbackProgressTrack">
+            <div class="progress-fill" id="playbackProgressFill">
+              <span class="progress-thumb"></span>
+            </div>
+          </div>
+          <span class="time-label" id="totalDurationLabel">0:00</span>
+        </div>
+      </div>
+
+      <!-- Right: Extra Controls & Volume -->
+      <div class="player-right">
+        <button class="player-extra-btn btn-expand-player" id="btnExpandPlayer" title="Open Full-Screen Player">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
+        <button class="player-extra-btn" id="btnToggleRightView" title="Now playing view">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        </button>
+        <button class="player-extra-btn" id="btnToggleQueueView" title="Queue">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        </button>
+        <button class="player-extra-btn" id="btnDeviceRoute" title="Select audio channel">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><circle cx="12" cy="14" r="4"></circle><line x1="12" y1="6" x2="12.01" y2="6"></line></svg>
+        </button>
+        <div class="volume-bar-wrap">
+          <button class="player-extra-btn" id="btnVolumeMute" title="Mute">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+          </button>
+          <div class="volume-track" id="volumeTrack">
+            <div class="volume-fill" id="volumeFill"></div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- ======================================================================
+         MOBILE FLOATING PLAYER PILL & BOTTOM NAV
+         ====================================================================== -->
+    <div class="mobile-player-pill" id="mobilePlayerPill">
+      <div class="mobile-player-left" id="mobilePlayerMetaClick" title="Tap to expand Now Playing">
+        <img id="mobilePlayerImg" src="logo.png" alt="Cover">
+        <div class="mobile-player-meta">
+          <span class="mobile-player-title" id="mobilePlayerTitle">Web Browser Ready</span>
+          <span class="mobile-player-artist" id="mobilePlayerArtist">Select a song</span>
+        </div>
+      </div>
+      <div class="mobile-player-actions">
+        <button class="heart-like" id="btnMobileHeart">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </button>
+        <button class="play-pause-circle" id="btnMobilePlayPause" style="width: 32px; height: 32px;">
+          <svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
+        </button>
+        <button class="mobile-expand-hint-btn" id="btnMobileExpandHint" title="Expand Full-Screen Player">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+        </button>
+      </div>
+      <div class="mobile-micro-progress">
+        <div class="mobile-micro-fill" id="mobileMicroFill"></div>
+      </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav">
+      <div class="mobile-nav-item active" id="mobileNavHome">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Home</span>
+      </div>
+      <div class="mobile-nav-item" id="mobileNavSearch">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <span>Search</span>
+      </div>
+      <div class="mobile-nav-item" id="mobileNavLibrary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        <span>Your Library</span>
+      </div>
+      <div class="mobile-nav-item" id="mobileNavChannel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+        <span id="mobileNavChannelLabel">Browser</span>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- ======================================================================
+       MODAL: USER PROFILE & LOGIN (WEB & MOBILE)
+       ====================================================================== -->
+  <div id="modalUserProfile" class="spotify-modal-backdrop" style="display: none;">
+    <div class="spotify-modal-card" style="max-width: 460px;">
+      <div class="modal-header">
+        <h3 class="modal-title">User Account & Profile</h3>
+        <button id="btnCloseProfileModal" class="modal-close-btn" type="button">✕</button>
+      </div>
+
+      <div class="profile-card-body" id="profileCardBody">
+        <!-- Rendered dynamically via app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: TUNE MUSIC TASTE PREFERENCES (DAILY RECOMMENDATIONS CALIBRATION)
+       ====================================================================== -->
+  <div id="modalTuneTaste" class="spotify-modal-backdrop" style="display: none;">
+    <div class="spotify-modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 28px; height: 28px; border-radius: 8px; background: rgba(30, 215, 96, 0.15); color: var(--spotify-green); display: flex; align-items: center; justify-content: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8L12 2z"/></svg>
+          </div>
+          <h3 class="modal-title" style="margin: 0;">Tune Your Music Taste</h3>
+        </div>
+        <button id="btnCloseTuneTasteModal" class="modal-close-btn" type="button">✕</button>
+      </div>
+
+      <div class="profile-card-body" id="tuneTasteModalBody">
+        <!-- Rendered dynamically via app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       EXPANDED FULL-SCREEN NOW PLAYING MODAL (MOBILE & DESKTOP)
+       ====================================================================== -->
+  <div id="expandedNowPlayingOverlay" class="expanded-player-overlay" aria-hidden="true">
+    <div class="expanded-player-backdrop" id="expandedBackdrop"></div>
+    <div class="expanded-player-scrim"></div>
+
+    <div class="expanded-player-container">
+      <!-- Topbar: Collapse, Route Indicator, Queue Toggle -->
+      <div class="expanded-topbar">
+        <button type="button" class="expanded-collapse-btn" id="btnCollapseExpanded" title="Collapse player" aria-label="Collapse player">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+
+        <div class="expanded-header-title">
+          <span class="expanded-subhead">PLAYING FROM</span>
+          <span class="expanded-source-name" id="expandedSourceName">Spy Sec Music Hub</span>
+        </div>
+
+        <button type="button" class="expanded-top-action" id="btnExpandedQueueToggle" title="Queue / Up Next">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Main Body -->
+      <div class="expanded-body">
+        <div class="expanded-artwork-box" id="expandedArtworkBox">
+          <div class="expanded-art-disc" id="expandedArtDisc">
+            <div class="expanded-vinyl-grooves"></div>
+          </div>
+          <div class="expanded-art-wrap" id="expandedArtWrap">
+            <img id="expandedTrackImg" src="logo.png" alt="Cover Artwork">
+            <div class="expanded-art-glow"></div>
+          </div>
+        </div>
+
+        <div class="expanded-meta-row">
+          <div class="expanded-meta-text">
+            <h2 class="expanded-title" id="expandedTrackTitle">Web Browser Ready</h2>
+            <p class="expanded-artist" id="expandedTrackArtist">Select a song or playlist</p>
+          </div>
+          <button type="button" class="expanded-heart-btn" id="btnExpandedHeart" title="Save to favorites">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="expanded-scrubber-wrap">
+          <div class="expanded-progress-track" id="expandedProgressTrack">
+            <div class="expanded-progress-fill" id="expandedProgressFill">
+              <span class="expanded-progress-thumb"></span>
+            </div>
+          </div>
+          <div class="expanded-time-row">
+            <span id="expandedCurrentTime">0:00</span>
+            <span id="expandedTotalDuration">0:00</span>
+          </div>
+        </div>
+
+        <div class="expanded-controls-row">
+          <button type="button" class="expanded-ctrl-btn" id="btnExpandedShuffle" title="Shuffle">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356a2.25 2.25 0 0 1 1.724-.804h1.947l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5z"/>
+            </svg>
+          </button>
+
+          <button type="button" class="expanded-ctrl-btn" id="btnExpandedPrev" title="Previous">
+            <svg width="26" height="26" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v12.575a.7.7 0 0 1-1.05.607L4 9.149V14.3a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7V1.7a.7.7 0 0 1 .7-.7h1.6z"/>
+            </svg>
+          </button>
+
+          <button type="button" class="expanded-hero-play" id="btnExpandedPlayPause" title="Play / Pause">
+            <svg id="expandedPlayPauseSvg" viewBox="0 0 16 16" width="24" height="24">
+              <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
+            </svg>
+          </button>
+
+          <button type="button" class="expanded-ctrl-btn" id="btnExpandedNext" title="Next">
+            <svg width="26" height="26" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.107A.7.7 0 0 0 1 1.712v12.575a.7.7 0 0 0 1.05.607L12 9.149V14.3a.7.7 0 0 0 .7.7h1.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-1.6z"/>
+            </svg>
+          </button>
+
+          <button type="button" class="expanded-ctrl-btn" id="btnExpandedRepeat" title="Repeat mode">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h8.5A3.75 3.75 0 0 1 16 4.75v5a3.75 3.75 0 0 1-3.75 3.75H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439a2.25 2.25 0 0 0 2.25-2.25v-5a2.25 2.25 0 0 0-2.25-2.25h-8.5A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="expanded-bottom-tools">
+          <div class="expanded-dest-pill" id="btnExpandedRouting" title="Change Audio Output">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+            <span id="expandedRoutingText">Web Browser</span>
+          </div>
+
+          <div class="expanded-vol-row">
+            <button type="button" class="expanded-vol-icon" id="btnExpandedVolMute">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              </svg>
+            </button>
+            <div class="expanded-vol-track" id="expandedVolTrack">
+              <div class="expanded-vol-fill" id="expandedVolFill"></div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulletproof Direct Native HTML5 Audio Engine -->
+  <audio id="browserAudio" preload="auto" playsinline style="display: none;"></audio>
+
+  <!-- Interactive JavaScript Engine with Cache-Buster -->
+  <script src="app.js?v=8.1"></script>
+</body>
+</html>

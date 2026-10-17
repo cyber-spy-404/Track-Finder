@@ -1,0 +1,14 @@
+{
+  "appId": "com.cyberspy404.ahmmusic",
+  "appName": "Spy Sec Music",
+  "webDir": "www",
+  "server": {
+    "cleartext": true,
+    "androidScheme": "http"
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

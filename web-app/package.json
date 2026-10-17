@@ -1,0 +1,14 @@
+{
+  "name": "track-finder",
+  "version": "1.0.0",
+  "description": "Standalone Ultra-Low-Latency Web & Mobile Audio Server for Spy Sec Music",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.7",
+    "spotify-url-info": "^3.3.3"
+  }
+}
