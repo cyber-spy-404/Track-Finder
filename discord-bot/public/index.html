@@ -63,6 +63,48 @@
   <div class="spotify-app" id="spotifyAppRoot">
 
     <!-- ======================================================================
+         VIVO ORIGIN OS DYNAMIC LIVE MUSIC NOTIFICATION BAR & CAPSULE
+         ====================================================================== -->
+    <aside class="vivo-origin-capsule" id="vivoOriginNotificationBar" aria-label="Vivo OriginOS Live Music Notification Bar">
+      <div class="vivo-capsule-content" id="vivoCapsuleExpandClick" title="Tap to expand Now Playing">
+        <div class="vivo-capsule-vinyl" id="vivoCapsuleVinyl">
+          <div class="vivo-vinyl-grooves"></div>
+          <img id="vivoCapsuleImg" src="logo.png" alt="Cover" onerror="this.src='logo.png'">
+          <span class="vivo-spindle-dot"></span>
+        </div>
+        <div class="vivo-capsule-info">
+          <div class="vivo-capsule-header">
+            <span class="vivo-capsule-tag">OriginOS Live</span>
+            <div class="vivo-equalizer mini" id="vivoCapsuleEq">
+              <span class="vivo-bar b1"></span>
+              <span class="vivo-bar b2"></span>
+              <span class="vivo-bar b3"></span>
+            </div>
+          </div>
+          <span class="vivo-capsule-title" id="vivoCapsuleTitle">Web Browser Ready</span>
+          <span class="vivo-capsule-artist" id="vivoCapsuleArtist">Select a song</span>
+        </div>
+      </div>
+      <div class="vivo-capsule-controls">
+        <button type="button" class="vivo-capsule-btn" id="btnCapsulePrev" title="Previous Track (Alt+Left)">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M13 2.5a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-.8.4L4.5 8.4a.5.5 0 0 1 0-.8L12.7 2.6a.5.5 0 0 1 .3-.1zm-9 0a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5z"/></svg>
+        </button>
+        <button type="button" class="vivo-capsule-play" id="btnCapsulePlayPause" title="Play / Pause">
+          <svg id="capsulePlayPauseSvg" viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
+        </button>
+        <button type="button" class="vivo-capsule-btn" id="btnCapsuleNext" title="Next Track (Alt+Right)">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M3 2.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .8.4L11.5 8.4a.5.5 0 0 0 0-.8L3.3 2.6a.5.5 0 0 0-.3-.1zm9 0a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 1 0V3a.5.5 0 0 0-.5-.5z"/></svg>
+        </button>
+        <button type="button" class="vivo-capsule-close" id="btnCapsuleClose" title="Hide Notification Bar">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="vivo-capsule-progress">
+        <div class="vivo-capsule-fill" id="vivoCapsuleFill"></div>
+      </div>
+    </aside>
+
+    <!-- ======================================================================
          TOPBAR / NAVBAR
          ====================================================================== -->
     <header class="spotify-topbar">
@@ -195,6 +237,20 @@
           </button>
         </div>
 
+        <!-- Fast Queue Access in Top Header -->
+        <button id="btnTopQueue" class="btn-top-queue" type="button" title="View Current Queue">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          <span>Queue</span>
+          <span class="top-queue-badge" id="topQueueBadge" style="display:none;">0</span>
+        </button>
+
         <!-- Install / Download Mobile App (Android APK) -->
         <button id="btnInstallPwa" class="btn-install-app" type="button" title="Download & Install Spy Sec Music Android APK">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -224,6 +280,18 @@
             <path d="M10.533 1.279C5.352 1.279 1.126 5.419 1.126 10.558c0 5.139 4.226 9.279 9.407 9.279 2.234 0 4.29-.77 5.907-2.058l4.353 4.353a1 1 0 1 0 1.414-1.414l-4.344-4.344a9.38 9.38 0 0 0 2.077-5.816c0-5.139-4.226-9.279-9.407-9.279zm-7.407 9.279c0-4.006 3.302-7.279 7.407-7.279s7.407 3.273 7.407 7.279-3.302 7.279-7.407 7.279-7.407-3.273-7.407-7.279z"/>
           </svg>
           <span>Search</span>
+        </a>
+        <a class="nav-item" id="navLinkQueue" href="#queue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+          <span>Queue</span>
+          <span class="sidebar-queue-badge" id="sidebarQueueBadge" style="display:none;">0</span>
         </a>
         <a class="nav-item" id="navLinkQuran" href="#quran">
           <svg viewBox="0 0 24 24">
@@ -317,12 +385,26 @@
              VIEW 1: HOME DASHBOARD
              ================================================================== -->
         <div id="viewHome" class="stage-view active">
-          <!-- Greeting Row -->
+          <!-- Greeting Row with Direct Queue Action -->
           <div class="stage-greeting-row">
             <h1 class="stage-greeting-title" id="stageGreetingTitle">Good afternoon</h1>
-            <div class="active-route-pill" id="activeRoutePill">
-              <span class="pulse-dot"></span>
-              <span id="activeRoutePillText">Active: Web Browser</span>
+            <div class="stage-greeting-actions">
+              <button type="button" class="btn-home-queue" id="btnHomeQueue" title="View Current Play Queue">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+                <span>Queue</span>
+                <span class="home-queue-badge" id="homeQueueBadge" style="display:none;">0</span>
+              </button>
+              <div class="active-route-pill" id="activeRoutePill">
+                <span class="pulse-dot"></span>
+                <span id="activeRoutePillText">Active: Web Browser</span>
+              </div>
             </div>
           </div>
 
@@ -862,11 +944,21 @@
     <footer class="spotify-player-bar" id="spotifyPlayerBar">
       <!-- Left: Track Details -->
       <div class="player-left">
-        <div class="player-thumb-wrap" id="playerThumbClick">
-          <img id="playerTrackImg" src="logo.png" alt="Track Cover">
+        <div class="player-thumb-wrap vivo-vinyl-disc" id="playerThumbClick">
+          <div class="vivo-vinyl-grooves"></div>
+          <img id="playerTrackImg" src="logo.png" alt="Track Cover" onerror="this.src='logo.png'">
+          <div class="vivo-vinyl-spindle"></div>
         </div>
         <div class="player-track-info">
-          <span class="player-track-title" id="playerTrackTitle">Web Browser Ready</span>
+          <div class="vivo-meta-title-row">
+            <span class="player-track-title" id="playerTrackTitle">Web Browser Ready</span>
+            <div class="vivo-equalizer" id="vivoDesktopEq">
+              <span class="vivo-bar b1"></span>
+              <span class="vivo-bar b2"></span>
+              <span class="vivo-bar b3"></span>
+              <span class="vivo-bar b4"></span>
+            </div>
+          </div>
           <span class="player-track-artist" id="playerTrackArtist">Select a song or playlist</span>
         </div>
         <button class="heart-like" id="btnPlayerHeart" title="Save to Your Library">
@@ -949,23 +1041,52 @@
     <!-- ======================================================================
          MOBILE FLOATING PLAYER PILL & BOTTOM NAV
          ====================================================================== -->
-    <div class="mobile-player-pill" id="mobilePlayerPill">
+    <div class="mobile-player-pill vivo-origin-bar" id="mobilePlayerPill">
       <div class="mobile-player-left" id="mobilePlayerMetaClick" title="Tap to expand Now Playing">
-        <img id="mobilePlayerImg" src="logo.png" alt="Cover">
+        <div class="vivo-vinyl-disc" id="mobileVinylDisc">
+          <div class="vivo-vinyl-grooves"></div>
+          <img id="mobilePlayerImg" src="logo.png" alt="Cover" onerror="this.src='logo.png'">
+          <div class="vivo-vinyl-spindle"></div>
+        </div>
         <div class="mobile-player-meta">
-          <span class="mobile-player-title" id="mobilePlayerTitle">Web Browser Ready</span>
+          <div class="vivo-meta-title-row">
+            <span class="mobile-player-title" id="mobilePlayerTitle">Web Browser Ready</span>
+            <div class="vivo-equalizer" id="vivoMobileEq">
+              <span class="vivo-bar b1"></span>
+              <span class="vivo-bar b2"></span>
+              <span class="vivo-bar b3"></span>
+              <span class="vivo-bar b4"></span>
+            </div>
+          </div>
           <span class="mobile-player-artist" id="mobilePlayerArtist">Select a song</span>
         </div>
       </div>
       <div class="mobile-player-actions">
-        <button class="heart-like" id="btnMobileHeart">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <!-- Basic Buttons (Previous, Play/Pause, Next) -->
+        <button type="button" class="vivo-action-btn" id="btnMobilePrev" title="Previous Track">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M13 2.5a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-.8.4L4.5 8.4a.5.5 0 0 1 0-.8L12.7 2.6a.5.5 0 0 1 .3-.1zm-9 0a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5z"/></svg>
         </button>
-        <button class="play-pause-circle" id="btnMobilePlayPause" style="width: 32px; height: 32px;">
+        <button type="button" class="play-pause-circle vivo-play-btn" id="btnMobilePlayPause" style="width: 34px; height: 34px;" title="Play / Pause">
           <svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
         </button>
-        <button class="mobile-expand-hint-btn" id="btnMobileExpandHint" title="Expand Full-Screen Player">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <button type="button" class="vivo-action-btn" id="btnMobileNext" title="Next Track">
+          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M3 2.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .8.4L11.5 8.4a.5.5 0 0 0 0-.8L3.3 2.6a.5.5 0 0 0-.3-.1zm9 0a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 1 0V3a.5.5 0 0 0-.5-.5z"/></svg>
+        </button>
+        <button type="button" class="mobile-queue-btn" id="btnMobileQueue" title="View Current Queue">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"></line>
+            <line x1="8" y1="12" x2="21" y2="12"></line>
+            <line x1="8" y1="18" x2="21" y2="18"></line>
+            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+          </svg>
+        </button>
+        <button type="button" class="heart-like" id="btnMobileHeart" title="Favorite">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        </button>
+        <button type="button" class="mobile-expand-hint-btn" id="btnMobileExpandHint" title="Expand Full-Screen Player">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="18 15 12 9 6 15"></polyline>
           </svg>
         </button>
@@ -975,7 +1096,7 @@
       </div>
     </div>
 
-    <!-- Mobile Bottom Navigation Bar -->
+    <!-- Mobile Bottom Navigation Bar (5 tabs) -->
     <nav class="mobile-bottom-nav">
       <div class="mobile-nav-item active" id="mobileNavHome">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
@@ -985,9 +1106,13 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         <span>Search</span>
       </div>
+      <div class="mobile-nav-item" id="mobileNavQueue">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        <span>Queue</span>
+      </div>
       <div class="mobile-nav-item" id="mobileNavLibrary">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-        <span>Your Library</span>
+        <span>Library</span>
       </div>
       <div class="mobile-nav-item" id="mobileNavChannel">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
@@ -1167,6 +1292,6 @@
   <audio id="browserAudio" preload="auto" playsinline style="display: none;"></audio>
 
   <!-- Interactive JavaScript Engine with Cache-Buster -->
-  <script src="app.js?v=8.1"></script>
+  <script src="app.js?v=9.2"></script>
 </body>
 </html>

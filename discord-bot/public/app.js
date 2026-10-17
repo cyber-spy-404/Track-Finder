@@ -342,12 +342,10 @@ function isSpotifyUrl(url) {
 const isMobileAppEnvironment = Boolean(
   window.Capacitor?.isNativePlatform?.() ||
   window.location?.protocol === "file:" ||
-  (window.location?.origin && window.location.origin.includes("capacitor")) ||
-  (navigator.userAgent && navigator.userAgent.toLowerCase().includes("android")) ||
-  (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches)
+  (window.location?.origin && window.location.origin.includes("capacitor"))
 );
 
-let activeSystemChannel = isMobileAppEnvironment ? "app" : "browser"; // "browser" | "app" | "bot" | "all"
+let activeSystemChannel = "browser"; // Always default to "browser" for immediate local audio playback on all devices!
 
 // ==========================================================================
 // BULLETPROOF DIRECT NATIVE BROWSER AUDIO ENGINE
@@ -382,18 +380,27 @@ const BrowserPlayer = {
     this.audio.addEventListener("ended", () => this.onEnded());
     this.audio.addEventListener("error", (e) => this.onError(e));
 
-    // Media Session Support (Lockscreen & Hardware media keys)
+    // Media Session Support (System Notification Bar, Lockscreen & Hardware media keys)
     if ("mediaSession" in navigator) {
       try {
         navigator.mediaSession.setActionHandler("play", () => this.play());
         navigator.mediaSession.setActionHandler("pause", () => this.pause());
         navigator.mediaSession.setActionHandler("previoustrack", () => this.prev());
         navigator.mediaSession.setActionHandler("nexttrack", () => this.next());
+        navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+          const skip = details.seekOffset || 10;
+          this.seek(Math.max((this.audio?.currentTime || 0) - skip, 0));
+        });
+        navigator.mediaSession.setActionHandler("seekforward", (details) => {
+          const skip = details.seekOffset || 10;
+          this.seek((this.audio?.currentTime || 0) + skip);
+        });
         navigator.mediaSession.setActionHandler("seekto", (details) => {
-          if (details.seekTime !== undefined && this.audio?.duration) {
-            this.audio.currentTime = details.seekTime;
+          if (details.seekTime !== undefined) {
+            this.seek(details.seekTime);
           }
         });
+        navigator.mediaSession.setActionHandler("stop", () => this.stop());
       } catch (e) {}
     }
 
@@ -402,15 +409,21 @@ const BrowserPlayer = {
 
   prime() {
     this.init();
-    if (this.audio && this.audio.paused && !this.audio.src) {
-      const p = this.audio.play();
-      if (p !== undefined) p.catch(() => {});
+    if (this.audio) {
+      // Synchronously unlock audio element inside the caller's tap gesture
+      if (!this.audio.src || this.audio.src.startsWith("data:")) {
+        this.audio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+        const p = this.audio.play();
+        if (p !== undefined) p.catch(() => {});
+      }
     }
   },
 
   async playTrack(track) {
     if (!track) return;
     this.init();
+    this.prime(); // Unlock audio immediately within caller's synchronous tap/click gesture!
+    window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
 
     // Dynamically resolve audio stream if track was enqueued without direct URL
     if (!track.streamUrl && !track.proxyStreamUrl) {
@@ -419,6 +432,7 @@ const BrowserPlayer = {
         const query = track.url || `${track.title} ${track.author || track.artist || ""}`.trim();
         const res = await fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=browser&set=true`);
         const data = await res.json();
+        if (data.dropped) return;
         if (data.success && data.track) {
           track = {
             ...track,
@@ -437,14 +451,16 @@ const BrowserPlayer = {
     this.currentTrack = track;
 
     // Ultra-Low Latency Audio Path:
-    // Prefer direct CDN stream (Google Video edge) for instant 0ms startup, falling back to tuned proxy if direct fails
+    // Prefer proxyStreamUrl (Render server stream) to avoid Google Video IP-mismatch 403 & throttling
     let src = null;
-    if (track.streamUrl && (track.streamUrl.startsWith("http://") || track.streamUrl.startsWith("https://"))) {
+    if (track.streamUrl && track.streamUrl.includes("saavncdn.com")) {
+      src = track.streamUrl;
+    } else if (track.proxyStreamUrl) {
+      src = resolveApiUrl(track.proxyStreamUrl);
+    } else if (track.streamUrl && (track.streamUrl.startsWith("http://") || track.streamUrl.startsWith("https://"))) {
       src = track.streamUrl;
     } else if (track.rawStreamUrl && (track.rawStreamUrl.startsWith("http://") || track.rawStreamUrl.startsWith("https://"))) {
       src = track.rawStreamUrl;
-    } else if (track.proxyStreamUrl) {
-      src = resolveApiUrl(track.proxyStreamUrl);
     }
 
     if (!src) {
@@ -468,11 +484,21 @@ const BrowserPlayer = {
       }).catch(err => {
         console.warn("Direct browser audio play note:", err.message);
         showToast(`Tap anywhere to start audio: ${track.title}`);
+        const resumeOnTap = () => {
+          this.audio.play().then(() => {
+            showToast(`▶ Playing: ${track.title}`);
+          }).catch(() => {});
+          window.removeEventListener("pointerdown", resumeOnTap);
+          window.removeEventListener("click", resumeOnTap);
+        };
+        window.addEventListener("pointerdown", resumeOnTap, { once: true });
+        window.addEventListener("click", resumeOnTap, { once: true });
       });
     }
 
     sendAction("set_track", null, { targetChannel: "browser", track }).catch(() => {});
     updateUIWithTrack(track, true);
+    if (typeof updateAllQueueBadges === "function") updateAllQueueBadges();
     if (typeof updateHeartButtonStatus === "function") updateHeartButtonStatus();
     if (typeof savePlaybackState === "function") savePlaybackState();
     if (typeof recordTrackTaste === "function") recordTrackTaste(track, "play");
@@ -536,6 +562,7 @@ const BrowserPlayer = {
       const shouldSet = immediate ? "true" : "false";
       const res = await fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(filterMode)}&channel=browser&set=${shouldSet}`);
       const data = await res.json();
+      if (data.dropped) return;
       if (data.success && data.track) {
         const isCurrentlySilent = !this.isPlaying() && (!this.audio?.src || this.audio.ended || !this.currentTrack);
         if (immediate || isCurrentlySilent) {
@@ -747,6 +774,17 @@ const BrowserPlayer = {
     const pct = dur > 0 ? (cur / dur) * 100 : 0;
     updateProgressUI(cur, dur, pct);
 
+    // Sync notification bar seek scrubber and current progress
+    if ("mediaSession" in navigator && "setPositionState" in navigator.mediaSession && dur > 0 && Number.isFinite(dur)) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: dur,
+          playbackRate: this.audio?.playbackRate || 1.0,
+          position: Math.min(Math.max(cur, 0), dur)
+        });
+      } catch (e) {}
+    }
+
     const now = Date.now();
     if (now - this.lastReportTime > 4000) {
       this.lastReportTime = now;
@@ -762,11 +800,17 @@ const BrowserPlayer = {
   },
 
   onPlay() {
+    if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
+      try { navigator.mediaSession.playbackState = "playing"; } catch (e) {}
+    }
     updatePlayPauseIcons(true);
     this.reportState();
   },
 
   onPause() {
+    if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
+      try { navigator.mediaSession.playbackState = "paused"; } catch (e) {}
+    }
     updatePlayPauseIcons(false);
     this.reportState();
     if (typeof savePlaybackState === "function") savePlaybackState();
@@ -792,24 +836,66 @@ const BrowserPlayer = {
 
   onError(e) {
     console.error("Browser audio error:", e);
-    if (this.currentTrack && this.audio?.src && !this.audio.src.includes("/api/stream-audio")) {
-      console.log("Switching to bulletproof stream proxy...");
-      this.audio.src = resolveApiUrl(`/api/stream-audio?channel=browser&t=${Date.now()}`);
+    if (!this.currentTrack) return;
+
+    // Retry Strategy 1: Switch to Render server stream proxy with explicit direct URL
+    if (this.audio?.src && !this.audio.src.includes("/api/stream-audio") && this.currentTrack.streamUrl) {
+      console.log("Direct stream failed, falling back to server audio proxy...");
+      this.audio.src = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(this.currentTrack.streamUrl)}&t=${Date.now()}`);
       this.audio.play().catch(() => {});
+      return;
+    }
+
+    // Retry Strategy 2: If proxy also failed or was blocked, re-resolve via JioSaavn CDN
+    if (!this.currentTrack._fallbackAttempted) {
+      this.currentTrack._fallbackAttempted = true;
+      const query = `${this.currentTrack.title} ${this.currentTrack.author || ""}`.trim();
+      console.log(`Re-resolving fallback audio for: ${query}`);
+      fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=filterless&channel=browser&forceSaavn=true`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.success && d.track?.streamUrl) {
+            this.currentTrack.streamUrl = d.track.streamUrl;
+            this.currentTrack.proxyStreamUrl = d.track.proxyStreamUrl;
+            const fallbackSrc = d.track.streamUrl.includes("saavncdn.com") ? d.track.streamUrl : resolveApiUrl(d.track.proxyStreamUrl);
+            this.audio.src = fallbackSrc;
+            this.audio.play().catch(() => {});
+          } else if (this.queue.length > 0) {
+            this.next();
+          }
+        })
+        .catch(() => {
+          if (this.queue.length > 0) this.next();
+        });
+    } else if (this.queue.length > 0) {
+      this.next();
     }
   },
 
   updateMediaSession(track) {
     if (!("mediaSession" in navigator) || !track) return;
     try {
+      const art = track.artworkUrl || track.info?.artworkUrl || "logo.png";
+      const title = track.title || track.info?.title || "Spy Sec Music";
+      const artist = track.author || track.info?.author || "Artist";
+
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.title || "Spotify Audio",
-        artist: track.author || "Artist",
-        album: "Spotify • Spy Sec Web Client",
+        title: title,
+        artist: artist,
+        album: "Spy Sec Music • Vivo OriginOS",
         artwork: [
-          { src: track.artworkUrl || "logo.png", sizes: "512x512", type: "image/png" }
+          { src: art, sizes: "96x96", type: "image/png" },
+          { src: art, sizes: "128x128", type: "image/png" },
+          { src: art, sizes: "192x192", type: "image/png" },
+          { src: art, sizes: "256x256", type: "image/png" },
+          { src: art, sizes: "384x384", type: "image/png" },
+          { src: art, sizes: "512x512", type: "image/png" }
         ]
       });
+
+      if ("playbackState" in navigator.mediaSession) {
+        navigator.mediaSession.playbackState = this.isPlaying() ? "playing" : "paused";
+      }
     } catch (e) {}
   },
 
@@ -935,6 +1021,8 @@ function switchView(viewName, addToHistory = true, isForward = false) {
   } else if (viewName === "queue") {
     const el = document.getElementById("viewQueue");
     if (el) el.style.display = "block";
+    document.getElementById("navLinkQueue")?.classList.add("active");
+    document.getElementById("mobileNavQueue")?.classList.add("active");
     renderQueueView();
   } else if (viewName === "liked") {
     const el = document.getElementById("viewLiked");
@@ -1866,8 +1954,33 @@ function renderSidebarLibrary(filter = "all") {
   }
 }
 
+// Universal Queue Badges Synchronizer
+function updateAllQueueBadges() {
+  const isBrowser = activeSystemChannel === "browser";
+  const queue = isBrowser ? BrowserPlayer.queue : (currentState?.channels?.bot?.queue || currentState?.queue || []);
+  const count = Array.isArray(queue) ? queue.length : 0;
+
+  const bHome = document.getElementById("homeQueueBadge");
+  if (bHome) {
+    bHome.textContent = count;
+    bHome.style.display = count > 0 ? "inline-flex" : "none";
+  }
+  const bTop = document.getElementById("topQueueBadge");
+  if (bTop) {
+    bTop.textContent = count;
+    bTop.style.display = count > 0 ? "inline-flex" : "none";
+  }
+  const bSide = document.getElementById("sidebarQueueBadge");
+  if (bSide) {
+    bSide.textContent = count;
+    bSide.style.display = count > 0 ? "inline-flex" : "none";
+  }
+}
+window.updateAllQueueBadges = updateAllQueueBadges;
+
 // Render Queue & History View
 function renderQueueView() {
+  updateAllQueueBadges();
   const tbody = document.getElementById("queueTableBody");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -2087,7 +2200,9 @@ function dispatchPlayTrack(queryOrTrack, filterMode = currentFilterMode, immedia
   const rawStr = isObj ? `${queryOrTrack.title || ""} ${queryOrTrack.author || queryOrTrack.artist || ""}`.trim() : String(queryOrTrack || "").trim();
   const cleanedStr = rawStr.replace(/^(!|\/)?(playnow|play-now|play\s+now|pn|play|now)\s+/i, "").trim();
 
-  if (activeSystemChannel === "browser") {
+  const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
+
+  if (isLocalPlayer) {
     if (isObj) {
       if (immediate) {
         BrowserPlayer.playNow(queryOrTrack, filterMode);
@@ -2097,15 +2212,11 @@ function dispatchPlayTrack(queryOrTrack, filterMode = currentFilterMode, immedia
     } else {
       BrowserPlayer.playQuery(cleanedStr, filterMode, immediate);
     }
-  } else if (activeSystemChannel === "all") {
-    if (isObj) {
-      if (immediate) BrowserPlayer.playNow(queryOrTrack, filterMode);
-      else BrowserPlayer.enqueue(queryOrTrack, filterMode);
-    } else {
-      BrowserPlayer.playQuery(cleanedStr, filterMode, immediate);
-    }
+  }
+
+  if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
     sendAction(immediate ? "play_now" : "play_query", cleanedStr, { targetChannel: "bot", filterMode, immediate });
-  } else {
+  } else if (!isLocalPlayer) {
     sendAction(immediate ? "play_now" : "play_query", cleanedStr, { targetChannel: activeSystemChannel, filterMode, immediate });
   }
 }
@@ -2130,28 +2241,30 @@ window.dispatchPlayNow = dispatchPlayNow;
 window.dispatchEnqueue = dispatchEnqueue;
 
 function dispatchPlaySurah(surahNum, immediate = true) {
-  if (activeSystemChannel === "browser") {
+  const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
+  if (isLocalPlayer) {
     BrowserPlayer.playSurah(surahNum, immediate);
-  } else if (activeSystemChannel === "all") {
-    BrowserPlayer.playSurah(surahNum, immediate);
+  }
+  if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
     sendAction(immediate ? "play_now" : "play_surah", surahNum, { targetChannel: "bot", immediate });
-  } else {
+  } else if (!isLocalPlayer) {
     sendAction(immediate ? "play_now" : "play_surah", surahNum, { targetChannel: activeSystemChannel, immediate });
   }
 }
 
 function dispatchPlayPlaylist(playlist, immediate = true) {
-  if (activeSystemChannel === "browser") {
+  const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
+  if (isLocalPlayer) {
     BrowserPlayer.playPlaylist(playlist);
-  } else if (activeSystemChannel === "all") {
-    BrowserPlayer.playPlaylist(playlist);
+  }
+  if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
     sendAction("play_playlist", null, {
       targetChannel: "bot",
       name: playlist.name,
       immediate,
       tracks: (playlist.tracks || []).map(t => `${t.title} ${t.artist}`)
     });
-  } else {
+  } else if (!isLocalPlayer) {
     sendAction("play_playlist", null, {
       targetChannel: activeSystemChannel,
       name: playlist.name,
@@ -2282,6 +2395,7 @@ async function handleSearch(query) {
       signal: searchAbortController.signal
     });
     const data = await res.json();
+    if (data.dropped) return;
 
     // 1. Render Playlists (~5 Playlists)
     if (data.success && Array.isArray(data.playlists) && data.playlists.length > 0 && searchPlaylistsGrid) {
@@ -2438,30 +2552,117 @@ async function initUserAuth() {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  const token = localStorage.getItem("ahm_session_token");
+  let token = localStorage.getItem("ahm_session_token");
+
+  // Restore immediate UI from cache so no blank state flickers
+  try {
+    const cachedUser = localStorage.getItem("ahm_cached_user");
+    if (cachedUser) {
+      currentUser = JSON.parse(cachedUser);
+      updateUserProfileUI();
+    }
+  } catch(e) {}
+
   if (!token) {
+    // If no token in key but vault exists, recover sessionToken from vault
+    try {
+      const vRaw = localStorage.getItem("ahm_user_vault");
+      if (vRaw) {
+        const v = JSON.parse(vRaw);
+        if (v && v.sessionToken) {
+          token = v.sessionToken;
+          localStorage.setItem("ahm_session_token", token);
+        }
+      }
+    } catch(e) {}
+  }
+
+  if (!token) {
+    const vaultRaw = localStorage.getItem("ahm_user_vault");
+    if (vaultRaw) {
+      try {
+        const vault = JSON.parse(vaultRaw);
+        if (vault?.sessionToken) {
+          token = vault.sessionToken;
+          localStorage.setItem("ahm_session_token", token);
+        } else if (vault?.user?.id) {
+          // Rehydrate directly if token missing but vault present
+          const rRes = await fetch("/api/user/rehydrate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ vault })
+          });
+          const rData = await rRes.json();
+          if (rData.success && rData.user) {
+            currentUser = rData.user;
+            if (rData.token) {
+              token = rData.token;
+              localStorage.setItem("ahm_session_token", token);
+            }
+            localStorage.setItem("ahm_cached_user", JSON.stringify(rData.user));
+            saveUserVault();
+            showToast(`Session restored: Welcome back, ${currentUser.displayName || currentUser.username}!`);
+          }
+        }
+      } catch (e) {
+        console.warn("Vault recovery error:", e);
+      }
+    }
+  }
+
+  if (!token && !currentUser) {
     currentUser = null;
     localStorage.removeItem("ahm_cached_user");
     updateUserProfileUI();
     return;
   }
 
-  try {
-    const headers = { "Authorization": `Bearer ${token}` };
-    const res = await fetch("/api/user/me", { headers });
-    const data = await res.json();
-    if (data.authenticated && data.user) {
-      currentUser = data.user;
-      localStorage.setItem("ahm_cached_user", JSON.stringify(data.user));
-    } else {
-      // Session has explicitly been invalidated or expired on server
-      currentUser = null;
-      localStorage.removeItem("ahm_session_token");
-      localStorage.removeItem("ahm_cached_user");
+  if (!currentUser) {
+    try {
+      const headers = { "Authorization": `Bearer ${token}` };
+      const res = await fetch("/api/user/me", { headers });
+      const data = await res.json();
+      if (data.authenticated && data.user) {
+        currentUser = data.user;
+        localStorage.setItem("ahm_cached_user", JSON.stringify(data.user));
+        saveUserVault();
+      } else {
+        // Server was redeployed or memory restarted: auto-rehydrate from local vault!
+        const vaultRaw = localStorage.getItem("ahm_user_vault");
+        if (vaultRaw) {
+          try {
+            const vault = JSON.parse(vaultRaw);
+            if (vault && vault.user && vault.user.id) {
+              console.log("Auto-rehydrating user session after server push/restart...");
+              const rRes = await fetch("/api/user/rehydrate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ vault })
+              });
+              const rData = await rRes.json();
+              if (rData.success && rData.user) {
+                currentUser = rData.user;
+                if (rData.token) localStorage.setItem("ahm_session_token", rData.token);
+                localStorage.setItem("ahm_cached_user", JSON.stringify(rData.user));
+                saveUserVault();
+                showToast(`Session restored: Welcome back, ${currentUser.displayName || currentUser.username}!`);
+              }
+            }
+          } catch(rErr) {
+            console.warn("Auto-rehydrate error:", rErr);
+          }
+        }
+
+        if (!currentUser) {
+          currentUser = null;
+          localStorage.removeItem("ahm_session_token");
+          localStorage.removeItem("ahm_cached_user");
+        }
+      }
+    } catch (e) {
+      // Transient network or server reboot error: KEEP cached session so user is never abruptly logged out!
+      console.warn("Could not reach auth server, keeping cached user session:", e.message);
     }
-  } catch (e) {
-    // Transient network or server reboot error: KEEP cached session so user is never abruptly logged out!
-    console.warn("Could not reach auth server, keeping cached user session:", e.message);
   }
 
   updateUserProfileUI();
@@ -2471,6 +2672,23 @@ async function initUserAuth() {
     await loadDailyRecommendations(false);
   }
 }
+
+// Resilient User Vault Persistence
+function saveUserVault() {
+  if (!currentUser) return;
+  try {
+    const vault = {
+      user: currentUser,
+      sessionToken: localStorage.getItem("ahm_session_token"),
+      favorites: userFavorites || [],
+      customPlaylists: customPlaylists || [],
+      tasteProfile: userTasteProfile || currentUser.tasteProfile || null,
+      updatedAt: Date.now()
+    };
+    localStorage.setItem("ahm_user_vault", JSON.stringify(vault));
+  } catch (e) {}
+}
+window.saveUserVault = saveUserVault;
 
 function updateUserProfileUI() {
   const avatarMini = document.getElementById("userAvatarMini");
@@ -2532,6 +2750,7 @@ async function handleLogout() {
   } catch(e) {}
   localStorage.removeItem("ahm_session_token");
   localStorage.removeItem("ahm_cached_user");
+  localStorage.removeItem("ahm_user_vault");
   currentUser = null;
   userFavorites = [];
   favoriteTrackIds = new Set();
@@ -2544,15 +2763,31 @@ async function handleLogout() {
 window.handleLogout = handleLogout;
 
 async function loadUserFavorites() {
+  // 1. Instant local restoration from vault
+  try {
+    const vRaw = localStorage.getItem("ahm_user_vault");
+    if (vRaw) {
+      const v = JSON.parse(vRaw);
+      if (Array.isArray(v.favorites) && v.favorites.length > 0 && userFavorites.length === 0) {
+        userFavorites = v.favorites;
+        favoriteTrackIds = new Set(userFavorites.map(f => (f.title || "").trim().toLowerCase()));
+        updateFavoritesCounters();
+      }
+    }
+  } catch(e) {}
+
   try {
     const token = localStorage.getItem("ahm_session_token");
     const headers = token ? { "Authorization": `Bearer ${token}` } : {};
     const res = await fetch("/api/user/favorites", { headers });
     const data = await res.json();
     if (data.success && Array.isArray(data.favorites)) {
-      userFavorites = data.favorites;
-      favoriteTrackIds = new Set(data.favorites.map(f => (f.title || "").trim().toLowerCase()));
-      updateFavoritesCounters();
+      if (data.favorites.length >= userFavorites.length) {
+        userFavorites = data.favorites;
+        favoriteTrackIds = new Set(data.favorites.map(f => (f.title || "").trim().toLowerCase()));
+        updateFavoritesCounters();
+        saveUserVault();
+      }
     }
   } catch(e) {}
 }
@@ -2589,6 +2824,7 @@ async function toggleTrackFavorite(track) {
       favoriteTrackIds = new Set(userFavorites.map(f => (f.title || "").trim().toLowerCase()));
       updateFavoritesCounters();
       renderLikedSongsView();
+      saveUserVault();
       if (data.isFavorite) {
         recordTrackTaste(track, "like");
       }
@@ -3213,6 +3449,7 @@ function openProfileModal() {
           await loadUserFavorites();
           await loadUserQueue();
           await loadDailyRecommendations(true);
+          saveUserVault();
           closeProfileModal();
           showToast(`Welcome back, ${data.user.displayName || data.user.email}! Your daily taste mixes are loaded.`);
         } catch (postErr) {
@@ -3297,6 +3534,7 @@ function openProfileModal() {
           await loadUserFavorites();
           await loadUserQueue();
           await loadDailyRecommendations(true);
+          saveUserVault();
           closeProfileModal();
           showToast(`Account created! Welcome, ${data.user.displayName || data.user.email}! Today's taste mix is ready.`);
         } catch (postErr) {
@@ -3383,6 +3621,7 @@ function openProfileModal() {
           await loadUserFavorites();
           await loadUserQueue();
           await loadDailyRecommendations(true);
+          saveUserVault();
           closeProfileModal();
           showToast(`Welcome, ${data.user.displayName}! Verified server member.`);
         } else {
@@ -3414,22 +3653,28 @@ function openProfileModal() {
   const serverBox = document.createElement("div");
   serverBox.style.cssText = "margin-top: 18px; border-top: 1px solid var(--border-subtle); padding-top: 14px;";
   serverBox.innerHTML = `
-    <div style="background: var(--bg-card-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-        <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-header); display: flex; align-items: center; gap: 8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-          <span>Mobile App Server Link</span>
+    <div style="background: var(--bg-card-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-size: 0.84rem; font-weight: 700; color: var(--text-header); display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+          <span>Server Connection (Built-in Cloud)</span>
         </span>
-        <span id="mobileServerStatusBadge" style="font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: var(--emerald-soft); color: var(--emerald);">
-          ● Ready
+        <span id="mobileServerStatusBadge" style="font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 12px; background: var(--emerald-soft); color: var(--emerald);">
+          ● Connected
         </span>
       </div>
-      <p style="font-size: 0.74rem; color: var(--text-secondary); margin: 0 0 8px 0;">
-        For Android APK or remote mobile, connect to your server (e.g. <code>http://192.168.1.15:3050</code> or your public URL).
+      <p style="font-size: 0.76rem; color: var(--text-secondary); margin: 0 0 10px 0; line-height: 1.45;">
+        Built-in Server: <strong style="color: var(--emerald); font-family: monospace;">https://track-finder.onrender.com</strong>
+        <br><span style="color: var(--text-subdued); font-size: 0.72rem;">Live streaming audio, queue sync, search, and playlists are pre-wired. No setup required.</span>
       </p>
-      <div style="display: flex; gap: 8px;">
-        <input type="text" id="inputMobileServerUrl" placeholder="http://localhost:3050" value="${escapeHtml(localStorage.getItem('ahm_server_url') || '')}" style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-medium); color: var(--text-primary); padding: 7px 10px; border-radius: 6px; font-size: 0.78rem;">
+      <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+        <input type="text" id="inputMobileServerUrl" placeholder="https://track-finder.onrender.com" value="${escapeHtml(localStorage.getItem('ahm_server_url') || '')}" style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-medium); color: var(--text-primary); padding: 7px 10px; border-radius: 6px; font-size: 0.78rem;">
         <button id="btnSaveMobileServerUrl" type="button" style="background: var(--text-primary); color: var(--bg-canvas); border: none; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap;">Save & Test</button>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button id="btnUseBuiltInServer" type="button" style="background: var(--bg-surface); border: 1px solid var(--border-medium); color: var(--text-primary); padding: 5px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <span>⚡ Reset to Built-in Server</span>
+        </button>
       </div>
     </div>
 
@@ -3442,11 +3687,49 @@ function openProfileModal() {
   `;
   body.appendChild(serverBox);
 
+  async function testServerConnection() {
+    const badge = document.getElementById("mobileServerStatusBadge");
+    if (badge) {
+      badge.textContent = "Testing...";
+      badge.style.color = "var(--text-secondary)";
+      badge.style.background = "var(--bg-surface)";
+    }
+    try {
+      const res = await fetch("/api/state");
+      if (res.ok) {
+        if (badge) {
+          badge.textContent = "● Connected";
+          badge.style.color = "var(--emerald)";
+          badge.style.background = "var(--emerald-soft)";
+        }
+      } else {
+        if (badge) {
+          badge.textContent = "▲ Error";
+          badge.style.color = "var(--text-secondary)";
+        }
+      }
+    } catch (err) {
+      if (badge) {
+        badge.textContent = "✕ Offline";
+        badge.style.color = "var(--danger)";
+        badge.style.background = "rgba(239, 68, 68, 0.15)";
+      }
+    }
+  }
+
+  document.getElementById("btnUseBuiltInServer")?.addEventListener("click", () => {
+    localStorage.removeItem("ahm_server_url");
+    const input = document.getElementById("inputMobileServerUrl");
+    if (input) input.value = "";
+    showToast("Connected to built-in server: https://track-finder.onrender.com");
+    testServerConnection();
+  });
+
   document.getElementById("btnSaveMobileServerUrl")?.addEventListener("click", async () => {
     const val = (document.getElementById("inputMobileServerUrl")?.value || "").trim();
     if (val) {
       if (!val.startsWith("http://") && !val.startsWith("https://")) {
-        showToast("Invalid URL! Must start with http:// or https:// (e.g. http://192.168.1.15:3050). Do not paste terminal commands here.");
+        showToast("Invalid URL! Must start with http:// or https:// (e.g. https://track-finder.onrender.com). Do not paste terminal commands here.");
         const badge = document.getElementById("mobileServerStatusBadge");
         if (badge) {
           badge.textContent = "✕ Invalid URL";
@@ -3458,32 +3741,9 @@ function openProfileModal() {
       showToast(`Server address saved: ${val}`);
     } else {
       localStorage.removeItem("ahm_server_url");
-      showToast("Reverted to default server URL");
+      showToast("Reverted to built-in server: https://track-finder.onrender.com");
     }
-    try {
-      const badge = document.getElementById("mobileServerStatusBadge");
-      if (badge) badge.textContent = "Testing...";
-      const res = await fetch("/api/state");
-      if (res.ok) {
-        if (badge) {
-          badge.textContent = "● Connected";
-          badge.style.color = "var(--emerald)";
-        }
-        showToast("Connected to bot server!");
-      } else {
-        if (badge) {
-          badge.textContent = "▲ Error";
-          badge.style.color = "var(--text-secondary)";
-        }
-      }
-    } catch (err) {
-      const badge = document.getElementById("mobileServerStatusBadge");
-      if (badge) {
-        badge.textContent = "✕ Offline";
-        badge.style.color = "var(--danger)";
-      }
-      showToast("Could not reach server at this address");
-    }
+    await testServerConnection();
   });
 
   modal.style.display = "flex";
@@ -3617,6 +3877,12 @@ function updateUIWithTrack(track, isPlaying = false) {
   const mobileTitle = document.getElementById("mobilePlayerTitle");
   const mobileArtist = document.getElementById("mobilePlayerArtist");
 
+  // Vivo OriginOS Live Notification Capsule
+  const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
+  const capsuleImg = document.getElementById("vivoCapsuleImg");
+  const capsuleTitle = document.getElementById("vivoCapsuleTitle");
+  const capsuleArtist = document.getElementById("vivoCapsuleArtist");
+
   const expImg = document.getElementById("expandedTrackImg");
   const expTitle = document.getElementById("expandedTrackTitle");
   const expArtist = document.getElementById("expandedTrackArtist");
@@ -3639,10 +3905,18 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (mobileTitle) mobileTitle.textContent = title;
     if (mobileArtist) mobileArtist.textContent = author;
 
+    if (capsuleImg) capsuleImg.src = art;
+    if (capsuleTitle) capsuleTitle.textContent = title;
+    if (capsuleArtist) capsuleArtist.textContent = author;
+
     if (expImg) expImg.src = art;
     if (expTitle) expTitle.textContent = title;
     if (expArtist) expArtist.textContent = author;
     if (expBackdrop) expBackdrop.style.backgroundImage = `url("${art}")`;
+
+    if (vivoCapsule && !window._vivoCapsuleDismissed) {
+      vivoCapsule.classList.add("visible");
+    }
   } else {
     if (playerTitle) playerTitle.textContent = "Web Browser Ready";
     if (playerArtist) playerArtist.textContent = "Select a song or playlist";
@@ -3656,10 +3930,18 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (mobileArtist) mobileArtist.textContent = "Select a song";
     if (mobileImg) mobileImg.src = "logo.png";
 
+    if (capsuleTitle) capsuleTitle.textContent = "Web Browser Ready";
+    if (capsuleArtist) capsuleArtist.textContent = "Select a song";
+    if (capsuleImg) capsuleImg.src = "logo.png";
+
     if (expTitle) expTitle.textContent = "Web Browser Ready";
     if (expArtist) expArtist.textContent = "Select a song or playlist";
     if (expImg) expImg.src = "logo.png";
     if (expBackdrop) expBackdrop.style.backgroundImage = `url("logo.png")`;
+
+    if (vivoCapsule) {
+      vivoCapsule.classList.remove("visible");
+    }
   }
 
   updatePlayPauseIcons(isPlaying);
@@ -3668,22 +3950,50 @@ function updateUIWithTrack(track, isPlaying = false) {
 function updatePlayPauseIcons(isPlaying) {
   const svg = document.getElementById("mainPlayPauseSvg");
   const mobileBtn = document.getElementById("btnMobilePlayPause");
+  const capsuleSvg = document.getElementById("capsulePlayPauseSvg");
   const expSvg = document.getElementById("expandedPlayPauseSvg");
   const expOverlay = document.getElementById("expandedNowPlayingOverlay");
   const visualizer = document.getElementById("rightVisualizerBars");
 
+  // Vivo OriginOS Vinyl Turntable Discs & Soundwave Equalizers
+  const vinylDiscs = document.querySelectorAll(".vivo-vinyl-disc, .vivo-capsule-vinyl");
+  const equalizers = document.querySelectorAll(".vivo-equalizer");
+  const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
+
   if (isPlaying) {
     if (svg) svg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (mobileBtn) mobileBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/></svg>';
+    if (capsuleSvg) capsuleSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (expSvg) expSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (expOverlay) expOverlay.classList.add("playing");
     if (visualizer) visualizer.classList.add("playing");
+
+    // Spin vinyl discs smoothly
+    vinylDiscs.forEach(d => {
+      d.classList.remove("vivo-vinyl-paused");
+      d.classList.add("vivo-vinyl-spinning");
+    });
+    // Animate soundwave equalizer bars
+    equalizers.forEach(eq => eq.classList.add("playing"));
+
+    if (vivoCapsule && !window._vivoCapsuleDismissed && (BrowserPlayer.currentTrack || Boolean(currentState?.channels?.bot?.current) || Boolean(currentState?.current))) {
+      vivoCapsule.classList.add("visible");
+    }
   } else {
     if (svg) svg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (mobileBtn) mobileBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>';
+    if (capsuleSvg) capsuleSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (expSvg) expSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (expOverlay) expOverlay.classList.remove("playing");
     if (visualizer) visualizer.classList.remove("playing");
+
+    // Pause vinyl disc rotation in place
+    vinylDiscs.forEach(d => {
+      d.classList.remove("vivo-vinyl-spinning");
+      d.classList.add("vivo-vinyl-paused");
+    });
+    // Pause equalizer animation
+    equalizers.forEach(eq => eq.classList.remove("playing"));
   }
 }
 
@@ -3692,6 +4002,7 @@ function updateProgressUI(curSec, durSec, pct) {
   const totLabel = document.getElementById("totalDurationLabel");
   const fill = document.getElementById("playbackProgressFill");
   const microFill = document.getElementById("mobileMicroFill");
+  const capsuleFill = document.getElementById("vivoCapsuleFill");
 
   const expCurLabel = document.getElementById("expandedCurrentTime");
   const expTotLabel = document.getElementById("expandedTotalDuration");
@@ -3701,6 +4012,7 @@ function updateProgressUI(curSec, durSec, pct) {
   if (totLabel && durSec > 0) totLabel.textContent = formatTime(durSec * 1000);
   if (fill) fill.style.width = `${pct}%`;
   if (microFill) microFill.style.width = `${pct}%`;
+  if (capsuleFill) capsuleFill.style.width = `${pct}%`;
 
   if (expCurLabel) expCurLabel.textContent = formatTime(curSec * 1000);
   if (expTotLabel && durSec > 0) expTotLabel.textContent = formatTime(durSec * 1000);
@@ -4470,41 +4782,60 @@ function initEventListeners() {
     }
   });
 
-  // Main Play / Pause Controls
+  // Main Play / Pause Controls (Unified across Desktop, Mobile Pill & Vivo OriginOS Capsule)
   const handlePlayPause = () => {
-    if (activeSystemChannel === "browser") {
+    const isLocal = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
+    if (isLocal) {
       BrowserPlayer.playPause();
-    } else if (activeSystemChannel === "all") {
-      BrowserPlayer.playPause();
-      sendAction("play_pause", null, { targetChannel: "bot" });
-    } else {
-      sendAction("play_pause");
     }
+    if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
+      sendAction("play_pause", null, { targetChannel: "bot" });
+    }
+  };
+
+  const handleNextTrack = () => {
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.next();
+    if (activeSystemChannel === "bot") sendAction("next");
+  };
+
+  const handlePrevTrack = () => {
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.prev();
+    if (activeSystemChannel === "bot") sendAction("prev");
   };
 
   document.getElementById("btnMainPlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnMobilePlayPause")?.addEventListener("click", handlePlayPause);
+  document.getElementById("btnCapsulePlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnPlaylistHeroPlay")?.addEventListener("click", () => {
     if (currentActivePlaylist) dispatchPlayPlaylist(currentActivePlaylist);
   });
 
-  // Next & Previous
-  document.getElementById("btnNextTrack")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") BrowserPlayer.next();
-    else sendAction("next");
+  // Next & Previous (Desktop, Mobile Pill, Vivo OriginOS Capsule)
+  document.getElementById("btnNextTrack")?.addEventListener("click", handleNextTrack);
+  document.getElementById("btnMobileNext")?.addEventListener("click", handleNextTrack);
+  document.getElementById("btnCapsuleNext")?.addEventListener("click", handleNextTrack);
+
+  document.getElementById("btnPrevTrack")?.addEventListener("click", handlePrevTrack);
+  document.getElementById("btnMobilePrev")?.addEventListener("click", handlePrevTrack);
+  document.getElementById("btnCapsulePrev")?.addEventListener("click", handlePrevTrack);
+
+  // Vivo OriginOS Live Notification Capsule Actions
+  document.getElementById("btnCapsuleClose")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    window._vivoCapsuleDismissed = true;
+    document.getElementById("vivoOriginNotificationBar")?.classList.remove("visible");
   });
-  document.getElementById("btnPrevTrack")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") BrowserPlayer.prev();
-    else sendAction("prev");
+  document.getElementById("vivoCapsuleExpandClick")?.addEventListener("click", () => {
+    openExpandedPlayer();
   });
 
   // Shuffle & Repeat
   document.getElementById("btnShuffle")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") BrowserPlayer.toggleShuffle();
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.toggleShuffle();
     else showToast("Shuffle applied");
   });
   document.getElementById("btnRepeat")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") {
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") {
       BrowserPlayer.toggleRepeat();
     } else {
       sendAction("loop");
@@ -4612,7 +4943,7 @@ function initEventListeners() {
     openExpandedPlayer();
   });
   document.getElementById("mobilePlayerPill")?.addEventListener("click", (e) => {
-    if (e.target.closest("#btnMobilePlayPause") || e.target.closest("#btnMobileHeart")) return;
+    if (e.target.closest("#btnMobilePlayPause") || e.target.closest("#btnMobilePrev") || e.target.closest("#btnMobileNext") || e.target.closest("#btnMobileQueue") || e.target.closest("#btnMobileHeart") || e.target.closest("#btnMobileExpandHint")) return;
     openExpandedPlayer();
   });
   document.getElementById("btnExpandPlayer")?.addEventListener("click", () => {
@@ -4626,8 +4957,12 @@ function initEventListeners() {
     closeExpandedPlayer();
   });
 
-  // Queue View Toggle
+  // Queue View Toggles (Desktop, Top Header, Homepage, Mobile Player Pill, Mobile Nav)
   document.getElementById("btnToggleQueueView")?.addEventListener("click", () => switchView("queue"));
+  document.getElementById("btnHomeQueue")?.addEventListener("click", () => switchView("queue"));
+  document.getElementById("navLinkQueue")?.addEventListener("click", () => switchView("queue"));
+  document.getElementById("btnTopQueue")?.addEventListener("click", () => switchView("queue"));
+  document.getElementById("btnMobileQueue")?.addEventListener("click", () => switchView("queue"));
 
   // Device Route Button
   document.getElementById("btnDeviceRoute")?.addEventListener("click", () => {
@@ -4635,9 +4970,10 @@ function initEventListeners() {
     switchSystemChannel(cycle[activeSystemChannel] || "browser");
   });
 
-  // Mobile Bottom Navigation
+  // Mobile Bottom Navigation (5 tabs)
   document.getElementById("mobileNavHome")?.addEventListener("click", () => switchView("home"));
   document.getElementById("mobileNavSearch")?.addEventListener("click", () => switchView("search"));
+  document.getElementById("mobileNavQueue")?.addEventListener("click", () => switchView("queue"));
   document.getElementById("mobileNavLibrary")?.addEventListener("click", () => {
     switchView("liked");
   });
@@ -4645,6 +4981,15 @@ function initEventListeners() {
     const cycle = { browser: "app", app: "bot", bot: "all", all: "browser" };
     switchSystemChannel(cycle[activeSystemChannel] || "browser");
   });
+
+  // Proactive Audio Unlock on first user touch / pointer gesture anywhere
+  const proactiveUnlock = () => {
+    BrowserPlayer.prime();
+    window.removeEventListener("pointerdown", proactiveUnlock);
+    window.removeEventListener("touchstart", proactiveUnlock);
+  };
+  window.addEventListener("pointerdown", proactiveUnlock, { passive: true });
+  window.addEventListener("touchstart", proactiveUnlock, { passive: true });
 
   // Mobile / Android APK Install Button Handler
   const installBtn = document.getElementById("btnInstallPwa");
