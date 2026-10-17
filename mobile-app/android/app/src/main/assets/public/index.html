@@ -915,6 +915,42 @@
           </table>
         </div>
 
+        <!-- ==================================================================
+             VIEW 6: TIME-SYNCED KARAOKE LYRICS (SPOTIFY MUSIXMATCH EQUIVALENT)
+             ================================================================== -->
+        <div id="viewLyrics" class="stage-view lyrics-view-page" style="display: none;">
+          <div class="lyrics-page-backdrop" id="lyricsPageBackdrop"></div>
+          <div class="lyrics-page-container">
+            <!-- Lyrics Header -->
+            <div class="lyrics-header-bar">
+              <div class="lyrics-track-info-mini">
+                <img id="lyricsTrackArt" src="logo.png" alt="Cover" class="lyrics-art-thumb">
+                <div class="lyrics-meta-group">
+                  <span class="lyrics-song-title" id="lyricsSongTitle">No Song Playing</span>
+                  <span class="lyrics-song-artist" id="lyricsSongArtist">Select a song to load lyrics</span>
+                </div>
+              </div>
+              <div class="lyrics-header-actions">
+                <span class="lyrics-badge-tag" id="lyricsStatusBadge">🟢 Synced Karaoke</span>
+                <button type="button" class="btn-lyrics-close" id="btnCloseLyricsView" title="Back to previous page">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Scrollable Lyrics Container -->
+            <div class="lyrics-scroll-box" id="lyricsScrollBox">
+              <div class="lyrics-lines-wrapper" id="lyricsLinesWrapper">
+                <div class="lyrics-empty-state" id="lyricsEmptyState">
+                  <div class="lyrics-empty-icon">🎤</div>
+                  <div class="lyrics-empty-title">Waiting for music...</div>
+                  <div class="lyrics-empty-sub">Play any track to view real-time time-synced lyrics.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </main>
 
@@ -1038,6 +1074,40 @@
 
       <!-- Right: Extra Controls & Volume -->
       <div class="player-right">
+        <!-- Audio Quality / Hi-Fi Selector Badge -->
+        <button class="quality-pill-badge" id="btnAudioQualityToggle" title="Audio Quality: 320 kbps Extreme Hi-Fi (Click to change)">
+          <span class="quality-dot"></span>
+          <span id="qualityPillText">320k Hi-Fi</span>
+        </button>
+
+        <!-- Time-Synced Karaoke Lyrics Toggle -->
+        <button class="player-extra-btn" id="btnLyricsToggle" title="Lyrics (Spotify Time-Synced Karaoke)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+        </button>
+
+        <!-- 6-Band Graphic Equalizer Toggle -->
+        <button class="player-extra-btn" id="btnEqualizerToggle" title="Audio Equalizer (6-Band Studio DSP)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
+          </svg>
+        </button>
+
+        <!-- Spotify Sleep Timer -->
+        <button class="player-extra-btn" id="btnSleepTimerToggle" title="Sleep Timer (Stop playback automatically)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+          <span class="sleep-timer-badge" id="sleepTimerBadge" style="display: none;">00:00</span>
+        </button>
+
         <button class="player-extra-btn btn-expand-player" id="btnExpandPlayer" title="Open Full-Screen Player">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 3 21 3 21 9"></polyline>
@@ -1188,6 +1258,211 @@
   </div>
 
   <!-- ======================================================================
+       MODAL: AUDIOPHILE 6-BAND GRAPHIC EQUALIZER (SPOTIFY EQ EQUIVALENT)
+       ====================================================================== -->
+  <div id="modalEqualizer" class="spotify-modal-backdrop" style="display: none;">
+    <div class="spotify-modal-card eq-modal-card" style="max-width: 580px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(30, 215, 96, 0.15); color: var(--spotify-green); display: flex; align-items: center; justify-content: center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>
+              <line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 1.15rem;">Equalizer</h3>
+            <span style="font-size: 0.78rem; color: var(--text-subdued);">Studio 6-Band Graphic DSP</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <label class="eq-toggle-switch" title="Toggle Equalizer On/Off">
+            <input type="checkbox" id="chkEqualizerEnabled" checked>
+            <span class="eq-slider-round"></span>
+          </label>
+          <button id="btnCloseEqualizerModal" class="modal-close-btn" type="button">✕</button>
+        </div>
+      </div>
+
+      <div class="eq-modal-body">
+        <!-- Preset Chips -->
+        <div class="eq-presets-shelf" id="eqPresetsShelf">
+          <button class="eq-preset-chip active" data-preset="flat">Flat</button>
+          <button class="eq-preset-chip" data-preset="bass_boost">Bass Boost</button>
+          <button class="eq-preset-chip" data-preset="bass_reducer">Bass Reducer</button>
+          <button class="eq-preset-chip" data-preset="vocal_booster">Vocal Booster</button>
+          <button class="eq-preset-chip" data-preset="acoustic">Acoustic</button>
+          <button class="eq-preset-chip" data-preset="electronic">Electronic</button>
+          <button class="eq-preset-chip" data-preset="rock">Rock</button>
+          <button class="eq-preset-chip" data-preset="hiphop">Hip-Hop</button>
+          <button class="eq-preset-chip" data-preset="pop">Pop</button>
+        </div>
+
+        <!-- 6 Vertical Sliders -->
+        <div class="eq-sliders-grid">
+          <div class="eq-slider-col">
+            <span class="eq-db-label" id="eqVal0">0dB</span>
+            <div class="eq-range-wrap">
+              <input type="range" class="eq-vert-slider" id="eqBand0" min="-12" max="12" step="0.5" value="0">
+            </div>
+            <span class="eq-hz-label">60 Hz</span>
+            <span class="eq-band-name">Sub</span>
+          </div>
+          <div class="eq-slider-col">
+            <span class="eq-db-label" id="eqVal1">0dB</span>
+            <div class="eq-range-wrap">
+              <input type="range" class="eq-vert-slider" id="eqBand1" min="-12" max="12" step="0.5" value="0">
+            </div>
+            <span class="eq-hz-label">230 Hz</span>
+            <span class="eq-band-name">Bass</span>
+          </div>
+          <div class="eq-slider-col">
+            <span class="eq-db-label" id="eqVal2">0dB</span>
+            <div class="eq-range-wrap">
+              <input type="range" class="eq-vert-slider" id="eqBand2" min="-12" max="12" step="0.5" value="0">
+            </div>
+            <span class="eq-hz-label">910 Hz</span>
+            <span class="eq-band-name">Low Mid</span>
+          </div>
+          <div class="eq-slider-col">
+            <span class="eq-db-label" id="eqVal3">0dB</span>
+            <div class="eq-range-wrap">
+              <input type="range" class="eq-vert-slider" id="eqBand3" min="-12" max="12" step="0.5" value="0">
+            </div>
+            <span class="eq-hz-label">3 kHz</span>
+            <span class="eq-band-name">Mid</span>
+          </div>
+          <div class="eq-slider-col">
+            <span class="eq-db-label" id="eqVal4">0dB</span>
+            <div class="eq-range-wrap">
+              <input type="range" class="eq-vert-slider" id="eqBand4" min="-12" max="12" step="0.5" value="0">
+            </div>
+            <span class="eq-hz-label">8 kHz</span>
+            <span class="eq-band-name">High Mid</span>
+          </div>
+          <div class="eq-slider-col">
+            <span class="eq-db-label" id="eqVal5">0dB</span>
+            <div class="eq-range-wrap">
+              <input type="range" class="eq-vert-slider" id="eqBand5" min="-12" max="12" step="0.5" value="0">
+            </div>
+            <span class="eq-hz-label">14 kHz</span>
+            <span class="eq-band-name">Treble</span>
+          </div>
+        </div>
+
+        <div class="eq-footer-actions">
+          <button type="button" class="btn-eq-reset" id="btnResetEq">Reset to Flat</button>
+          <span style="font-size: 0.75rem; color: var(--text-subdued);">Web Audio API Native 6-Band Filter Cascade</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: SPOTIFY SLEEP TIMER WITH GENTLE AUDIO FADE-OUT
+       ====================================================================== -->
+  <div id="modalSleepTimer" class="spotify-modal-backdrop" style="display: none;">
+    <div class="spotify-modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(147, 51, 234, 0.15); color: #c084fc; display: flex; align-items: center; justify-content: center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 1.15rem;">Sleep Timer</h3>
+            <span style="font-size: 0.78rem; color: var(--text-subdued);" id="sleepTimerSubtitle">Automatically stop playback</span>
+          </div>
+        </div>
+        <button id="btnCloseSleepTimerModal" class="modal-close-btn" type="button">✕</button>
+      </div>
+
+      <div class="sleep-timer-options" id="sleepTimerOptions">
+        <button class="sleep-timer-btn" data-minutes="5">
+          <span>5 minutes</span>
+          <span class="timer-check-icon">✓</span>
+        </button>
+        <button class="sleep-timer-btn" data-minutes="10">
+          <span>10 minutes</span>
+          <span class="timer-check-icon">✓</span>
+        </button>
+        <button class="sleep-timer-btn" data-minutes="15">
+          <span>15 minutes</span>
+          <span class="timer-check-icon">✓</span>
+        </button>
+        <button class="sleep-timer-btn" data-minutes="30">
+          <span>30 minutes</span>
+          <span class="timer-check-icon">✓</span>
+        </button>
+        <button class="sleep-timer-btn" data-minutes="45">
+          <span>45 minutes</span>
+          <span class="timer-check-icon">✓</span>
+        </button>
+        <button class="sleep-timer-btn" data-minutes="60">
+          <span>1 hour</span>
+          <span class="timer-check-icon">✓</span>
+        </button>
+        <button class="sleep-timer-btn" data-minutes="track">
+          <span>End of track</span>
+          <span class="timer-check-icon">✓</span>
+        </button>
+        <button class="sleep-timer-btn timer-turn-off" data-minutes="0" id="btnTurnOffSleepTimer" style="display: none; color: #ef4444;">
+          <span>Turn off timer</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL: SPOTIFY HI-FI AUDIO STREAMING QUALITY SELECTOR
+       ====================================================================== -->
+  <div id="modalAudioQuality" class="spotify-modal-backdrop" style="display: none;">
+    <div class="spotify-modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; display: flex; align-items: center; justify-content: center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 1.15rem;">Streaming Quality</h3>
+            <span style="font-size: 0.78rem; color: var(--text-subdued);">Spotify Premium Equivalent</span>
+          </div>
+        </div>
+        <button id="btnCloseAudioQualityModal" class="modal-close-btn" type="button">✕</button>
+      </div>
+
+      <div class="quality-options-list">
+        <div class="quality-option-card active" data-quality="very_high">
+          <div class="quality-card-header">
+            <span class="quality-name">Very High (320 kbps Extreme)</span>
+            <span class="quality-badge-gold">Hi-Fi</span>
+          </div>
+          <p class="quality-desc">Audiophile 320kbps AAC studio fidelity. Crystal clear highs and deep bass.</p>
+        </div>
+        <div class="quality-option-card" data-quality="high">
+          <div class="quality-card-header">
+            <span class="quality-name">High (160 kbps Crisp)</span>
+            <span class="quality-badge-green">Standard</span>
+          </div>
+          <p class="quality-desc">Great balance between high sound fidelity and moderate data usage.</p>
+        </div>
+        <div class="quality-option-card" data-quality="data_saver">
+          <div class="quality-card-header">
+            <span class="quality-name">Normal (96 kbps Data Saver)</span>
+            <span class="quality-badge-blue">Data Saver</span>
+          </div>
+          <p class="quality-desc">Optimized for mobile cellular connections and reduced bandwidth.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
        EXPANDED FULL-SCREEN NOW PLAYING MODAL (MOBILE & DESKTOP)
        ====================================================================== -->
   <div id="expandedNowPlayingOverlay" class="expanded-player-overlay" aria-hidden="true">
@@ -1195,7 +1470,7 @@
     <div class="expanded-player-scrim"></div>
 
     <div class="expanded-player-container">
-      <!-- Topbar: Collapse, Route Indicator, Queue Toggle -->
+      <!-- Topbar: Collapse, Route Indicator, Tools -->
       <div class="expanded-topbar">
         <button type="button" class="expanded-collapse-btn" id="btnCollapseExpanded" title="Collapse player" aria-label="Collapse player">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1208,21 +1483,39 @@
           <span class="expanded-source-name" id="expandedSourceName">Spy Sec Music Hub</span>
         </div>
 
-        <button type="button" class="expanded-top-action" id="btnExpandedQueueToggle" title="Queue / Up Next">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6"></line>
-            <line x1="8" y1="12" x2="21" y2="12"></line>
-            <line x1="8" y1="18" x2="21" y2="18"></line>
-            <line x1="3" y1="6" x2="3.01" y2="6"></line>
-            <line x1="3" y1="12" x2="3.01" y2="12"></line>
-            <line x1="3" y1="18" x2="3.01" y2="18"></line>
-          </svg>
-        </button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <!-- Lyrics shortcut in expanded player -->
+          <button type="button" class="expanded-top-action" id="btnExpandedLyricsToggle" title="Lyrics">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            </svg>
+          </button>
+          <!-- Sleep Timer shortcut in expanded player -->
+          <button type="button" class="expanded-top-action" id="btnExpandedSleepTimerToggle" title="Sleep Timer">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+          <!-- Queue toggle -->
+          <button type="button" class="expanded-top-action" id="btnExpandedQueueToggle" title="Queue / Up Next">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Main Body -->
       <div class="expanded-body">
         <div class="expanded-artwork-box" id="expandedArtworkBox">
+          <!-- Reactive Live Audio Spectrum Visualizer Canvas -->
+          <canvas id="expandedSpectrumCanvas" class="expanded-spectrum-canvas" width="340" height="340"></canvas>
           <div class="expanded-art-disc" id="expandedArtDisc">
             <div class="expanded-vinyl-grooves"></div>
           </div>
@@ -1237,11 +1530,20 @@
             <h2 class="expanded-title" id="expandedTrackTitle">Web Browser Ready</h2>
             <p class="expanded-artist" id="expandedTrackArtist">Select a song or playlist</p>
           </div>
-          <button type="button" class="expanded-heart-btn" id="btnExpandedHeart" title="Save to favorites">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
-          </button>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="expanded-heart-btn" id="btnExpandedEqualizer" title="Equalizer">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line>
+                <line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line>
+              </svg>
+            </button>
+            <button type="button" class="expanded-heart-btn" id="btnExpandedHeart" title="Save to favorites">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="expanded-scrubber-wrap">
@@ -1286,6 +1588,21 @@
               <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h8.5A3.75 3.75 0 0 1 16 4.75v5a3.75 3.75 0 0 1-3.75 3.75H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12h2.439a2.25 2.25 0 0 0 2.25-2.25v-5a2.25 2.25 0 0 0-2.25-2.25h-8.5A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5z"/>
             </svg>
           </button>
+        </div>
+
+        <!-- Integrated Expandable Lyrics Card (Spotify Mobile Experience) -->
+        <div class="expanded-lyrics-preview-card" id="expandedLyricsPreviewCard">
+          <div class="expanded-lyrics-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.82rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #fff;">Lyrics</span>
+              <span class="lyrics-card-badge" id="expandedLyricsBadge">Karaoke</span>
+            </div>
+            <button type="button" class="btn-expand-lyrics" id="btnOpenFullLyricsFromExpanded">More ↗</button>
+          </div>
+          <div class="expanded-lyrics-card-body" id="expandedLyricsCardBody">
+            <p class="expanded-lyric-preview-line active" id="expandedLyricLineActive">Play a song to view lyrics...</p>
+            <p class="expanded-lyric-preview-line next" id="expandedLyricLineNext"></p>
+          </div>
         </div>
 
         <div class="expanded-bottom-tools">

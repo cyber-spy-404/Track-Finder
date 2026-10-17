@@ -4901,5 +4901,626 @@ button:active:not(:disabled),
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
+/* ==========================================================================
+   SPOTIFY TIME-SYNCED KARAOKE LYRICS (MUSIXMATCH EQUIVALENT)
+   ========================================================================== */
+.lyrics-view-page {
+  position: relative;
+  min-height: calc(100vh - 170px);
+  padding: 0 !important;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0d0f12;
+}
+
+.lyrics-page-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 20%, rgba(30, 215, 96, 0.14) 0%, rgba(13, 15, 18, 0.98) 75%);
+  filter: blur(40px);
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 1;
+  transition: background 1.2s ease;
+}
+
+.lyrics-page-container {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 170px);
+  padding: 24px 32px;
+}
+
+.lyrics-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.lyrics-track-info-mini {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.lyrics-art-thumb {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lyrics-meta-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lyrics-song-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lyrics-song-artist {
+  font-size: 0.88rem;
+  color: var(--text-subdued);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lyrics-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.lyrics-badge-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(30, 215, 96, 0.16);
+  color: var(--emerald, #1ed760);
+  border: 1px solid rgba(30, 215, 96, 0.3);
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.btn-lyrics-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s ease-out, background 0.18s ease-out;
+}
+
+.btn-lyrics-close:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: scale(1.06);
+}
+
+.lyrics-scroll-box {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 40px 10px 120px 10px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.lyrics-lines-wrapper {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lyric-line {
+  font-size: 1.85rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: color 0.25s ease-out, transform 0.25s ease-out, opacity 0.25s ease-out, text-shadow 0.25s ease-out;
+  transform-origin: left center;
+  border-radius: 8px;
+  padding: 4px 10px;
+  user-select: none;
+}
+
+.lyric-line:hover {
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.lyric-line.active {
+  color: #ffffff !important;
+  font-weight: 800;
+  transform: scale(1.04);
+  text-shadow: 0 0 24px rgba(30, 215, 96, 0.45);
+}
+
+.lyric-line.passed {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lyrics-empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--text-subdued);
+}
+
+.lyrics-empty-icon {
+  font-size: 54px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.lyrics-empty-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.lyrics-empty-sub {
+  font-size: 0.95rem;
+  color: var(--text-subdued);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+/* ==========================================================================
+   SPOTIFY 6-BAND GRAPHIC EQUALIZER MODAL
+   ========================================================================== */
+.eq-modal-card {
+  background: #14171c;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85);
+  border-radius: 16px;
+}
+
+.eq-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.eq-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.eq-slider-round {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: rgba(255, 255, 255, 0.2);
+  transition: 0.24s;
+  border-radius: 24px;
+}
+
+.eq-slider-round:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.24s cubic-bezier(0.2, 0, 0, 1);
+  border-radius: 50%;
+}
+
+.eq-toggle-switch input:checked + .eq-slider-round {
+  background-color: var(--emerald, #1ed760);
+}
+
+.eq-toggle-switch input:checked + .eq-slider-round:before {
+  transform: translateX(20px);
+}
+
+.eq-presets-shelf {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 2px 14px 2px;
+  scrollbar-width: none;
+}
+
+.eq-presets-shelf::-webkit-scrollbar {
+  display: none;
+}
+
+.eq-preset-chip {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s ease-out, border-color 0.18s ease-out, transform 0.18s ease-out;
+}
+
+.eq-preset-chip:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.eq-preset-chip.active {
+  background: rgba(30, 215, 96, 0.18);
+  border-color: var(--emerald, #1ed760);
+  color: var(--emerald, #1ed760);
+}
+
+.eq-sliders-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  padding: 24px 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin: 12px 0 16px 0;
+}
+
+.eq-slider-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.eq-db-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--emerald, #1ed760);
+  font-variant-numeric: tabular-nums;
+  height: 16px;
+}
+
+.eq-range-wrap {
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eq-vert-slider {
+  -webkit-appearance: slider-vertical;
+  appearance: slider-vertical;
+  writing-mode: bt-lr;
+  width: 22px;
+  height: 130px;
+  cursor: pointer;
+  accent-color: var(--emerald, #1ed760);
+}
+
+.eq-hz-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.eq-band-name {
+  font-size: 0.68rem;
+  color: var(--text-subdued);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.eq-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-eq-reset {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-subdued);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease-out;
+}
+
+.btn-eq-reset:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ==========================================================================
+   SPOTIFY SLEEP TIMER MODAL & BADGE
+   ========================================================================== */
+.sleep-timer-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+.sleep-timer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease-out, border-color 0.18s ease-out;
+}
+
+.sleep-timer-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.sleep-timer-btn.active {
+  background: rgba(147, 51, 234, 0.16);
+  border-color: #a855f7;
+  color: #c084fc;
+}
+
+.timer-check-icon {
+  font-size: 1rem;
+  display: none;
+}
+
+.sleep-timer-btn.active .timer-check-icon {
+  display: inline-block;
+}
+
+.sleep-timer-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  background: rgba(147, 51, 234, 0.25);
+  color: #c084fc;
+  border: 1px solid rgba(147, 51, 234, 0.5);
+  padding: 1px 5px;
+  border-radius: 6px;
+  margin-left: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   SPOTIFY AUDIO STREAMING QUALITY SELECTOR
+   ========================================================================== */
+.quality-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: 12px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.18s ease-out;
+  margin-right: 4px;
+}
+
+.quality-pill-badge:hover {
+  background: rgba(245, 158, 11, 0.22);
+  transform: scale(1.04);
+}
+
+.quality-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
+}
+
+.quality-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+.quality-option-card {
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease-out;
+}
+
+.quality-option-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.quality-option-card.active {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #fbbf24;
+}
+
+.quality-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.quality-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.quality-badge-gold {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.quality-badge-green {
+  background: rgba(30, 215, 96, 0.18);
+  color: var(--emerald, #1ed760);
+  border: 1px solid rgba(30, 215, 96, 0.3);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.quality-badge-blue {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.quality-desc {
+  font-size: 0.8rem;
+  color: var(--text-subdued);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   EXPANDED PLAYER CANAVS SPECTRUM & LYRICS CARD
+   ========================================================================== */
+.expanded-spectrum-canvas {
+  position: absolute;
+  inset: -10px;
+  width: calc(100% + 20px);
+  height: calc(100% + 20px);
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.75;
+}
+
+.expanded-lyrics-preview-card {
+  margin-top: 14px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s ease-out, background 0.2s ease-out;
+}
+
+.expanded-lyrics-preview-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.expanded-lyrics-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.lyrics-card-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: var(--emerald, #1ed760);
+  background: rgba(30, 215, 96, 0.16);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.btn-expand-lyrics {
+  background: transparent;
+  border: none;
+  color: var(--text-subdued);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.expanded-lyric-preview-line {
+  margin: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expanded-lyric-preview-line.active {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.expanded-lyric-preview-line.next {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .lyric-line {
+    font-size: 1.35rem;
+  }
+  .lyrics-page-container {
+    padding: 16px;
+    height: calc(100vh - 140px);
+  }
+  .eq-sliders-grid {
+    gap: 6px;
+  }
+  .eq-vert-slider {
+    width: 18px;
+    height: 110px;
+  }
+  .eq-range-wrap {
+    height: 120px;
+  }
+}
+
+
 
 

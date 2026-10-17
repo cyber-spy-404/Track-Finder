@@ -508,6 +508,11 @@ const BrowserPlayer = {
     if (typeof savePlaybackState === "function") savePlaybackState();
     if (typeof recordTrackTaste === "function") recordTrackTaste(track, "play");
 
+    // Spotify Features: Synced Lyrics, 6-Band Equalizer, and Reactive Visualizer
+    if (typeof LyricsManager !== "undefined") LyricsManager.loadLyricsForTrack(track);
+    if (typeof EqualizerEngine !== "undefined") EqualizerEngine.init(this.audio);
+    if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.start();
+
     // Seamlessly pre-resolve next track so queue transitions have zero latency
     this.prefetchNextTrack();
   },
@@ -938,6 +943,9 @@ const BrowserPlayer = {
       } catch (e) {}
     }
 
+    // Sync time-synchronized karaoke lyrics
+    if (typeof LyricsManager !== "undefined") LyricsManager.sync(cur);
+
     const now = Date.now();
     if (now - this.lastReportTime > 4000) {
       this.lastReportTime = now;
@@ -957,6 +965,8 @@ const BrowserPlayer = {
       try { navigator.mediaSession.playbackState = "playing"; } catch (e) {}
     }
     updatePlayPauseIcons(true);
+    if (typeof EqualizerEngine !== "undefined") EqualizerEngine.resume();
+    if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.start();
     this.reportState();
   },
 
@@ -965,6 +975,7 @@ const BrowserPlayer = {
       try { navigator.mediaSession.playbackState = "paused"; } catch (e) {}
     }
     updatePlayPauseIcons(false);
+    if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.stop();
     this.reportState();
     if (typeof savePlaybackState === "function") savePlaybackState();
   },
@@ -978,6 +989,8 @@ const BrowserPlayer = {
       console.warn(`Browser audio ended event fired prematurely at ${cur.toFixed(1)}s / ${dur.toFixed(1)}s. Ignoring false end.`);
       return;
     }
+
+    if (typeof SleepTimerEngine !== "undefined") SleepTimerEngine.checkTrackEnd();
 
     if (this.repeatMode === "track") {
       this.audio.currentTime = 0;
@@ -1069,6 +1082,641 @@ const BrowserPlayer = {
   }
 };
 window.BrowserPlayer = BrowserPlayer;
+
+// ==========================================================================
+// SPOTIFY FEATURE 1: TIME-SYNCED KARAOKE LYRICS (LRCLIB + MUSIXMATCH EQUIV)
+// ==========================================================================
+const LyricsManager = {
+  activeLyrics: null,
+  activeTrackKey: null,
+  isFetching: false,
+  userIsScrolling: false,
+  scrollResumeTimeout: null,
+  currentActiveLineIdx: -1,
+
+  async loadLyricsForTrack(track, force = false) {
+    if (!track) return;
+    const title = track.title || track.info?.title || "";
+    const artist = track.author || track.artist || track.info?.author || "";
+    const dur = track.duration || track.info?.duration || 0;
+    const trackKey = `${title.toLowerCase()}_${artist.toLowerCase()}`;
+
+    if (!force && this.activeTrackKey === trackKey && this.activeLyrics) {
+      this.render();
+      return;
+    }
+
+    this.activeTrackKey = trackKey;
+    this.isFetching = true;
+    this.activeLyrics = null;
+    this.currentActiveLineIdx = -1;
+    this.renderLoading(title, artist, track.artworkUrl);
+
+    try {
+      const res = await fetch(`/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&duration=${dur}`);
+      const data = await res.json();
+      if (data.success && data.lyrics) {
+        let synced = null;
+        if (data.lyrics.syncedLyrics) {
+          synced = this.parseLRC(data.lyrics.syncedLyrics);
+        }
+        this.activeLyrics = {
+          synced: synced && synced.length > 0 ? synced : null,
+          plain: data.lyrics.plainLyrics || null,
+          isQuran: Boolean(data.lyrics.isQuran),
+          instrumental: Boolean(data.lyrics.instrumental),
+          title: data.lyrics.title || title,
+          artist: data.lyrics.artist || artist,
+          artworkUrl: track.artworkUrl || "logo.png"
+        };
+      }
+    } catch (e) {
+      console.warn("Lyrics fetch note:", e);
+    } finally {
+      this.isFetching = false;
+      this.render();
+    }
+  },
+
+  parseLRC(lrcText) {
+    if (!lrcText || typeof lrcText !== "string") return [];
+    const lines = lrcText.split("\n");
+    const parsed = [];
+    const timeRegex = /\[(\d{2}):(\d{2})\.?(\d{2,3})?\](.*)/;
+
+    for (const raw of lines) {
+      const trimmed = raw.trim();
+      const match = trimmed.match(timeRegex);
+      if (match) {
+        const min = parseInt(match[1], 10);
+        const sec = parseInt(match[2], 10);
+        const msRaw = match[3] || "0";
+        const ms = parseInt(msRaw.padEnd(3, "0").slice(0, 3), 10);
+        const time = min * 60 + sec + ms / 1000;
+        const text = match[4].trim();
+        if (text) {
+          parsed.push({ time, text });
+        }
+      }
+    }
+    return parsed.sort((a, b) => a.time - b.time);
+  },
+
+  renderLoading(title, artist, artworkUrl) {
+    const artEl = document.getElementById("lyricsTrackArt");
+    const titleEl = document.getElementById("lyricsSongTitle");
+    const artistEl = document.getElementById("lyricsSongArtist");
+    const statusEl = document.getElementById("lyricsStatusBadge");
+    const wrap = document.getElementById("lyricsLinesWrapper");
+
+    if (artEl) artEl.src = artworkUrl || "logo.png";
+    if (titleEl) titleEl.textContent = title || "Loading...";
+    if (artistEl) artistEl.textContent = artist || "";
+    if (statusEl) statusEl.textContent = "⏳ Loading Lyrics...";
+
+    if (wrap) {
+      wrap.innerHTML = `
+        <div class="lyrics-empty-state">
+          <div class="lyrics-empty-icon" style="animation: spin 1.5s linear infinite;">🔄</div>
+          <div class="lyrics-empty-title">Loading synchronized lyrics...</div>
+          <div class="lyrics-empty-sub">Connecting to free open LRCLIB database</div>
+        </div>
+      `;
+    }
+  },
+
+  render() {
+    const artEl = document.getElementById("lyricsTrackArt");
+    const titleEl = document.getElementById("lyricsSongTitle");
+    const artistEl = document.getElementById("lyricsSongArtist");
+    const statusEl = document.getElementById("lyricsStatusBadge");
+    const wrap = document.getElementById("lyricsLinesWrapper");
+    const prevActive = document.getElementById("expandedLyricLineActive");
+    const prevNext = document.getElementById("expandedLyricLineNext");
+    const prevBadge = document.getElementById("expandedLyricsBadge");
+
+    const track = BrowserPlayer.currentTrack || { title: "No Song Playing", author: "Select a track", artworkUrl: "logo.png" };
+    if (artEl) artEl.src = track.artworkUrl || "logo.png";
+    if (titleEl) titleEl.textContent = track.title || "No Song Playing";
+    if (artistEl) artistEl.textContent = track.author || track.artist || "";
+
+    if (!this.activeLyrics) {
+      if (statusEl) statusEl.textContent = "No Lyrics Available";
+      if (wrap) {
+        wrap.innerHTML = `
+          <div class="lyrics-empty-state">
+            <div class="lyrics-empty-icon">🎵</div>
+            <div class="lyrics-empty-title">No lyrics found for this track</div>
+            <div class="lyrics-empty-sub">Enjoy the pure melody! You can still search for other songs.</div>
+          </div>
+        `;
+      }
+      if (prevActive) prevActive.textContent = "Lyrics unavailable for this track";
+      if (prevNext) prevNext.textContent = "";
+      return;
+    }
+
+    if (this.activeLyrics.instrumental) {
+      if (statusEl) statusEl.textContent = "🎻 Instrumental";
+      if (wrap) {
+        wrap.innerHTML = `
+          <div class="lyrics-empty-state">
+            <div class="lyrics-empty-icon">🎻</div>
+            <div class="lyrics-empty-title">Instrumental Track</div>
+            <div class="lyrics-empty-sub">This song is purely instrumental with no vocal lyrics.</div>
+          </div>
+        `;
+      }
+      if (prevActive) prevActive.textContent = "Instrumental Track";
+      if (prevNext) prevNext.textContent = "";
+      return;
+    }
+
+    // Time-synced lyrics available!
+    if (this.activeLyrics.synced && this.activeLyrics.synced.length > 0) {
+      if (statusEl) statusEl.textContent = "🟢 Synced Karaoke";
+      if (prevBadge) prevBadge.textContent = "Synced";
+      if (wrap) {
+        wrap.innerHTML = "";
+        this.activeLyrics.synced.forEach((line, idx) => {
+          const p = document.createElement("p");
+          p.className = "lyric-line";
+          p.id = `lyricLine_${idx}`;
+          p.dataset.index = idx;
+          p.dataset.time = line.time;
+          p.textContent = line.text;
+          p.addEventListener("click", () => {
+            BrowserPlayer.seek(line.time);
+            showToast(`Jumped to ${formatTime(line.time * 1000)}`);
+          });
+          wrap.appendChild(p);
+        });
+      }
+      return;
+    }
+
+    // Plain text lyrics fallback
+    if (this.activeLyrics.plain) {
+      if (statusEl) statusEl.textContent = "📝 Plain Lyrics";
+      if (prevBadge) prevBadge.textContent = "Plain";
+      if (wrap) {
+        wrap.innerHTML = "";
+        const lines = this.activeLyrics.plain.split("\n");
+        lines.forEach((line, idx) => {
+          if (!line.trim()) {
+            const spacer = document.createElement("div");
+            spacer.style.height = "16px";
+            wrap.appendChild(spacer);
+            return;
+          }
+          const p = document.createElement("p");
+          p.className = "lyric-line active";
+          p.style.fontSize = "1.5rem";
+          p.textContent = line.trim();
+          wrap.appendChild(p);
+        });
+      }
+      if (prevActive) prevActive.textContent = this.activeLyrics.plain.split("\n")[0] || "";
+      if (prevNext) prevNext.textContent = this.activeLyrics.plain.split("\n")[1] || "";
+    }
+  },
+
+  sync(currentTimeSec) {
+    if (!this.activeLyrics || !this.activeLyrics.synced || this.activeLyrics.synced.length === 0) return;
+    const synced = this.activeLyrics.synced;
+
+    let activeIdx = -1;
+    for (let i = 0; i < synced.length; i++) {
+      if (currentTimeSec >= synced[i].time) {
+        activeIdx = i;
+      } else {
+        break;
+      }
+    }
+
+    if (activeIdx === this.currentActiveLineIdx) return;
+    this.currentActiveLineIdx = activeIdx;
+
+    // Update lines in full view
+    const allLines = document.querySelectorAll(".lyric-line[data-index]");
+    allLines.forEach((el) => {
+      const lineIdx = parseInt(el.dataset.index, 10);
+      if (lineIdx === activeIdx) {
+        el.classList.add("active");
+        el.classList.remove("passed");
+      } else if (lineIdx < activeIdx) {
+        el.classList.add("passed");
+        el.classList.remove("active");
+      } else {
+        el.classList.remove("active", "passed");
+      }
+    });
+
+    // Auto-scroll full view container smoothly
+    if (activeIdx >= 0 && !this.userIsScrolling) {
+      const activeEl = document.getElementById(`lyricLine_${activeIdx}`);
+      const scrollBox = document.getElementById("lyricsScrollBox");
+      if (activeEl && scrollBox) {
+        const boxRect = scrollBox.getBoundingClientRect();
+        const lineRect = activeEl.getBoundingClientRect();
+        const offset = (lineRect.top - boxRect.top) - (boxRect.height / 2) + (lineRect.height / 2);
+        scrollBox.scrollBy({ top: offset, behavior: "smooth" });
+      }
+    }
+
+    // Update Expanded Now Playing mini lyrics preview card
+    const prevActive = document.getElementById("expandedLyricLineActive");
+    const prevNext = document.getElementById("expandedLyricLineNext");
+    if (activeIdx >= 0 && synced[activeIdx]) {
+      if (prevActive) prevActive.textContent = synced[activeIdx].text;
+      if (prevNext && synced[activeIdx + 1]) prevNext.textContent = synced[activeIdx + 1].text;
+    }
+  },
+
+  renderActiveTrackHeader() {
+    this.render();
+  },
+
+  initScrollListener() {
+    const scrollBox = document.getElementById("lyricsScrollBox");
+    if (!scrollBox) return;
+    scrollBox.addEventListener("wheel", () => {
+      this.userIsScrolling = true;
+      clearTimeout(this.scrollResumeTimeout);
+      this.scrollResumeTimeout = setTimeout(() => {
+        this.userIsScrolling = false;
+      }, 3500);
+    }, { passive: true });
+    scrollBox.addEventListener("touchmove", () => {
+      this.userIsScrolling = true;
+      clearTimeout(this.scrollResumeTimeout);
+      this.scrollResumeTimeout = setTimeout(() => {
+        this.userIsScrolling = false;
+      }, 3500);
+    }, { passive: true });
+  }
+};
+window.LyricsManager = LyricsManager;
+
+// ==========================================================================
+// SPOTIFY FEATURE 2: 6-BAND GRAPHIC EQUALIZER (WEB AUDIO API DSP)
+// ==========================================================================
+const EqualizerEngine = {
+  audioCtx: null,
+  sourceNode: null,
+  filters: [],
+  analyser: null,
+  frequencies: [60, 230, 910, 3000, 8000, 14000],
+  filterTypes: ["lowshelf", "peaking", "peaking", "peaking", "peaking", "highshelf"],
+  presets: {
+    flat: [0, 0, 0, 0, 0, 0],
+    bass_boost: [6, 4.5, 1, 0, 0, 0],
+    bass_reducer: [-6, -4, 0, 0, 0, 0],
+    vocal_booster: [-2, 0, 2.5, 4.5, 3, 1],
+    acoustic: [3, 2, 1, 2, 3.5, 3],
+    electronic: [5, 3.5, 0, 2, 4, 3.5],
+    rock: [4.5, 2.5, -1, 1.5, 3.5, 4],
+    hiphop: [6, 4, 1, 2, 1, 2.5],
+    pop: [-1, 2, 3, 3.5, 2, 1]
+  },
+  currentPreset: localStorage.getItem("ahm_eq_preset") || "flat",
+  isEnabled: localStorage.getItem("ahm_eq_enabled") !== "false",
+  gains: JSON.parse(localStorage.getItem("ahm_eq_gains") || "[0,0,0,0,0,0]"),
+  isInitialized: false,
+
+  init(audioElement) {
+    if (this.isInitialized || !audioElement) return;
+    try {
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtxClass) return;
+      this.audioCtx = new AudioCtxClass();
+
+      // Create 6 Biquad Filter nodes in series
+      this.filters = this.frequencies.map((freq, i) => {
+        const filter = this.audioCtx.createBiquadFilter();
+        filter.type = this.filterTypes[i];
+        filter.frequency.value = freq;
+        filter.Q.value = 1.0;
+        filter.gain.value = this.isEnabled ? (this.gains[i] || 0) : 0;
+        return filter;
+      });
+
+      // Create AnalyserNode for Reactive Visualizer Canvas
+      this.analyser = this.audioCtx.createAnalyser();
+      this.analyser.fftSize = 128;
+      this.analyser.smoothingTimeConstant = 0.8;
+
+      // Connect HTML5 Audio -> Filter 0 -> Filter 1 -> ... -> Filter 5 -> Analyser -> Destination
+      this.sourceNode = this.audioCtx.createMediaElementSource(audioElement);
+      let prevNode = this.sourceNode;
+      for (const f of this.filters) {
+        prevNode.connect(f);
+        prevNode = f;
+      }
+      prevNode.connect(this.analyser);
+      this.analyser.connect(this.audioCtx.destination);
+
+      this.isInitialized = true;
+      console.log("🎚️ [Equalizer DSP] Native 6-Band Web Audio Graph connected successfully!");
+    } catch (err) {
+      console.warn("Equalizer initialization note:", err.message);
+    }
+  },
+
+  resume() {
+    if (this.audioCtx && this.audioCtx.state === "suspended") {
+      this.audioCtx.resume().catch(() => {});
+    }
+  },
+
+  setBandGain(bandIdx, gainDb) {
+    gainDb = Math.min(Math.max(parseFloat(gainDb) || 0, -12), 12);
+    this.gains[bandIdx] = gainDb;
+    if (this.filters[bandIdx] && this.isEnabled && this.audioCtx) {
+      this.filters[bandIdx].gain.setTargetAtTime(gainDb, this.audioCtx.currentTime, 0.05);
+    }
+    localStorage.setItem("ahm_eq_gains", JSON.stringify(this.gains));
+    const lbl = document.getElementById(`eqVal${bandIdx}`);
+    if (lbl) lbl.textContent = `${gainDb > 0 ? "+" : ""}${gainDb}dB`;
+  },
+
+  applyPreset(presetKey) {
+    const pValues = this.presets[presetKey];
+    if (!pValues) return;
+    this.currentPreset = presetKey;
+    localStorage.setItem("ahm_eq_preset", presetKey);
+    this.gains = [...pValues];
+    localStorage.setItem("ahm_eq_gains", JSON.stringify(this.gains));
+
+    this.gains.forEach((g, idx) => {
+      if (this.filters[idx] && this.isEnabled && this.audioCtx) {
+        this.filters[idx].gain.setTargetAtTime(g, this.audioCtx.currentTime, 0.05);
+      }
+      const slider = document.getElementById(`eqBand${idx}`);
+      const lbl = document.getElementById(`eqVal${idx}`);
+      if (slider) slider.value = g;
+      if (lbl) lbl.textContent = `${g > 0 ? "+" : ""}${g}dB`;
+    });
+
+    document.querySelectorAll(".eq-preset-chip").forEach(c => {
+      c.classList.toggle("active", c.getAttribute("data-preset") === presetKey);
+    });
+
+    showToast(`Equalizer Preset: ${presetKey.replace("_", " ").toUpperCase()}`);
+  },
+
+  toggle(enable) {
+    this.isEnabled = Boolean(enable);
+    localStorage.setItem("ahm_eq_enabled", this.isEnabled ? "true" : "false");
+    this.filters.forEach((f, idx) => {
+      const g = this.isEnabled ? this.gains[idx] : 0;
+      if (this.audioCtx) f.gain.setTargetAtTime(g, this.audioCtx.currentTime, 0.05);
+    });
+    showToast(`Equalizer: ${this.isEnabled ? "ON" : "OFF"}`);
+  }
+};
+window.EqualizerEngine = EqualizerEngine;
+
+// ==========================================================================
+// SPOTIFY FEATURE 3: SLEEP TIMER WITH GENTLE AUDIO ATTENUATION
+// ==========================================================================
+const SleepTimerEngine = {
+  timerId: null,
+  updateIntervalId: null,
+  targetTimestamp: null,
+  durationMinutes: 0,
+  isFading: false,
+  originalVolume: 1.0,
+
+  start(minutes) {
+    this.cancel();
+    if (minutes === "track") {
+      this.durationMinutes = "track";
+      showToast("🌙 Sleep timer set: End of track");
+      this.updateUI(true, "End of track");
+      return;
+    }
+
+    const mins = parseInt(minutes, 10);
+    if (!mins || mins <= 0) return;
+
+    this.durationMinutes = mins;
+    this.targetTimestamp = Date.now() + (mins * 60 * 1000);
+    showToast(`🌙 Sleep timer set for ${mins} minutes`);
+
+    this.updateIntervalId = setInterval(() => {
+      const remainingMs = this.targetTimestamp - Date.now();
+      if (remainingMs <= 0) {
+        this.fire();
+      } else {
+        const remainingSec = Math.floor(remainingMs / 1000);
+        const m = Math.floor(remainingSec / 60);
+        const s = remainingSec % 60;
+        const timeStr = `${m}:${String(s).padStart(2, "0")}`;
+        this.updateUI(true, timeStr);
+
+        // In final 15 seconds: gently fade out audio volume
+        if (remainingSec <= 15 && !this.isFading && BrowserPlayer.audio) {
+          this.isFading = true;
+          this.originalVolume = BrowserPlayer.audio.volume;
+          this.startSmoothFadeOut(15);
+        }
+      }
+    }, 1000);
+
+    this.updateUI(true, `${mins}:00`);
+  },
+
+  startSmoothFadeOut(seconds) {
+    const steps = seconds * 4;
+    let stepCount = 0;
+    const fadeInterval = setInterval(() => {
+      stepCount++;
+      if (!BrowserPlayer.audio || stepCount >= steps) {
+        clearInterval(fadeInterval);
+        return;
+      }
+      const factor = Math.max(0, 1 - (stepCount / steps));
+      BrowserPlayer.audio.volume = this.originalVolume * factor;
+    }, 250);
+  },
+
+  fire() {
+    this.cancel();
+    if (BrowserPlayer.audio) {
+      BrowserPlayer.audio.pause();
+      BrowserPlayer.audio.volume = this.originalVolume;
+    }
+    this.isFading = false;
+    showToast("🌙 Sleep timer expired. Playback paused.");
+  },
+
+  checkTrackEnd() {
+    if (this.durationMinutes === "track") {
+      this.cancel();
+      if (BrowserPlayer.audio) BrowserPlayer.audio.pause();
+      showToast("🌙 Sleep timer: Reached end of track. Playback paused.");
+    }
+  },
+
+  cancel() {
+    clearInterval(this.updateIntervalId);
+    this.updateIntervalId = null;
+    this.targetTimestamp = null;
+    this.durationMinutes = 0;
+    if (this.isFading && BrowserPlayer.audio) {
+      BrowserPlayer.audio.volume = this.originalVolume;
+    }
+    this.isFading = false;
+    this.updateUI(false);
+  },
+
+  updateUI(isActive, text = "") {
+    const badgeBar = document.getElementById("sleepTimerBadge");
+    const turnOffBtn = document.getElementById("btnTurnOffSleepTimer");
+    const subtitle = document.getElementById("sleepTimerSubtitle");
+
+    if (badgeBar) {
+      badgeBar.style.display = isActive ? "inline-block" : "none";
+      badgeBar.textContent = text;
+    }
+    if (turnOffBtn) {
+      turnOffBtn.style.display = isActive ? "flex" : "none";
+    }
+    if (subtitle) {
+      subtitle.textContent = isActive ? `Active • Stopping in ${text}` : "Automatically stop playback";
+    }
+
+    document.querySelectorAll(".sleep-timer-btn").forEach(btn => {
+      const m = btn.getAttribute("data-minutes");
+      btn.classList.toggle("active", isActive && String(m) === String(this.durationMinutes));
+    });
+  }
+};
+window.SleepTimerEngine = SleepTimerEngine;
+
+// ==========================================================================
+// SPOTIFY FEATURE 4: HI-FI AUDIO STREAMING QUALITY SELECTOR
+// ==========================================================================
+const AudioQualityManager = {
+  currentQuality: localStorage.getItem("ahm_audio_quality") || "very_high",
+
+  init() {
+    this.apply(this.currentQuality, false);
+  },
+
+  set(qualityKey) {
+    this.currentQuality = qualityKey;
+    localStorage.setItem("ahm_audio_quality", qualityKey);
+    this.apply(qualityKey, true);
+  },
+
+  apply(qualityKey, notify = true) {
+    const pillText = document.getElementById("qualityPillText");
+    const labels = {
+      very_high: "320k Hi-Fi",
+      high: "160k High",
+      data_saver: "96k Saver"
+    };
+    if (pillText) pillText.textContent = labels[qualityKey] || "320k Hi-Fi";
+
+    document.querySelectorAll(".quality-option-card").forEach(c => {
+      c.classList.toggle("active", c.getAttribute("data-quality") === qualityKey);
+    });
+
+    if (notify) {
+      const descriptions = {
+        very_high: "Very High (320 kbps Extreme Hi-Fi AAC)",
+        high: "High (160 kbps Crisp Audio)",
+        data_saver: "Normal (96 kbps Data Saver)"
+      };
+      showToast(`Audio Quality: ${descriptions[qualityKey] || qualityKey}`);
+    }
+  }
+};
+window.AudioQualityManager = AudioQualityManager;
+
+// ==========================================================================
+// SPOTIFY FEATURE 5: SPOTIFY CANVAS & LIVE REACTIVE AUDIO VISUALIZER
+// ==========================================================================
+const ReactiveVisualizerEngine = {
+  isRunning: false,
+  canvas: null,
+  ctx: null,
+  animationId: null,
+
+  start() {
+    this.canvas = document.getElementById("expandedSpectrumCanvas");
+    if (!this.canvas) return;
+    this.ctx = this.canvas.getContext("2d");
+    if (!this.ctx) return;
+    if (this.isRunning) return;
+
+    this.isRunning = true;
+    this.loop();
+  },
+
+  stop() {
+    this.isRunning = false;
+    if (this.animationId) cancelAnimationFrame(this.animationId);
+    if (this.ctx && this.canvas) {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+  },
+
+  loop() {
+    if (!this.isRunning) return;
+    this.animationId = requestAnimationFrame(() => this.loop());
+
+    const canvas = this.canvas;
+    const ctx = this.ctx;
+    if (!canvas || !ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!EqualizerEngine.analyser || !BrowserPlayer.isPlaying()) {
+      return;
+    }
+
+    const bufferLength = EqualizerEngine.analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    EqualizerEngine.analyser.getByteFrequencyData(dataArray);
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 105;
+    const numBars = 48;
+    const step = (Math.PI * 2) / numBars;
+
+    ctx.save();
+    for (let i = 0; i < numBars; i++) {
+      const dataIdx = Math.floor((i / numBars) * (bufferLength / 2));
+      const val = dataArray[dataIdx] || 0;
+      const barHeight = (val / 255) * 42;
+
+      const angle = i * step;
+      const x1 = centerX + Math.cos(angle) * radius;
+      const y1 = centerY + Math.sin(angle) * radius;
+      const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+      const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0, "rgba(30, 215, 96, 0.4)");
+      grad.addColorStop(1, "rgba(16, 185, 129, 0.95)");
+
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = "round";
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+};
+window.ReactiveVisualizerEngine = ReactiveVisualizerEngine;
 
 // ==========================================================================
 // SYSTEM CHANNELS SWITCHER & ROUTING
@@ -1181,6 +1829,16 @@ function switchView(viewName, addToHistory = true, isForward = false) {
     const el = document.getElementById("viewLiked");
     if (el) el.style.display = "block";
     renderLikedSongsView();
+  } else if (viewName === "lyrics") {
+    const el = document.getElementById("viewLyrics");
+    if (el) el.style.display = "block";
+    if (typeof LyricsManager !== "undefined") {
+      const cur = activeSystemChannel === "browser"
+        ? BrowserPlayer.currentTrack
+        : (currentState?.channels?.[activeSystemChannel]?.current || currentState?.current);
+      if (cur) LyricsManager.loadLyricsForTrack(cur);
+      else LyricsManager.render();
+    }
   }
 
   // Manage history stack
@@ -5180,6 +5838,118 @@ function initEventListeners() {
     const cycle = { browser: "app", app: "bot", bot: "all", all: "browser" };
     switchSystemChannel(cycle[activeSystemChannel] || "browser");
   });
+
+  // Spotify Feature 1: Time-Synced Karaoke Lyrics Listeners
+  const handleOpenLyrics = () => {
+    switchView("lyrics");
+  };
+  document.getElementById("btnLyricsToggle")?.addEventListener("click", handleOpenLyrics);
+  document.getElementById("btnExpandedLyricsToggle")?.addEventListener("click", () => {
+    closeExpandedPlayer();
+    handleOpenLyrics();
+  });
+  document.getElementById("btnOpenFullLyricsFromExpanded")?.addEventListener("click", () => {
+    closeExpandedPlayer();
+    handleOpenLyrics();
+  });
+  document.getElementById("btnCloseLyricsView")?.addEventListener("click", () => {
+    window.navigateAppBack();
+  });
+  if (typeof LyricsManager !== "undefined") LyricsManager.initScrollListener();
+
+  // Spotify Feature 2: 6-Band Graphic Equalizer Listeners & Modal
+  const openEqualizerModal = () => {
+    const m = document.getElementById("modalEqualizer");
+    if (m) m.style.display = "flex";
+    EqualizerEngine.gains.forEach((g, idx) => {
+      const s = document.getElementById(`eqBand${idx}`);
+      const l = document.getElementById(`eqVal${idx}`);
+      if (s) s.value = g;
+      if (l) l.textContent = `${g > 0 ? "+" : ""}${g}dB`;
+    });
+    const chk = document.getElementById("chkEqualizerEnabled");
+    if (chk) chk.checked = EqualizerEngine.isEnabled;
+    document.querySelectorAll(".eq-preset-chip").forEach(c => {
+      c.classList.toggle("active", c.getAttribute("data-preset") === EqualizerEngine.currentPreset);
+    });
+  };
+  const closeEqualizerModal = () => {
+    const m = document.getElementById("modalEqualizer");
+    if (m) m.style.display = "none";
+  };
+  document.getElementById("btnEqualizerToggle")?.addEventListener("click", openEqualizerModal);
+  document.getElementById("btnExpandedEqualizer")?.addEventListener("click", openEqualizerModal);
+  document.getElementById("btnCloseEqualizerModal")?.addEventListener("click", closeEqualizerModal);
+  document.getElementById("modalEqualizer")?.addEventListener("click", (e) => {
+    if (e.target.id === "modalEqualizer") closeEqualizerModal();
+  });
+  document.getElementById("chkEqualizerEnabled")?.addEventListener("change", (e) => {
+    EqualizerEngine.toggle(e.target.checked);
+  });
+  for (let b = 0; b < 6; b++) {
+    document.getElementById(`eqBand${b}`)?.addEventListener("input", (e) => {
+      EqualizerEngine.setBandGain(b, e.target.value);
+    });
+  }
+  document.querySelectorAll(".eq-preset-chip").forEach(c => {
+    c.addEventListener("click", () => {
+      EqualizerEngine.applyPreset(c.getAttribute("data-preset"));
+    });
+  });
+  document.getElementById("btnResetEq")?.addEventListener("click", () => {
+    EqualizerEngine.applyPreset("flat");
+  });
+
+  // Spotify Feature 3: Sleep Timer Listeners & Modal
+  const openSleepTimerModal = () => {
+    const m = document.getElementById("modalSleepTimer");
+    if (m) m.style.display = "flex";
+  };
+  const closeSleepTimerModal = () => {
+    const m = document.getElementById("modalSleepTimer");
+    if (m) m.style.display = "none";
+  };
+  document.getElementById("btnSleepTimerToggle")?.addEventListener("click", openSleepTimerModal);
+  document.getElementById("btnExpandedSleepTimerToggle")?.addEventListener("click", openSleepTimerModal);
+  document.getElementById("btnCloseSleepTimerModal")?.addEventListener("click", closeSleepTimerModal);
+  document.getElementById("modalSleepTimer")?.addEventListener("click", (e) => {
+    if (e.target.id === "modalSleepTimer") closeSleepTimerModal();
+  });
+  document.querySelectorAll(".sleep-timer-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const mins = btn.getAttribute("data-minutes");
+      if (mins === "0") {
+        SleepTimerEngine.cancel();
+        showToast("🌙 Sleep timer turned off");
+      } else {
+        SleepTimerEngine.start(mins);
+      }
+      closeSleepTimerModal();
+    });
+  });
+
+  // Spotify Feature 4: Audio Streaming Quality Listeners & Modal
+  const openAudioQualityModal = () => {
+    const m = document.getElementById("modalAudioQuality");
+    if (m) m.style.display = "flex";
+  };
+  const closeAudioQualityModal = () => {
+    const m = document.getElementById("modalAudioQuality");
+    if (m) m.style.display = "none";
+  };
+  document.getElementById("btnAudioQualityToggle")?.addEventListener("click", openAudioQualityModal);
+  document.getElementById("btnCloseAudioQualityModal")?.addEventListener("click", closeAudioQualityModal);
+  document.getElementById("modalAudioQuality")?.addEventListener("click", (e) => {
+    if (e.target.id === "modalAudioQuality") closeAudioQualityModal();
+  });
+  document.querySelectorAll(".quality-option-card").forEach(c => {
+    c.addEventListener("click", () => {
+      const q = c.getAttribute("data-quality");
+      AudioQualityManager.set(q);
+      closeAudioQualityModal();
+    });
+  });
+  if (typeof AudioQualityManager !== "undefined") AudioQualityManager.init();
 
   // Proactive Audio Unlock on first user touch / pointer gesture anywhere
   const proactiveUnlock = () => {

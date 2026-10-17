@@ -893,6 +893,88 @@ async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterl
   return tracks;
 }
 
+// ==========================================================================
+// TIME-SYNCED KARAOKE LYRICS RESOLVER (SPOTIFY MUSIXMATCH EQUIVALENT)
+// ==========================================================================
+const lyricsCache = new Map();
+
+async function resolveTrackLyrics(title, artist, duration = 0) {
+  const cleanTitle = (title || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+  const cleanArtist = (artist || "").split(/[,&x/]|feat\.|ft\./i)[0].trim();
+  const cacheKey = `${cleanTitle.toLowerCase()}_${cleanArtist.toLowerCase()}`;
+  if (lyricsCache.has(cacheKey)) {
+    return lyricsCache.get(cacheKey);
+  }
+
+  // 1. Quran Surah English Translation / Guidance
+  if (cleanTitle.toLowerCase().includes("surah")) {
+    const match = cleanTitle.match(/surah\s*(\d+)/i);
+    const surahNum = match ? parseInt(match[1], 10) : 1;
+    const surahName = SURAH_NAMES[surahNum] || `Surah ${surahNum}`;
+    const quranData = {
+      isQuran: true,
+      title: `Surah ${surahNum}: ${surahName}`,
+      artist: cleanArtist || "Mishary Rashid Alafasy",
+      plainLyrics: `بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ\n\nSurah ${surahNum}: ${surahName}\nRecited by ${cleanArtist || "Mishary Rashid Alafasy"}\n\nListen attentively to the recitation of the Noble Quran.`,
+      syncedLyrics: null
+    };
+    lyricsCache.set(cacheKey, quranData);
+    return quranData;
+  }
+
+  // 2. Fetch from LRCLIB (Open Source Synced Lyrics API)
+  try {
+    const durSec = Math.round(duration > 1000 ? duration / 1000 : duration);
+    let lrcUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`;
+    if (durSec > 10) lrcUrl += `&duration=${durSec}`;
+
+    const res = await fetch(lrcUrl, {
+      headers: { "User-Agent": "TrackFinder/4.6" },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && (data.syncedLyrics || data.plainLyrics)) {
+        const result = {
+          title: data.trackName || title,
+          artist: data.artistName || artist,
+          syncedLyrics: data.syncedLyrics || null,
+          plainLyrics: data.plainLyrics || null,
+          instrumental: Boolean(data.instrumental)
+        };
+        lyricsCache.set(cacheKey, result);
+        return result;
+      }
+    }
+  } catch (e) {}
+
+  // 3. Fallback search on LRCLIB
+  try {
+    const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${cleanTitle} ${cleanArtist}`.trim())}`;
+    const res = await fetch(searchUrl, {
+      headers: { "User-Agent": "TrackFinder/4.6" },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list) && list.length > 0) {
+        const best = list[0];
+        const result = {
+          title: best.trackName || title,
+          artist: best.artistName || artist,
+          syncedLyrics: best.syncedLyrics || null,
+          plainLyrics: best.plainLyrics || null,
+          instrumental: Boolean(best.instrumental)
+        };
+        lyricsCache.set(cacheKey, result);
+        return result;
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
 // Navigation & Loop Handlers
 async function handlePrevious(player) {
   if (!player) return "No active player!";
@@ -2223,6 +2305,30 @@ const webServer = http.createServer(async (req, res) => {
         seed: { title: seedTitle, artist: seedArtist },
         station: `${seedTitle || seedArtist || "Spotify"} Radio`,
         tracks: radioTracks
+      }));
+    } catch (err) {
+      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  }
+
+  // Time-Synced Karaoke Lyrics Endpoint (LRCLIB + Open Source Synced Lyrics)
+  if (pathname === "/api/lyrics") {
+    const title = (parsedUrl.searchParams.get("title") || "").trim();
+    const artist = (parsedUrl.searchParams.get("artist") || "").trim();
+    const duration = parseFloat(parsedUrl.searchParams.get("duration") || "0");
+
+    try {
+      const lyricsData = await resolveTrackLyrics(title, artist, duration);
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=86400"
+      });
+      return res.end(JSON.stringify({
+        success: true,
+        found: Boolean(lyricsData),
+        lyrics: lyricsData
       }));
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
