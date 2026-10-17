@@ -380,18 +380,27 @@ const BrowserPlayer = {
     this.audio.addEventListener("ended", () => this.onEnded());
     this.audio.addEventListener("error", (e) => this.onError(e));
 
-    // Media Session Support (Lockscreen & Hardware media keys)
+    // Media Session Support (System Notification Bar, Lockscreen & Hardware media keys)
     if ("mediaSession" in navigator) {
       try {
         navigator.mediaSession.setActionHandler("play", () => this.play());
         navigator.mediaSession.setActionHandler("pause", () => this.pause());
         navigator.mediaSession.setActionHandler("previoustrack", () => this.prev());
         navigator.mediaSession.setActionHandler("nexttrack", () => this.next());
+        navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+          const skip = details.seekOffset || 10;
+          this.seek(Math.max((this.audio?.currentTime || 0) - skip, 0));
+        });
+        navigator.mediaSession.setActionHandler("seekforward", (details) => {
+          const skip = details.seekOffset || 10;
+          this.seek((this.audio?.currentTime || 0) + skip);
+        });
         navigator.mediaSession.setActionHandler("seekto", (details) => {
-          if (details.seekTime !== undefined && this.audio?.duration) {
-            this.audio.currentTime = details.seekTime;
+          if (details.seekTime !== undefined) {
+            this.seek(details.seekTime);
           }
         });
+        navigator.mediaSession.setActionHandler("stop", () => this.stop());
       } catch (e) {}
     }
 
@@ -414,6 +423,7 @@ const BrowserPlayer = {
     if (!track) return;
     this.init();
     this.prime(); // Unlock audio immediately within caller's synchronous tap/click gesture!
+    window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
 
     // Dynamically resolve audio stream if track was enqueued without direct URL
     if (!track.streamUrl && !track.proxyStreamUrl) {
@@ -764,6 +774,17 @@ const BrowserPlayer = {
     const pct = dur > 0 ? (cur / dur) * 100 : 0;
     updateProgressUI(cur, dur, pct);
 
+    // Sync notification bar seek scrubber and current progress
+    if ("mediaSession" in navigator && "setPositionState" in navigator.mediaSession && dur > 0 && Number.isFinite(dur)) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: dur,
+          playbackRate: this.audio?.playbackRate || 1.0,
+          position: Math.min(Math.max(cur, 0), dur)
+        });
+      } catch (e) {}
+    }
+
     const now = Date.now();
     if (now - this.lastReportTime > 4000) {
       this.lastReportTime = now;
@@ -779,11 +800,17 @@ const BrowserPlayer = {
   },
 
   onPlay() {
+    if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
+      try { navigator.mediaSession.playbackState = "playing"; } catch (e) {}
+    }
     updatePlayPauseIcons(true);
     this.reportState();
   },
 
   onPause() {
+    if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
+      try { navigator.mediaSession.playbackState = "paused"; } catch (e) {}
+    }
     updatePlayPauseIcons(false);
     this.reportState();
     if (typeof savePlaybackState === "function") savePlaybackState();
@@ -848,14 +875,27 @@ const BrowserPlayer = {
   updateMediaSession(track) {
     if (!("mediaSession" in navigator) || !track) return;
     try {
+      const art = track.artworkUrl || track.info?.artworkUrl || "logo.png";
+      const title = track.title || track.info?.title || "Spy Sec Music";
+      const artist = track.author || track.info?.author || "Artist";
+
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.title || "Spotify Audio",
-        artist: track.author || "Artist",
-        album: "Spotify • Spy Sec Web Client",
+        title: title,
+        artist: artist,
+        album: "Spy Sec Music • Vivo OriginOS",
         artwork: [
-          { src: track.artworkUrl || "logo.png", sizes: "512x512", type: "image/png" }
+          { src: art, sizes: "96x96", type: "image/png" },
+          { src: art, sizes: "128x128", type: "image/png" },
+          { src: art, sizes: "192x192", type: "image/png" },
+          { src: art, sizes: "256x256", type: "image/png" },
+          { src: art, sizes: "384x384", type: "image/png" },
+          { src: art, sizes: "512x512", type: "image/png" }
         ]
       });
+
+      if ("playbackState" in navigator.mediaSession) {
+        navigator.mediaSession.playbackState = this.isPlaying() ? "playing" : "paused";
+      }
     } catch (e) {}
   },
 
@@ -3837,6 +3877,12 @@ function updateUIWithTrack(track, isPlaying = false) {
   const mobileTitle = document.getElementById("mobilePlayerTitle");
   const mobileArtist = document.getElementById("mobilePlayerArtist");
 
+  // Vivo OriginOS Live Notification Capsule
+  const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
+  const capsuleImg = document.getElementById("vivoCapsuleImg");
+  const capsuleTitle = document.getElementById("vivoCapsuleTitle");
+  const capsuleArtist = document.getElementById("vivoCapsuleArtist");
+
   const expImg = document.getElementById("expandedTrackImg");
   const expTitle = document.getElementById("expandedTrackTitle");
   const expArtist = document.getElementById("expandedTrackArtist");
@@ -3859,10 +3905,18 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (mobileTitle) mobileTitle.textContent = title;
     if (mobileArtist) mobileArtist.textContent = author;
 
+    if (capsuleImg) capsuleImg.src = art;
+    if (capsuleTitle) capsuleTitle.textContent = title;
+    if (capsuleArtist) capsuleArtist.textContent = author;
+
     if (expImg) expImg.src = art;
     if (expTitle) expTitle.textContent = title;
     if (expArtist) expArtist.textContent = author;
     if (expBackdrop) expBackdrop.style.backgroundImage = `url("${art}")`;
+
+    if (vivoCapsule && !window._vivoCapsuleDismissed) {
+      vivoCapsule.classList.add("visible");
+    }
   } else {
     if (playerTitle) playerTitle.textContent = "Web Browser Ready";
     if (playerArtist) playerArtist.textContent = "Select a song or playlist";
@@ -3876,10 +3930,18 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (mobileArtist) mobileArtist.textContent = "Select a song";
     if (mobileImg) mobileImg.src = "logo.png";
 
+    if (capsuleTitle) capsuleTitle.textContent = "Web Browser Ready";
+    if (capsuleArtist) capsuleArtist.textContent = "Select a song";
+    if (capsuleImg) capsuleImg.src = "logo.png";
+
     if (expTitle) expTitle.textContent = "Web Browser Ready";
     if (expArtist) expArtist.textContent = "Select a song or playlist";
     if (expImg) expImg.src = "logo.png";
     if (expBackdrop) expBackdrop.style.backgroundImage = `url("logo.png")`;
+
+    if (vivoCapsule) {
+      vivoCapsule.classList.remove("visible");
+    }
   }
 
   updatePlayPauseIcons(isPlaying);
@@ -3888,22 +3950,50 @@ function updateUIWithTrack(track, isPlaying = false) {
 function updatePlayPauseIcons(isPlaying) {
   const svg = document.getElementById("mainPlayPauseSvg");
   const mobileBtn = document.getElementById("btnMobilePlayPause");
+  const capsuleSvg = document.getElementById("capsulePlayPauseSvg");
   const expSvg = document.getElementById("expandedPlayPauseSvg");
   const expOverlay = document.getElementById("expandedNowPlayingOverlay");
   const visualizer = document.getElementById("rightVisualizerBars");
 
+  // Vivo OriginOS Vinyl Turntable Discs & Soundwave Equalizers
+  const vinylDiscs = document.querySelectorAll(".vivo-vinyl-disc, .vivo-capsule-vinyl");
+  const equalizers = document.querySelectorAll(".vivo-equalizer");
+  const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
+
   if (isPlaying) {
     if (svg) svg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (mobileBtn) mobileBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/></svg>';
+    if (capsuleSvg) capsuleSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (expSvg) expSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (expOverlay) expOverlay.classList.add("playing");
     if (visualizer) visualizer.classList.add("playing");
+
+    // Spin vinyl discs smoothly
+    vinylDiscs.forEach(d => {
+      d.classList.remove("vivo-vinyl-paused");
+      d.classList.add("vivo-vinyl-spinning");
+    });
+    // Animate soundwave equalizer bars
+    equalizers.forEach(eq => eq.classList.add("playing"));
+
+    if (vivoCapsule && !window._vivoCapsuleDismissed && (BrowserPlayer.currentTrack || Boolean(currentState?.channels?.bot?.current) || Boolean(currentState?.current))) {
+      vivoCapsule.classList.add("visible");
+    }
   } else {
     if (svg) svg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (mobileBtn) mobileBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>';
+    if (capsuleSvg) capsuleSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (expSvg) expSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (expOverlay) expOverlay.classList.remove("playing");
     if (visualizer) visualizer.classList.remove("playing");
+
+    // Pause vinyl disc rotation in place
+    vinylDiscs.forEach(d => {
+      d.classList.remove("vivo-vinyl-spinning");
+      d.classList.add("vivo-vinyl-paused");
+    });
+    // Pause equalizer animation
+    equalizers.forEach(eq => eq.classList.remove("playing"));
   }
 }
 
@@ -3912,6 +4002,7 @@ function updateProgressUI(curSec, durSec, pct) {
   const totLabel = document.getElementById("totalDurationLabel");
   const fill = document.getElementById("playbackProgressFill");
   const microFill = document.getElementById("mobileMicroFill");
+  const capsuleFill = document.getElementById("vivoCapsuleFill");
 
   const expCurLabel = document.getElementById("expandedCurrentTime");
   const expTotLabel = document.getElementById("expandedTotalDuration");
@@ -3921,6 +4012,7 @@ function updateProgressUI(curSec, durSec, pct) {
   if (totLabel && durSec > 0) totLabel.textContent = formatTime(durSec * 1000);
   if (fill) fill.style.width = `${pct}%`;
   if (microFill) microFill.style.width = `${pct}%`;
+  if (capsuleFill) capsuleFill.style.width = `${pct}%`;
 
   if (expCurLabel) expCurLabel.textContent = formatTime(curSec * 1000);
   if (expTotLabel && durSec > 0) expTotLabel.textContent = formatTime(durSec * 1000);
@@ -4690,7 +4782,7 @@ function initEventListeners() {
     }
   });
 
-  // Main Play / Pause Controls
+  // Main Play / Pause Controls (Unified across Desktop, Mobile Pill & Vivo OriginOS Capsule)
   const handlePlayPause = () => {
     const isLocal = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
     if (isLocal) {
@@ -4701,20 +4793,40 @@ function initEventListeners() {
     }
   };
 
+  const handleNextTrack = () => {
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.next();
+    if (activeSystemChannel === "bot") sendAction("next");
+  };
+
+  const handlePrevTrack = () => {
+    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.prev();
+    if (activeSystemChannel === "bot") sendAction("prev");
+  };
+
   document.getElementById("btnMainPlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnMobilePlayPause")?.addEventListener("click", handlePlayPause);
+  document.getElementById("btnCapsulePlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnPlaylistHeroPlay")?.addEventListener("click", () => {
     if (currentActivePlaylist) dispatchPlayPlaylist(currentActivePlaylist);
   });
 
-  // Next & Previous
-  document.getElementById("btnNextTrack")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.next();
-    if (activeSystemChannel === "bot") sendAction("next");
+  // Next & Previous (Desktop, Mobile Pill, Vivo OriginOS Capsule)
+  document.getElementById("btnNextTrack")?.addEventListener("click", handleNextTrack);
+  document.getElementById("btnMobileNext")?.addEventListener("click", handleNextTrack);
+  document.getElementById("btnCapsuleNext")?.addEventListener("click", handleNextTrack);
+
+  document.getElementById("btnPrevTrack")?.addEventListener("click", handlePrevTrack);
+  document.getElementById("btnMobilePrev")?.addEventListener("click", handlePrevTrack);
+  document.getElementById("btnCapsulePrev")?.addEventListener("click", handlePrevTrack);
+
+  // Vivo OriginOS Live Notification Capsule Actions
+  document.getElementById("btnCapsuleClose")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    window._vivoCapsuleDismissed = true;
+    document.getElementById("vivoOriginNotificationBar")?.classList.remove("visible");
   });
-  document.getElementById("btnPrevTrack")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all") BrowserPlayer.prev();
-    if (activeSystemChannel === "bot") sendAction("prev");
+  document.getElementById("vivoCapsuleExpandClick")?.addEventListener("click", () => {
+    openExpandedPlayer();
   });
 
   // Shuffle & Repeat
@@ -4831,7 +4943,7 @@ function initEventListeners() {
     openExpandedPlayer();
   });
   document.getElementById("mobilePlayerPill")?.addEventListener("click", (e) => {
-    if (e.target.closest("#btnMobilePlayPause") || e.target.closest("#btnMobileHeart")) return;
+    if (e.target.closest("#btnMobilePlayPause") || e.target.closest("#btnMobilePrev") || e.target.closest("#btnMobileNext") || e.target.closest("#btnMobileQueue") || e.target.closest("#btnMobileHeart") || e.target.closest("#btnMobileExpandHint")) return;
     openExpandedPlayer();
   });
   document.getElementById("btnExpandPlayer")?.addEventListener("click", () => {

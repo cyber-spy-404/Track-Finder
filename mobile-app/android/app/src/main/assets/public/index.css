@@ -4412,4 +4412,368 @@ button:active:not(:disabled),
   transform: scale(0.97);
 }
 
+/* ==========================================================================
+   VIVO ORIGIN OS (OCEAN / 4 / 5) ATOMIC MUSIC BAR & NOTIFICATION CAPSULE
+   ========================================================================== */
+
+/* 1. Dynamic Notification Bar & Live Capsule */
+.vivo-origin-capsule {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%) translateY(-130px);
+  z-index: 10000;
+  width: calc(100% - 24px);
+  max-width: 440px;
+  background: rgba(18, 18, 26, 0.85);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  border-radius: 26px;
+  padding: 8px 12px 8px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-sizing: border-box;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+.vivo-origin-capsule.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vivo-capsule-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.vivo-capsule-vinyl {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, #111 0%, #1c1c1c 45%, #0b0b0b 65%, #252525 85%, #0d0d0d 100%);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vivo-capsule-vinyl img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 4px rgba(0,0,0,0.6);
+}
+
+.vivo-spindle-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  box-shadow: 0 0 2px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+
+.vivo-capsule-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.vivo-capsule-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.vivo-capsule-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--emerald, #1ed760);
+  background: rgba(30, 215, 96, 0.14);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.vivo-capsule-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.vivo-capsule-artist {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vivo-capsule-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.vivo-capsule-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+
+.vivo-capsule-btn:active {
+  transform: scale(0.9);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.vivo-capsule-play {
+  background: var(--text-primary);
+  color: var(--bg-canvas, #000);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+}
+
+.vivo-capsule-play:active {
+  transform: scale(0.9);
+}
+
+.vivo-capsule-close {
+  background: transparent;
+  border: none;
+  color: var(--text-subdued);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 2px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.vivo-capsule-close:hover {
+  opacity: 1;
+}
+
+.vivo-capsule-progress {
+  position: absolute;
+  bottom: 0;
+  left: 14px;
+  right: 14px;
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.vivo-capsule-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--emerald, #1ed760), #10b981);
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+/* 2. Vivo OriginOS Vinyl Turntable Disc */
+.vivo-vinyl-disc {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at center, #111 0%, #1e1e1e 40%, #0d0d0d 60%, #292929 80%, #0a0a0a 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.16), inset 0 0 0 4px rgba(0, 0, 0, 0.75);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.vivo-vinyl-grooves {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle at center, transparent 0, transparent 2px, rgba(255, 255, 255, 0.03) 2.5px, transparent 3px);
+  pointer-events: none;
+}
+
+.vivo-vinyl-disc img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+.vivo-vinyl-spindle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e4e4e7;
+  border: 1px solid rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+}
+
+@keyframes vivoVinylRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.vivo-vinyl-spinning {
+  animation: vivoVinylRotate 14s linear infinite !important;
+}
+
+.vivo-vinyl-paused {
+  animation-play-state: paused !important;
+}
+
+/* 3. Vivo OriginOS Dynamic Equalizer */
+.vivo-equalizer {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 13px;
+  vertical-align: middle;
+}
+
+.vivo-equalizer .vivo-bar {
+  width: 2.5px;
+  background: var(--emerald, #1ed760);
+  border-radius: 2px;
+  height: 3px;
+  transition: height 0.15s ease;
+}
+
+.vivo-equalizer.playing .vivo-bar.b1 { animation: vivoEq1 0.75s ease-in-out infinite alternate; }
+.vivo-equalizer.playing .vivo-bar.b2 { animation: vivoEq2 1.05s ease-in-out infinite alternate; }
+.vivo-equalizer.playing .vivo-bar.b3 { animation: vivoEq3 0.68s ease-in-out infinite alternate; }
+.vivo-equalizer.playing .vivo-bar.b4 { animation: vivoEq4 0.92s ease-in-out infinite alternate; }
+
+.vivo-equalizer.mini {
+  height: 10px;
+  gap: 2px;
+}
+.vivo-equalizer.mini .vivo-bar {
+  width: 2px;
+}
+
+@keyframes vivoEq1 { 0% { height: 3px; } 100% { height: 12px; } }
+@keyframes vivoEq2 { 0% { height: 11px; } 100% { height: 4px; } }
+@keyframes vivoEq3 { 0% { height: 4px; } 100% { height: 13px; } }
+@keyframes vivoEq4 { 0% { height: 10px; } 100% { height: 3px; } }
+
+/* 4. Vivo OriginOS Mobile Player Bar Enhancements */
+.vivo-origin-bar {
+  background: rgba(18, 18, 26, 0.85) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  border-radius: 22px !important;
+  height: 60px !important;
+}
+
+.vivo-meta-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vivo-action-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+
+.vivo-action-btn:active {
+  transform: scale(0.9);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.vivo-play-btn {
+  box-shadow: 0 4px 14px rgba(30, 215, 96, 0.35) !important;
+}
+
+/* Light Theme Adaptations */
+[data-theme="light"] .vivo-origin-capsule {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .vivo-origin-bar {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16) !important;
+}
+
+[data-theme="light"] .vivo-action-btn,
+[data-theme="light"] .vivo-capsule-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 
