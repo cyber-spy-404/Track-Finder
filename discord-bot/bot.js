@@ -57,9 +57,12 @@ async function searchYouTubeMulti(query, limit = 20) {
   }
 
   // Fast path 1: Lavalink REST search (ultra-fast, ~900ms, no channel clutter)
-  try {
-    const res = await fetch(`http://127.0.0.1:2334/v4/loadtracks?identifier=ytsearch:${encodeURIComponent(query)}`, {
-      headers: { Authorization: "youshallnotpass" },
+    const protocol = process.env.LAVALINK_SECURE === "true" ? "https" : "http";
+    const lHost = process.env.LAVALINK_HOST || "127.0.0.1";
+    const lPort = process.env.LAVALINK_PORT || "2334";
+    const lAuth = process.env.LAVALINK_AUTH || "youshallnotpass";
+    const res = await fetch(`${protocol}://${lHost}:${lPort}/v4/loadtracks?identifier=ytsearch:${encodeURIComponent(query)}`, {
+      headers: { Authorization: lAuth },
       signal: AbortSignal.timeout(6000)
     });
     const d = await res.json();
@@ -464,10 +467,10 @@ const client = new Client({
 const lavalink = new LavalinkManager({
   nodes: [
     {
-      authorization: "youshallnotpass",
-      host: "127.0.0.1",
-      port: 2334,
-      secure: false
+      authorization: process.env.LAVALINK_AUTH || "youshallnotpass",
+      host: process.env.LAVALINK_HOST || "127.0.0.1",
+      port: parseInt(process.env.LAVALINK_PORT || "2334", 10),
+      secure: process.env.LAVALINK_SECURE === "true"
     }
   ],
   sendToShard: (guildId, payload) => client.guilds.cache.get(guildId)?.shard?.send(payload),
