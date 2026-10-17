@@ -27,6 +27,10 @@ window.escapeHtml = escapeHtml;
 // Standalone Android APK Download URL (Can be set dynamically or updated with direct link)
 window.AHM_APK_DOWNLOAD_URL = "";
 
+// Universal Built-in Cloud Server URL
+const BUILT_IN_SERVER_URL = "https://track-finder.onrender.com";
+window.BUILT_IN_SERVER_URL = BUILT_IN_SERVER_URL;
+
 // Universal API Base URL Resolver for Web Browser & Mobile Capacitor App
 function getApiBaseUrl() {
   const custom = (localStorage.getItem("ahm_server_url") || "").trim();
@@ -34,21 +38,18 @@ function getApiBaseUrl() {
   if (custom && (custom.startsWith("http://") || custom.startsWith("https://"))) {
     return custom.replace(/\/+$/, "");
   }
-  // If invalid text (like a CLI command) was accidentally saved, purge it
+  // If invalid text was saved, purge it
   if (custom) {
     localStorage.removeItem("ahm_server_url");
   }
 
-  // Detect native Capacitor Android / iOS shell or file:// protocol
-  const isCapacitorNative = Boolean(
-    window.Capacitor?.isNativePlatform?.() ||
-    window.location?.protocol === "file:" ||
-    (window.location?.origin && (window.location.origin.includes("capacitor") || window.location.origin === "http://localhost"))
-  );
-  if (isCapacitorNative) {
-    return "http://localhost:3050";
+  // If running in browser and already served directly from track-finder.onrender.com, use relative path
+  if (typeof window !== "undefined" && window.location?.origin && window.location.origin.includes("track-finder.onrender.com")) {
+    return "";
   }
-  return "";
+
+  // Built-in connection to https://track-finder.onrender.com for native Android APK, Capacitor, iOS, PWA, or local shells
+  return BUILT_IN_SERVER_URL;
 }
 window.getApiBaseUrl = getApiBaseUrl;
 

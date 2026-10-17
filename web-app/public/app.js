@@ -27,6 +27,10 @@ window.escapeHtml = escapeHtml;
 // Standalone Android APK Download URL (Can be set dynamically or updated with direct link)
 window.AHM_APK_DOWNLOAD_URL = "";
 
+// Universal Built-in Cloud Server URL
+const BUILT_IN_SERVER_URL = "https://track-finder.onrender.com";
+window.BUILT_IN_SERVER_URL = BUILT_IN_SERVER_URL;
+
 // Universal API Base URL Resolver for Web Browser & Mobile Capacitor App
 function getApiBaseUrl() {
   const custom = (localStorage.getItem("ahm_server_url") || "").trim();
@@ -34,22 +38,18 @@ function getApiBaseUrl() {
   if (custom && (custom.startsWith("http://") || custom.startsWith("https://"))) {
     return custom.replace(/\/+$/, "");
   }
-  // If invalid text (like a CLI command) was accidentally saved, purge it
+  // If invalid text was saved, purge it
   if (custom) {
     localStorage.removeItem("ahm_server_url");
   }
 
-  // Detect native Capacitor Android / iOS shell or file:// protocol
-  const isCapacitorNative = Boolean(
-    window.Capacitor?.isNativePlatform?.() ||
-    window.location?.protocol === "file:" ||
-    (window.location?.origin && (window.location.origin.includes("capacitor") || window.location.origin === "http://localhost"))
-  );
-  if (isCapacitorNative) {
-    // In native Android APK, default to live production server so songs stream immediately with zero setup!
-    return "https://track-finder.onrender.com";
+  // If running in browser and already served directly from track-finder.onrender.com, use relative path
+  if (typeof window !== "undefined" && window.location?.origin && window.location.origin.includes("track-finder.onrender.com")) {
+    return "";
   }
-  return "";
+
+  // Built-in connection to https://track-finder.onrender.com for native Android APK, Capacitor, iOS, PWA, or local shells
+  return BUILT_IN_SERVER_URL;
 }
 window.getApiBaseUrl = getApiBaseUrl;
 
@@ -3613,22 +3613,28 @@ function openProfileModal() {
   const serverBox = document.createElement("div");
   serverBox.style.cssText = "margin-top: 18px; border-top: 1px solid var(--border-subtle); padding-top: 14px;";
   serverBox.innerHTML = `
-    <div style="background: var(--bg-card-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-        <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-header); display: flex; align-items: center; gap: 8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
-          <span>Mobile App Server Link</span>
+    <div style="background: var(--bg-card-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-size: 0.84rem; font-weight: 700; color: var(--text-header); display: flex; align-items: center; gap: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+          <span>Server Connection (Built-in Cloud)</span>
         </span>
-        <span id="mobileServerStatusBadge" style="font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: var(--emerald-soft); color: var(--emerald);">
-          ● Ready
+        <span id="mobileServerStatusBadge" style="font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 12px; background: var(--emerald-soft); color: var(--emerald);">
+          ● Connected
         </span>
       </div>
-      <p style="font-size: 0.74rem; color: var(--text-secondary); margin: 0 0 8px 0;">
-        For Android APK or remote mobile, connect to your server (e.g. <code>http://192.168.1.15:3050</code> or your public URL).
+      <p style="font-size: 0.76rem; color: var(--text-secondary); margin: 0 0 10px 0; line-height: 1.45;">
+        Built-in Server: <strong style="color: var(--emerald); font-family: monospace;">https://track-finder.onrender.com</strong>
+        <br><span style="color: var(--text-subdued); font-size: 0.72rem;">Live streaming audio, queue sync, search, and playlists are pre-wired. No setup required.</span>
       </p>
-      <div style="display: flex; gap: 8px;">
-        <input type="text" id="inputMobileServerUrl" placeholder="http://localhost:3050" value="${escapeHtml(localStorage.getItem('ahm_server_url') || '')}" style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-medium); color: var(--text-primary); padding: 7px 10px; border-radius: 6px; font-size: 0.78rem;">
+      <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+        <input type="text" id="inputMobileServerUrl" placeholder="https://track-finder.onrender.com" value="${escapeHtml(localStorage.getItem('ahm_server_url') || '')}" style="flex: 1; background: var(--bg-surface); border: 1px solid var(--border-medium); color: var(--text-primary); padding: 7px 10px; border-radius: 6px; font-size: 0.78rem;">
         <button id="btnSaveMobileServerUrl" type="button" style="background: var(--text-primary); color: var(--bg-canvas); border: none; padding: 7px 12px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap;">Save & Test</button>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button id="btnUseBuiltInServer" type="button" style="background: var(--bg-surface); border: 1px solid var(--border-medium); color: var(--text-primary); padding: 5px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+          <span>⚡ Reset to Built-in Server</span>
+        </button>
       </div>
     </div>
 
@@ -3641,11 +3647,49 @@ function openProfileModal() {
   `;
   body.appendChild(serverBox);
 
+  async function testServerConnection() {
+    const badge = document.getElementById("mobileServerStatusBadge");
+    if (badge) {
+      badge.textContent = "Testing...";
+      badge.style.color = "var(--text-secondary)";
+      badge.style.background = "var(--bg-surface)";
+    }
+    try {
+      const res = await fetch("/api/state");
+      if (res.ok) {
+        if (badge) {
+          badge.textContent = "● Connected";
+          badge.style.color = "var(--emerald)";
+          badge.style.background = "var(--emerald-soft)";
+        }
+      } else {
+        if (badge) {
+          badge.textContent = "▲ Error";
+          badge.style.color = "var(--text-secondary)";
+        }
+      }
+    } catch (err) {
+      if (badge) {
+        badge.textContent = "✕ Offline";
+        badge.style.color = "var(--danger)";
+        badge.style.background = "rgba(239, 68, 68, 0.15)";
+      }
+    }
+  }
+
+  document.getElementById("btnUseBuiltInServer")?.addEventListener("click", () => {
+    localStorage.removeItem("ahm_server_url");
+    const input = document.getElementById("inputMobileServerUrl");
+    if (input) input.value = "";
+    showToast("Connected to built-in server: https://track-finder.onrender.com");
+    testServerConnection();
+  });
+
   document.getElementById("btnSaveMobileServerUrl")?.addEventListener("click", async () => {
     const val = (document.getElementById("inputMobileServerUrl")?.value || "").trim();
     if (val) {
       if (!val.startsWith("http://") && !val.startsWith("https://")) {
-        showToast("Invalid URL! Must start with http:// or https:// (e.g. http://192.168.1.15:3050). Do not paste terminal commands here.");
+        showToast("Invalid URL! Must start with http:// or https:// (e.g. https://track-finder.onrender.com). Do not paste terminal commands here.");
         const badge = document.getElementById("mobileServerStatusBadge");
         if (badge) {
           badge.textContent = "✕ Invalid URL";
@@ -3657,32 +3701,9 @@ function openProfileModal() {
       showToast(`Server address saved: ${val}`);
     } else {
       localStorage.removeItem("ahm_server_url");
-      showToast("Reverted to default server URL");
+      showToast("Reverted to built-in server: https://track-finder.onrender.com");
     }
-    try {
-      const badge = document.getElementById("mobileServerStatusBadge");
-      if (badge) badge.textContent = "Testing...";
-      const res = await fetch("/api/state");
-      if (res.ok) {
-        if (badge) {
-          badge.textContent = "● Connected";
-          badge.style.color = "var(--emerald)";
-        }
-        showToast("Connected to bot server!");
-      } else {
-        if (badge) {
-          badge.textContent = "▲ Error";
-          badge.style.color = "var(--text-secondary)";
-        }
-      }
-    } catch (err) {
-      const badge = document.getElementById("mobileServerStatusBadge");
-      if (badge) {
-        badge.textContent = "✕ Offline";
-        badge.style.color = "var(--danger)";
-      }
-      showToast("Could not reach server at this address");
-    }
+    await testServerConnection();
   });
 
   modal.style.display = "flex";
