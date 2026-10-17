@@ -631,10 +631,12 @@ const server = http.createServer(async (req, res) => {
       if (res.socket) res.socket.setNoDelay(true);
 
       if (req.method === "HEAD") {
+        const ext = targetUrl.pathname.toLowerCase();
+        const inferredType = ext.includes(".mp4") || ext.includes(".m4a") ? "audio/mp4" : (ext.includes(".mp3") ? "audio/mpeg" : "audio/webm");
         res.writeHead(200, {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
-          "Content-Type": "audio/webm",
+          "Content-Type": inferredType,
           "Accept-Ranges": "bytes",
           "Cache-Control": "public, max-age=14400"
         });

@@ -1,5 +1,5 @@
 // Service Worker for Spy Sec Music PWA Mobile App - Fast Network-First Strategy
-const CACHE_NAME = "spysec-music-v2";
+const CACHE_NAME = "spysec-music-v9";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
