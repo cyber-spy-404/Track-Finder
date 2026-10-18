@@ -1418,7 +1418,7 @@
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
           <label class="eq-toggle-switch" title="Toggle Equalizer On/Off">
-            <input type="checkbox" id="chkEqualizerEnabled" checked>
+            <input type="checkbox" id="chkEqualizerEnabled">
             <span class="eq-slider-round"></span>
           </label>
           <button id="btnCloseEqualizerModal" class="modal-close-btn" type="button">✕</button>
@@ -1890,9 +1890,9 @@
   </div>
 
   <!-- Bulletproof Direct Native HTML5 Audio Engine -->
-  <audio id="browserAudio" preload="auto" playsinline style="display: none;"></audio>
+  <audio id="browserAudio" preload="auto" playsinline crossorigin="anonymous" style="display: none;"></audio>
 
   <!-- Interactive JavaScript Engine with Cache-Buster -->
-  <script src="app.js?v=9.3"></script>
+  <script src="app.js?v=9.4"></script>
 </body>
 </html>

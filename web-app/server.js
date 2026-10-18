@@ -1477,7 +1477,7 @@ const server = http.createServer(async (req, res) => {
   // CORS & Streaming Headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, Authorization, Accept, Origin, X-Requested-With");
   res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges");
 
   if (req.method === "OPTIONS") {
@@ -1525,6 +1525,8 @@ const server = http.createServer(async (req, res) => {
         const inferredType = ext.includes(".mp4") || ext.includes(".m4a") ? "audio/mp4" : (ext.includes(".mp3") ? "audio/mpeg" : "audio/webm");
         res.writeHead(200, {
           "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Range, Authorization, Accept, Origin, X-Requested-With",
           "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
           "Content-Type": inferredType,
           "Accept-Ranges": "bytes",
@@ -1581,6 +1583,8 @@ const server = http.createServer(async (req, res) => {
 
         const resHeaders = {
           "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Range, Authorization, Accept, Origin, X-Requested-With",
           "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
           "Content-Type": proxyRes.headers["content-type"] || "audio/webm",
           "Accept-Ranges": "bytes",

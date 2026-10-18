@@ -404,6 +404,14 @@ const BrowserPlayer = {
       document.body.appendChild(this.audio);
     }
     this.audio.preload = "auto";
+    try {
+      this.audio.crossOrigin = "anonymous";
+    } catch (_) {}
+    this.audio.muted = false;
+    this.audio.removeAttribute("muted");
+    const initVol = typeof this.volume === "number" && this.volume > 0 ? Math.min(this.volume, 1.0) : 1.0;
+    this.audio.volume = initVol;
+    this.volume = initVol;
 
     // Native audio event listeners
     this.audio.addEventListener("timeupdate", () => this.onTimeUpdate());
@@ -537,17 +545,16 @@ const BrowserPlayer = {
 
     this.currentTrack = track;
 
-    // Ultra-Low Latency Audio Path:
-    // Prefer proxyStreamUrl (Render server stream) to avoid Google Video IP-mismatch 403 & throttling
+    // High-Fidelity Audio Stream Pipeline:
+    // Prefer proxyStreamUrl (or wrap through /api/stream-audio) to ensure same-origin CORS compliance
+    // and prevent Web Audio API silent muting on cross-origin streams.
     let src = null;
-    if (track.streamUrl && track.streamUrl.includes("saavncdn.com")) {
-      src = track.streamUrl;
-    } else if (track.proxyStreamUrl) {
+    if (track.proxyStreamUrl) {
       src = resolveApiUrl(track.proxyStreamUrl);
-    } else if (track.streamUrl && (track.streamUrl.startsWith("http://") || track.streamUrl.startsWith("https://"))) {
-      src = track.streamUrl;
-    } else if (track.rawStreamUrl && (track.rawStreamUrl.startsWith("http://") || track.rawStreamUrl.startsWith("https://"))) {
-      src = track.rawStreamUrl;
+    } else if (track.streamUrl) {
+      src = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(track.streamUrl)}`);
+    } else if (track.rawStreamUrl) {
+      src = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(track.rawStreamUrl)}`);
     }
 
     if (!src) {
@@ -558,14 +565,23 @@ const BrowserPlayer = {
       return;
     }
 
+    try {
+      this.audio.crossOrigin = "anonymous";
+    } catch (_) {}
     this.audio.src = src;
     this.audio.currentTime = 0;
     this.audio.muted = false;
-    this.audio.volume = typeof this.volume === "number" ? Math.max(Math.min(this.volume, 1.0), 0) : 1.0;
+    this.audio.removeAttribute("muted");
+    const safeVol = typeof this.volume === "number" && this.volume > 0 ? Math.min(this.volume, 1.0) : 1.0;
+    this.audio.volume = safeVol;
+    this.volume = safeVol;
 
     const playPromise = this.audio.play();
     if (playPromise !== undefined) {
       playPromise.then(() => {
+        if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
+          EqualizerEngine.resume();
+        }
         this.updateMediaSession(track);
         this.reportState();
         showToast(`▶ Playing: ${track.title}`);
@@ -573,6 +589,9 @@ const BrowserPlayer = {
         console.warn("Direct browser audio play note:", err.message);
         showToast(`Tap anywhere to start audio: ${track.title}`);
         const resumeOnTap = () => {
+          if (typeof EqualizerEngine !== "undefined") EqualizerEngine.resume();
+          this.audio.muted = false;
+          this.audio.removeAttribute("muted");
           this.audio.play().then(() => {
             showToast(`▶ Playing: ${track.title}`);
           }).catch(() => {});
@@ -593,7 +612,10 @@ const BrowserPlayer = {
 
     // Spotify Features: Synced Lyrics, 6-Band Equalizer (only when explicitly enabled), and Reactive Visualizer
     if (typeof LyricsManager !== "undefined") LyricsManager.loadLyricsForTrack(track);
-    if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) EqualizerEngine.init(this.audio);
+    if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
+      EqualizerEngine.init(this.audio);
+      EqualizerEngine.resume();
+    }
     if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.start();
 
     // Seamlessly pre-resolve next track so queue transitions have zero latency
@@ -768,8 +790,16 @@ const BrowserPlayer = {
 
   play() {
     this.init();
-    if (this.audio && this.audio.paused) {
-      this.audio.play().catch(() => {});
+    if (this.audio) {
+      this.audio.muted = false;
+      this.audio.removeAttribute("muted");
+      if (this.audio.volume === 0) this.setVolume(100);
+      if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
+        EqualizerEngine.resume();
+      }
+      if (this.audio.paused) {
+        this.audio.play().catch(() => {});
+      }
     }
   },
 
@@ -1160,15 +1190,24 @@ const BrowserPlayer = {
     console.error("Browser audio error:", e);
     if (!this.currentTrack) return;
 
-    // Retry Strategy 1: Switch to Render server stream proxy with explicit direct URL
-    if (this.audio?.src && !this.audio.src.includes("/api/stream-audio") && this.currentTrack.streamUrl) {
-      console.log("Direct stream failed, falling back to server audio proxy...");
+    // Retry Strategy 1: Switch between proxy and direct CDN stream
+    if (this.audio?.src && this.audio.src.includes("/api/stream-audio") && this.currentTrack.streamUrl) {
+      console.log("Audio proxy failed or stalled, falling back to direct CDN stream without CORS restrictions...");
+      try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
+      this.audio.src = this.currentTrack.streamUrl;
+      this.audio.currentTime = 0;
+      this.audio.play().catch(() => {});
+      return;
+    } else if (this.audio?.src && !this.audio.src.includes("/api/stream-audio") && this.currentTrack.streamUrl) {
+      console.log("Direct stream failed, falling back to server audio proxy with fresh timestamp...");
+      try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
       this.audio.src = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(this.currentTrack.streamUrl)}&t=${Date.now()}`);
+      this.audio.currentTime = 0;
       this.audio.play().catch(() => {});
       return;
     }
 
-    // Retry Strategy 2: If proxy also failed or was blocked, re-resolve via JioSaavn CDN
+    // Retry Strategy 2: If primary failed, re-resolve via JioSaavn CDN
     if (!this.currentTrack._fallbackAttempted) {
       this.currentTrack._fallbackAttempted = true;
       const query = `${this.currentTrack.title} ${this.currentTrack.author || ""}`.trim();
@@ -1179,8 +1218,10 @@ const BrowserPlayer = {
           if (d.success && d.track?.streamUrl) {
             this.currentTrack.streamUrl = d.track.streamUrl;
             this.currentTrack.proxyStreamUrl = d.track.proxyStreamUrl;
-            const fallbackSrc = d.track.streamUrl.includes("saavncdn.com") ? d.track.streamUrl : resolveApiUrl(d.track.proxyStreamUrl);
+            const fallbackSrc = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(d.track.streamUrl)}`);
+            try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
             this.audio.src = fallbackSrc;
+            this.audio.currentTime = 0;
             this.audio.play().catch(() => {});
           } else if (this.queue.length > 0) {
             this.next();
@@ -1550,7 +1591,10 @@ const EqualizerEngine = {
     try {
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtxClass) return;
-      this.audioCtx = new AudioCtxClass();
+      if (!this.audioCtx) {
+        this.audioCtx = new AudioCtxClass();
+      }
+      this.resume();
 
       // Create 6 Biquad Filter nodes in series
       this.filters = this.frequencies.map((freq, i) => {
@@ -1568,7 +1612,12 @@ const EqualizerEngine = {
       this.analyser.smoothingTimeConstant = 0.8;
 
       // Connect HTML5 Audio -> Filter 0 -> Filter 1 -> ... -> Filter 5 -> Analyser -> Destination
-      this.sourceNode = this.audioCtx.createMediaElementSource(audioElement);
+      try {
+        this.sourceNode = this.audioCtx.createMediaElementSource(audioElement);
+      } catch (srcErr) {
+        console.warn("createMediaElementSource note:", srcErr.message);
+        return;
+      }
       let prevNode = this.sourceNode;
       for (const f of this.filters) {
         prevNode.connect(f);
@@ -1585,9 +1634,11 @@ const EqualizerEngine = {
   },
 
   resume() {
-    if (this.audioCtx && this.audioCtx.state === "suspended") {
-      this.audioCtx.resume().catch(() => {});
-    }
+    try {
+      if (this.audioCtx && this.audioCtx.state === "suspended") {
+        this.audioCtx.resume().catch(() => {});
+      }
+    } catch (_) {}
   },
 
   setBandGain(bandIdx, gainDb) {
@@ -1629,17 +1680,23 @@ const EqualizerEngine = {
   toggle(enable) {
     this.isEnabled = Boolean(enable);
     localStorage.setItem("ahm_eq_enabled", this.isEnabled ? "true" : "false");
-    if (this.isEnabled && !this.isInitialized && BrowserPlayer.audio) {
-      this.init(BrowserPlayer.audio);
+    if (this.isEnabled) {
+      if (!this.isInitialized && BrowserPlayer.audio) {
+        this.init(BrowserPlayer.audio);
+      }
+      this.resume();
+      this.filters.forEach((f, idx) => {
+        const g = this.gains[idx] || 0;
+        if (this.audioCtx) f.gain.setTargetAtTime(g, this.audioCtx.currentTime, 0.05);
+      });
+      showToast("Equalizer: ON (Studio DSP Active)");
+    } else {
+      // Flat transparent passthrough so volume is never lost
+      this.filters.forEach((f) => {
+        if (this.audioCtx) f.gain.setTargetAtTime(0, this.audioCtx.currentTime, 0.05);
+      });
+      showToast("Equalizer: OFF (Direct Flat Audio)");
     }
-    if (this.audioCtx && this.audioCtx.state === "suspended") {
-      this.audioCtx.resume().catch(() => {});
-    }
-    this.filters.forEach((f, idx) => {
-      const g = this.isEnabled ? this.gains[idx] : 0;
-      if (this.audioCtx) f.gain.setTargetAtTime(g, this.audioCtx.currentTime, 0.05);
-    });
-    showToast(`Equalizer: ${this.isEnabled ? "ON" : "OFF"}`);
   }
 };
 window.EqualizerEngine = EqualizerEngine;
@@ -7193,6 +7250,22 @@ document.addEventListener("DOMContentLoaded", () => {
   initUserAuth();
   registerPwaServiceWorker();
   handleHashRoute();
+
+  // Global user-gesture audio unlocker for Web Audio API & Media Elements
+  const unlockGlobalAudio = () => {
+    if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.audioCtx && EqualizerEngine.audioCtx.state === "suspended") {
+      EqualizerEngine.audioCtx.resume().catch(() => {});
+    }
+    if (BrowserPlayer && BrowserPlayer.audio) {
+      BrowserPlayer.audio.muted = false;
+      BrowserPlayer.audio.removeAttribute("muted");
+      if (BrowserPlayer.audio.volume === 0) BrowserPlayer.setVolume(100);
+    }
+  };
+  window.addEventListener("pointerdown", unlockGlobalAudio, { passive: true });
+  window.addEventListener("keydown", unlockGlobalAudio, { passive: true });
+  window.addEventListener("click", unlockGlobalAudio, { passive: true });
+
   fetchState();
   setInterval(fetchState, 1200);
 });
