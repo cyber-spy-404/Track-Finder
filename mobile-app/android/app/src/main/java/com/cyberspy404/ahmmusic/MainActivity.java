@@ -34,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
     public static void dispatchMediaAction(String action, double value) {
         new Handler(Looper.getMainLooper()).post(() -> {
             if (activeInstance != null && activeInstance.webView != null) {
-                String js = String.format("if (typeof window.handleAndroidMediaAction === 'function') { window.handleAndroidMediaAction('%s', %f); }", action, value);
+                String js = String.format(java.util.Locale.US, "if (typeof window.handleAndroidMediaAction === 'function') { window.handleAndroidMediaAction('%s', %f); }", action, value);
                 activeInstance.webView.evaluateJavascript(js, null);
             }
         });
@@ -83,6 +83,9 @@ public class MainActivity extends AppCompatActivity {
         // Bridge for native Android music player detection & MediaSession
         webView.addJavascriptInterface(new AndroidAudioBridge(this), "AndroidAudioBridge");
 
+        webView.setWebChromeClient(new android.webkit.WebChromeClient());
+        webView.setKeepScreenOn(true);
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
@@ -126,10 +129,8 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void requestAudioFocus() {
-            MediaPlaybackService service = MediaPlaybackService.getInstance();
-            if (service != null) {
-                service.requestAudioFocus();
-            }
+            // Android WebView manages AudioFocus natively for <audio> elements.
+            // Avoid competing audio focus request from background service which steals focus and mutes HTML5 audio.
         }
 
         @JavascriptInterface

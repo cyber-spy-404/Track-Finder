@@ -17,6 +17,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
@@ -68,6 +69,7 @@ public class MediaPlaybackService extends Service {
     private Bitmap cachedCoverBitmap = null;
     private String lastCoverLoaded = "";
     private final ExecutorService imageExecutor = Executors.newSingleThreadExecutor();
+    private PowerManager.WakeLock wakeLock;
 
     public static MediaPlaybackService getInstance() {
         return instance;
@@ -79,6 +81,14 @@ public class MediaPlaybackService extends Service {
         instance = this;
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SpySecMusic:PlaybackWakeLock");
+                wakeLock.setReferenceCounted(false);
+            }
+        } catch (Exception ignored) {}
 
         createNotificationChannel();
         initMediaSession();
@@ -110,7 +120,6 @@ public class MediaPlaybackService extends Service {
         mediaSession.setCallback(new MediaSessionCompat.Callback() {
             @Override
             public void onPlay() {
-                requestAudioFocus();
                 MainActivity.dispatchMediaAction("play", 0);
             }
 
@@ -156,7 +165,6 @@ public class MediaPlaybackService extends Service {
         String action = intent.getAction();
         switch (action) {
             case ACTION_PLAY:
-                requestAudioFocus();
                 MainActivity.dispatchMediaAction("play", 0);
                 break;
             case ACTION_PAUSE:
@@ -166,7 +174,6 @@ public class MediaPlaybackService extends Service {
                 if (isCurrentlyPlaying) {
                     MainActivity.dispatchMediaAction("pause", 0);
                 } else {
-                    requestAudioFocus();
                     MainActivity.dispatchMediaAction("play", 0);
                 }
                 break;
@@ -202,6 +209,16 @@ public class MediaPlaybackService extends Service {
         currentDuration = intent.getDoubleExtra(EXTRA_DURATION, 0.0);
         currentPosition = intent.getDoubleExtra(EXTRA_POSITION, 0.0);
         isCurrentlyPlaying = intent.getBooleanExtra(EXTRA_IS_PLAYING, false);
+
+        if (isCurrentlyPlaying) {
+            if (wakeLock != null && !wakeLock.isHeld()) {
+                try { wakeLock.acquire(12 * 60 * 60 * 1000L); } catch (Exception ignored) {}
+            }
+        } else {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                try { wakeLock.release(); } catch (Exception ignored) {}
+            }
+        }
 
         if (currentTitle == null || currentTitle.isEmpty()) currentTitle = "Spy Sec Music";
         if (currentArtist == null || currentArtist.isEmpty()) currentArtist = "CyberSpy 404";
@@ -379,11 +396,8 @@ public class MediaPlaybackService extends Service {
                     .setAudioAttributes(playbackAttributes)
                     .setAcceptsDelayedFocusGain(true)
                     .setOnAudioFocusChangeListener(focusChange -> {
-                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS ||
-                            focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
                             MainActivity.dispatchMediaAction("pause", 0);
-                        } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-                            MainActivity.dispatchMediaAction("play", 0);
                         }
                     })
                     .build();
@@ -392,8 +406,7 @@ public class MediaPlaybackService extends Service {
         } else {
             return audioManager.requestAudioFocus(
                     focusChange -> {
-                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS ||
-                            focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+                        if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
                             MainActivity.dispatchMediaAction("pause", 0);
                         }
                     },
@@ -414,6 +427,9 @@ public class MediaPlaybackService extends Service {
     public void onDestroy() {
         super.onDestroy();
         abandonAudioFocus();
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try { wakeLock.release(); } catch (Exception ignored) {}
+        }
         if (mediaSession != null) {
             mediaSession.setActive(false);
             mediaSession.release();

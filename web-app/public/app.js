@@ -434,9 +434,11 @@ const BrowserPlayer = {
       document.body.appendChild(this.audio);
     }
     this.audio.preload = "auto";
-    try {
-      this.audio.crossOrigin = "anonymous";
-    } catch (_) {}
+    if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
+      try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
+    } else {
+      try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
+    }
     this.audio.muted = false;
     this.audio.removeAttribute("muted");
     const initVol = typeof this.volume === "number" && this.volume > 0 ? Math.min(this.volume, 1.0) : 1.0;
@@ -550,6 +552,17 @@ const BrowserPlayer = {
     this.init();
     window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
 
+    // Spotify Infinite Radio state synchronization:
+    // When playing a normal track, explicitly turn off Radio mode and clear the seed
+    if (track.isRadio) {
+      this.isRadioActive = true;
+      if (!this.activeRadioSeed) this.activeRadioSeed = track;
+    } else {
+      this.isRadioActive = false;
+      this.activeRadioSeed = null;
+    }
+    if (typeof updateRadioUI === "function") updateRadioUI();
+
     const hasPlayableStream = Boolean(
       (track.streamUrl && isDirectPlayableAudioUrl(track.streamUrl)) ||
       (track.proxyStreamUrl && isDirectPlayableAudioUrl(track.proxyStreamUrl)) ||
@@ -624,9 +637,15 @@ const BrowserPlayer = {
       return;
     }
 
-    try {
-      this.audio.crossOrigin = "anonymous";
-    } catch (_) {}
+    // High-Fidelity Audio Stream Pipeline:
+    // Only apply crossOrigin="anonymous" when Equalizer is actively enabled.
+    // In Android WebView and mobile browsers, setting crossOrigin on direct CDN audio (e.g. JioSaavn / Quranic)
+    // causes CORS origin check failures on file:// or cross-origin requests, resulting in complete silence!
+    if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
+      try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
+    } else {
+      try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
+    }
     this.audio.src = src;
     this.audio.currentTime = 0;
     this.audio.muted = false;
@@ -707,6 +726,13 @@ const BrowserPlayer = {
       return this.playQuery(item, filterMode, true);
     }
     if (item && typeof item === "object") {
+      if (!item.isRadio) {
+        this.isRadioActive = false;
+        this.activeRadioSeed = null;
+        if (Array.isArray(this.queue)) {
+          this.queue = this.queue.filter(t => !t.isRadio);
+        }
+      }
       if (this.currentTrack) this.history.push(this.currentTrack);
       this.playTrack(item);
       if (typeof saveUserQueue === "function") saveUserQueue();
@@ -747,6 +773,13 @@ const BrowserPlayer = {
       if (data.success && data.track) {
         const isCurrentlySilent = !this.isPlaying() && (!this.audio?.src || this.audio.ended || !this.currentTrack);
         if (immediate || isCurrentlySilent) {
+          if (!data.track.isRadio) {
+            this.isRadioActive = false;
+            this.activeRadioSeed = null;
+            if (Array.isArray(this.queue)) {
+              this.queue = this.queue.filter(t => !t.isRadio);
+            }
+          }
           if (this.currentTrack) this.history.push(this.currentTrack);
           await this.playTrack(data.track);
         } else {
@@ -1180,7 +1213,12 @@ const BrowserPlayer = {
     const dur = this.audio?.duration || 0;
     const totalEl = document.getElementById("totalDurationLabel");
     if (totalEl && dur > 0) totalEl.textContent = formatTime(dur * 1000);
+    const expTot = document.getElementById("expandedTotalDuration");
+    if (expTot && dur > 0) expTot.textContent = formatTime(dur * 1000);
     this.updateMediaSession(this.currentTrack);
+    const cur = this.audio?.currentTime || 0;
+    const pct = dur > 0 ? (cur / dur) * 100 : 0;
+    updateProgressUI(cur, dur, pct);
   },
 
   onPlay() {
@@ -1188,11 +1226,16 @@ const BrowserPlayer = {
       try { navigator.mediaSession.playbackState = "playing"; } catch (e) {}
     }
     this.updateMediaSession(this.currentTrack);
-    if (window.AndroidAudioBridge && typeof window.AndroidAudioBridge.requestAudioFocus === "function") {
-      try { window.AndroidAudioBridge.requestAudioFocus(); } catch (_) {}
-    }
+    // Note: Android WebView automatically manages Audio Focus for HTMLMediaElements.
+    // Avoid manual AudioFocus calls through bridge that cause focus collisions and silent playback.
     updatePlayPauseIcons(true);
-    if (typeof EqualizerEngine !== "undefined") EqualizerEngine.resume();
+    const cur = this.audio?.currentTime || 0;
+    const dur = (Number.isFinite(this.audio?.duration) && this.audio.duration > 0)
+      ? this.audio.duration
+      : (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
+    const pct = dur > 0 ? (cur / dur) * 100 : 0;
+    updateProgressUI(cur, dur, pct);
+    if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) EqualizerEngine.resume();
     if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.start();
     this.reportState();
   },
@@ -2633,7 +2676,7 @@ function renderBecauseYouLove() {
     card.addEventListener("click", (e) => {
       const isLocal = isLocalChannel(activeSystemChannel);
       if (isLocal) {
-        BrowserPlayer.playTrack(track);
+        BrowserPlayer.playNow(track);
       }
       if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
         sendAction("play_now", track.url, { targetChannel: "bot", immediate: true });
