@@ -6418,6 +6418,432 @@ button:active:not(:disabled),
   }
 }
 
+/* ==========================================================================
+   PROFESSIONAL ACTION BUTTONS SYSTEM (QUEUE, TRACKLISTS, PLAYLISTS & YOUTUBE)
+   Engineered using Impeccable (Typography & Spacing), Emil Kowalski (Spring Physics),
+   and Taste-Skills (Obsidian & Spotify Emerald).
+   ========================================================================== */
+
+/* Queue Row Actions Container */
+.queue-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+/* Universal Circular Play Button (Queue View, Tracklists) */
+.btn-queue-play,
+.btn-action-circle-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.btn-queue-play svg,
+.btn-action-circle-play svg {
+  margin-left: 2px;
+  fill: currentColor;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-queue-play:hover,
+.btn-action-circle-play:hover {
+  background: var(--emerald, #10B981);
+  border-color: var(--emerald, #10B981);
+  color: #04140c;
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.42);
+}
+
+.btn-queue-play:active,
+.btn-action-circle-play:active {
+  transform: scale(0.92);
+}
+
+/* Queue Remove Action Button */
+.btn-queue-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--text-secondary, #9CA3AF);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.btn-queue-remove:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #f87171;
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+.btn-queue-remove:active {
+  transform: scale(0.92);
+}
+
+/* Playlist & Search Compact Play Pill */
+.btn-play-now-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-play-now-mini:hover {
+  background: var(--emerald, #10B981);
+  border-color: var(--emerald, #10B981);
+  color: #04140c;
+  transform: scale(1.04);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.38);
+}
+
+.btn-play-now-mini:active {
+  transform: scale(0.94);
+}
+
+/* Search View Action Pills */
+.btn-play-now-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--emerald, #10B981);
+  border: 1px solid var(--emerald, #10B981);
+  color: #04140c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.28);
+}
+
+.btn-play-now-pill:hover {
+  background: #34d399;
+  border-color: #34d399;
+  transform: scale(1.04);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);
+}
+
+.btn-play-now-pill:active {
+  transform: scale(0.95);
+}
+
+.btn-enqueue-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-primary, #ffffff);
+  font-size: 0.76rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-enqueue-pill:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  transform: scale(1.04);
+}
+
+.btn-enqueue-pill:active {
+  transform: scale(0.95);
+}
+
+/* Enqueue Mini Button (Plus Icon) */
+.btn-queue-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-secondary, #9CA3AF);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-queue-mini:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.btn-queue-mini:active {
+  transform: scale(0.92);
+}
+
+/* Start Track Radio Pill */
+.btn-start-track-radio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 16px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--emerald, #10B981);
+  font-size: 0.76rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-start-track-radio:hover {
+  background: var(--emerald, #10B981);
+  border-color: var(--emerald, #10B981);
+  color: #04140c;
+  transform: scale(1.04);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+.btn-start-track-radio:active {
+  transform: scale(0.94);
+}
+
+/* YouTube Link Topbar / Queue Button */
+.btn-youtube-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill, 20px);
+  background: rgba(255, 0, 0, 0.12);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-youtube-link svg {
+  color: #ff3333;
+  fill: #ff3333;
+  flex-shrink: 0;
+}
+
+.btn-youtube-link:hover {
+  background: #ff0000;
+  border-color: #ff0000;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 0, 0, 0.4);
+}
+
+.btn-youtube-link:hover svg {
+  color: #ffffff;
+  fill: #ffffff;
+}
+
+.btn-youtube-link:active {
+  transform: scale(0.95);
+}
+
+/* Queue Header Add YouTube Button */
+.btn-queue-add-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill, 14px);
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.25);
+  color: #ff9999;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-queue-add-link svg {
+  flex-shrink: 0;
+}
+
+.btn-queue-add-link:hover {
+  background: rgba(255, 0, 0, 0.22);
+  border-color: rgba(255, 0, 0, 0.5);
+  color: #ffffff;
+  transform: scale(1.03);
+}
+
+.btn-queue-add-link:active {
+  transform: scale(0.95);
+}
+
+/* YouTube Modal Styles */
+.youtube-modal-card {
+  max-width: 480px;
+  background: #12141A;
+  border: 1px solid rgba(255, 0, 0, 0.22);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.yt-modal-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255, 0, 0, 0.12);
+  border: 1px solid rgba(255, 0, 0, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.yt-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.yt-input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted, #6B7280);
+  pointer-events: none;
+}
+
+.yt-modal-input {
+  width: 100%;
+  padding-left: 42px !important;
+  padding-right: 70px !important;
+}
+
+.btn-input-paste {
+  position: absolute;
+  right: 8px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #fff);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.btn-input-paste:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.btn-yt-play-now {
+  background: linear-gradient(135deg, #FF0000 0%, #D90000 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(255, 0, 0, 0.35) !important;
+}
+
+.btn-yt-play-now:hover {
+  box-shadow: 0 6px 20px rgba(255, 0, 0, 0.5) !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-yt-enqueue {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  font-weight: 700 !important;
+}
+
+@media (max-width: 640px) {
+  .btn-youtube-link span {
+    display: none;
+  }
+  .btn-youtube-link {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  .btn-play-now-mini span {
+    display: none;
+  }
+  .btn-play-now-mini {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+  }
+}
+
 
 
 

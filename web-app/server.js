@@ -76,6 +76,17 @@ function extractSpotifyUrl(text) {
   return match ? match[0] : null;
 }
 
+function isYouTubeUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  return /(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?v=[a-zA-Z0-9_-]+|embed\/[a-zA-Z0-9_-]+|v\/[a-zA-Z0-9_-]+|shorts\/[a-zA-Z0-9_-]+|playlist\?list=[a-zA-Z0-9_-]+)|youtu\.be\/[a-zA-Z0-9_-]+)/i.test(url.trim());
+}
+
+function extractYouTubeUrl(text) {
+  if (!text || typeof text !== "string") return null;
+  const match = text.match(/https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?v=[a-zA-Z0-9_-]+[^\s]*|playlist\?list=[a-zA-Z0-9_-]+[^\s]*|shorts\/[a-zA-Z0-9_-]+)|youtu\.be\/[a-zA-Z0-9_-]+(\?[^\s]*)?)/i);
+  return match ? match[0] : null;
+}
+
 /**
  * Resolves full Spotify playlist/album/track metadata & tracklist without user credentials.
  */
@@ -1748,7 +1759,58 @@ const server = http.createServer(async (req, res) => {
         } catch (e) {}
       }
 
-      // 2. Fast JioSaavn Check (<100ms instant 320kbps CD-quality audio)
+      // 2. Direct YouTube link resolution (Video or Playlist)
+      const ytUrl = extractYouTubeUrl(q) || (isYouTubeUrl(q) ? q.trim() : null);
+      if (ytUrl) {
+        try {
+          const isYtPlaylist = ytUrl.includes("playlist?list=") || ytUrl.includes("&list=");
+          if (isYtPlaylist) {
+            const plData = await resolvePlaylistDetails(ytUrl);
+            if (plData && plData.tracks && plData.tracks.length > 0) {
+              const first = plData.tracks[0];
+              const resolvedFirst = await resolveMediaTrack(first.query || `${first.title} ${first.artist}`, filterMode, abortController?.signal);
+              if (resolvedFirst) {
+                res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+                return res.end(JSON.stringify({
+                  success: true,
+                  channel: targetChannel,
+                  isPlaylist: true,
+                  playlist: plData,
+                  track: {
+                    ...resolvedFirst,
+                    proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(resolvedFirst.streamUrl)}`
+                  }
+                }));
+              }
+            }
+          }
+
+          const ytTrack = await resolveMediaTrack(ytUrl, filterMode, abortController?.signal);
+          if (ytTrack) {
+            const shouldSet = parsedUrl.searchParams.get("set") === "true";
+            if (shouldSet && systemChannels[targetChannel]) {
+              systemChannels[targetChannel].current = ytTrack;
+              systemChannels[targetChannel].isPlaying = true;
+              systemChannels[targetChannel].isPaused = false;
+              systemChannels[targetChannel].position = 0;
+              if (ytTrack.duration) systemChannels[targetChannel].duration = ytTrack.duration;
+            }
+            res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+            return res.end(JSON.stringify({
+              success: true,
+              channel: targetChannel,
+              track: {
+                ...ytTrack,
+                proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(ytTrack.streamUrl)}`
+              }
+            }));
+          }
+        } catch (ytErr) {
+          console.warn("[ResolveTrack] YouTube direct resolve error:", ytErr.message);
+        }
+      }
+
+      // 3. Fast JioSaavn Check (<100ms instant 320kbps CD-quality audio)
       try {
         if (abortController?.signal?.aborted || res.headersSent) return;
         const saavnResults = await searchJioSaavn(q, 3, abortController?.signal);

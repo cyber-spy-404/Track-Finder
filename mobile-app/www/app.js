@@ -417,6 +417,21 @@ function isSpotifyUrl(url) {
          /spotify:(playlist|album|track|artist):([a-zA-Z0-9]+)/i.test(url);
 }
 
+function isYouTubeUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  const s = url.trim();
+  return /^(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?|shorts\/|playlist\?|embed\/)|youtu\.be\/)/i.test(s) ||
+         /(?:youtube\.com\/watch\?v=[a-zA-Z0-9_-]+|youtu\.be\/[a-zA-Z0-9_-]+|youtube\.com\/shorts\/[a-zA-Z0-9_-]+|youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+)/i.test(s);
+}
+
+function extractYouTubeUrl(str) {
+  if (!str || typeof str !== "string") return null;
+  const match = str.match(/https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?[^\s]+|shorts\/[^\s]+|playlist\?[^\s]+|embed\/[^\s]+)|youtu\.be\/[^\s]+)/i);
+  return match ? match[0] : null;
+}
+window.isYouTubeUrl = isYouTubeUrl;
+window.extractYouTubeUrl = extractYouTubeUrl;
+
 
 // Environment Detection alias
 if (typeof window !== "undefined") {
@@ -898,6 +913,9 @@ const BrowserPlayer = {
     this.prime();
     if (isSpotifyUrl(query)) {
       return importAndPlaySpotifyLink(query, activeSystemChannel);
+    }
+    if (isYouTubeUrl(query)) {
+      return playYouTubeLink(query, immediate, activeSystemChannel);
     }
     showToast(`Loading: ${query}...`);
     const isCurrentlySilent = !this.isPlaying() && (!this.audio?.src || this.audio.ended || !this.currentTrack);
@@ -2684,7 +2702,7 @@ function openPlaylist(playlistOrId) {
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
               <span>${escapeHtml(pl.name || pl.title || "")}</span>
               <div style="display: flex; gap: 6px;">
-                <button class="btn-play-now-mini btn-row-play-now" title="Play immediately"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play</button>
+                <button class="btn-play-now-mini btn-row-play-now" title="Play immediately"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> <span>Play</span></button>
                 <button class="btn-queue-mini btn-row-enqueue" title="Add to queue"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
               </div>
             </div>
@@ -2796,6 +2814,117 @@ async function importAndPlaySpotifyLink(url, target = activeSystemChannel) {
   }
 }
 window.importAndPlaySpotifyLink = importAndPlaySpotifyLink;
+
+// ==========================================================================
+// YOUTUBE TRACK & PLAYLIST LINK STREAM RESOLVER & PLAYER
+// ==========================================================================
+async function playYouTubeLink(url, immediate = true, target = activeSystemChannel) {
+  const cleanUrl = (url || "").trim();
+  if (!cleanUrl) return;
+
+  showToast("Resolving YouTube audio stream...");
+
+  // If playing through bot only
+  if (target === "bot") {
+    sendAction(immediate ? "play_now" : "play_query", cleanUrl, { targetChannel: "bot", immediate });
+    showToast("Sent YouTube link to Discord Bot!");
+    return;
+  }
+
+  const isLocalPlayer = target === "browser" || target === "app" || target === "all";
+
+  try {
+    const shouldSet = immediate ? "true" : "false";
+    const res = await fetch(resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(cleanUrl)}&channel=${encodeURIComponent(target)}&set=${shouldSet}`));
+    if (!res.ok) {
+      let errText = "Could not resolve YouTube stream";
+      try {
+        const errJson = await res.json();
+        errText = errJson.error || errText;
+      } catch(e) {}
+      showToast(errText);
+      return;
+    }
+
+    const data = await res.json();
+    if (!data.success || !data.track) {
+      showToast(data.error || "Could not resolve YouTube audio stream");
+      return;
+    }
+
+    const track = {
+      id: data.track.id || `yt-${Date.now()}`,
+      title: data.track.title || "YouTube Audio",
+      author: data.track.author || data.track.artist || "YouTube",
+      artworkUrl: data.track.artworkUrl || "logo.png",
+      duration: data.track.duration || 180,
+      streamUrl: data.track.streamUrl,
+      source: "youtube",
+      uri: cleanUrl,
+      isRadio: false
+    };
+
+    if (data.playlist && Array.isArray(data.playlist.tracks) && data.playlist.tracks.length > 1) {
+      const plTracks = data.playlist.tracks;
+      showToast(`Loaded YouTube Playlist: ${data.playlist.name} (${plTracks.length} tracks)!`);
+      if (isLocalPlayer) {
+        if (immediate) {
+          BrowserPlayer.playTrack(track);
+          const upcoming = plTracks.slice(1).map(pt => ({
+            id: `yt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            title: pt.title,
+            author: pt.artist || "YouTube",
+            duration: pt.duration || 180,
+            query: pt.url || `${pt.title} ${pt.artist || ""}`,
+            artworkUrl: track.artworkUrl,
+            isRadio: false
+          }));
+          BrowserPlayer.queue = BrowserPlayer.queue.concat(upcoming);
+          renderQueueView();
+          renderSidebarLibrary("queue");
+          if (typeof saveUserQueue === "function") saveUserQueue();
+        } else {
+          BrowserPlayer.queue.push(track);
+          const upcoming = plTracks.slice(1).map(pt => ({
+            id: `yt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            title: pt.title,
+            author: pt.artist || "YouTube",
+            duration: pt.duration || 180,
+            query: pt.url || `${pt.title} ${pt.artist || ""}`,
+            artworkUrl: track.artworkUrl,
+            isRadio: false
+          }));
+          BrowserPlayer.queue = BrowserPlayer.queue.concat(upcoming);
+          showToast(`Queued ${plTracks.length} YouTube tracks`);
+          renderQueueView();
+          renderSidebarLibrary("queue");
+          if (typeof saveUserQueue === "function") saveUserQueue();
+        }
+      }
+    } else {
+      if (isLocalPlayer) {
+        if (immediate) {
+          BrowserPlayer.playNow(track);
+          showToast(`Playing YouTube: ${track.title}`);
+        } else {
+          BrowserPlayer.enqueue(track);
+          showToast(`Queued YouTube: ${track.title}`);
+        }
+      }
+    }
+
+    if (target === "all") {
+      sendAction(immediate ? "play_now" : "play_query", cleanUrl, { targetChannel: "bot", immediate });
+    }
+  } catch (err) {
+    console.error("YouTube playback error:", err);
+    showToast("Error resolving YouTube link");
+  }
+}
+window.playYouTubeLink = playYouTubeLink;
+if (typeof BrowserPlayer !== "undefined") {
+  BrowserPlayer.playYouTubeLink = playYouTubeLink;
+}
 
 
 // ==========================================================================
@@ -3764,13 +3893,27 @@ function renderQueueView() {
         </div>
       </td>
       <td class="song-album-cell">
-        <div style="display: flex; gap: 8px; align-items: center;">
+        <div class="queue-row-actions">
           ${currentTab === "queue" ? `
-            <button class="btn-play-now-mini btn-queue-play" title="Play track now">▶ Play</button>
-            ${isLocal ? `<button class="btn-queue-remove" title="Remove from queue" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; cursor:pointer; font-size:12px; border-radius:4px; padding:3px 8px;">✕</button>` : ""}
+            <button type="button" class="btn-queue-play" title="Play track now" aria-label="Play track now">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            ${isLocal ? `
+              <button type="button" class="btn-queue-remove" title="Remove from queue" aria-label="Remove from queue">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            ` : ""}
           ` : `
-            <button class="btn-play-now-mini btn-queue-play" title="Play again">▶ Play</button>
-            <button class="btn-play-now-mini btn-start-track-radio" title="Start continuous radio based on this track" style="background: rgba(30,215,96,0.14); border: 1px solid rgba(30,215,96,0.3); color: var(--emerald, #1ed760);">📻 Radio</button>
+            <button type="button" class="btn-queue-play" title="Play again" aria-label="Play again">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button type="button" class="btn-start-track-radio" title="Start continuous radio based on this track">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+              <span>Radio</span>
+            </button>
           `}
         </div>
       </td>
@@ -3895,6 +4038,11 @@ function dispatchPlayTrack(queryOrTrack, filterMode = currentFilterMode, immedia
   // If a raw string is a Spotify URL, redirect to full Spotify playlist/track import & play
   if (!isObj && isSpotifyUrl(cleanedStr)) {
     return importAndPlaySpotifyLink(cleanedStr, activeSystemChannel);
+  }
+
+  // If a raw string is a YouTube URL, redirect to YouTube link play
+  if (!isObj && isYouTubeUrl(cleanedStr)) {
+    return playYouTubeLink(cleanedStr, immediate, activeSystemChannel);
   }
 
   const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
@@ -4836,7 +4984,7 @@ function renderLikedSongsView() {
       <td class="song-artist-cell">${escapeHtml(track.author)}</td>
       <td class="song-album-cell">
         <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="btn-play-now-mini btn-row-play-now" title="Play immediately"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play</button>
+          <button class="btn-play-now-mini btn-row-play-now" title="Play immediately"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> <span>Play</span></button>
           <button class="btn-queue-mini btn-row-enqueue" title="Add to queue"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
           <button class="btn-heart-toggle active" title="Remove from favorites" style="background: none; border: none; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; color: var(--emerald-primary);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -6795,7 +6943,12 @@ function initEventListeners() {
   document.querySelectorAll(".btn-modal-sample").forEach(btn => {
     btn.addEventListener("click", () => {
       const sample = btn.getAttribute("data-sample");
-      if (modalInput && sample) modalInput.value = sample;
+      if (btn.classList.contains("btn-yt-sample")) {
+        const ytIn = document.getElementById("youtubeModalInput");
+        if (ytIn && sample) ytIn.value = sample;
+      } else {
+        if (modalInput && sample) modalInput.value = sample;
+      }
     });
   });
 
@@ -6823,6 +6976,80 @@ function initEventListeners() {
     }
   });
 
+  // YouTube Link Import Modal Listeners
+  const ytModalOverlay = document.getElementById("youtubeLinkModal");
+  const ytModalInput = document.getElementById("youtubeModalInput");
+  const btnOpenYTModal = document.getElementById("btnOpenYouTubeModal");
+  const btnQueueAddYT = document.getElementById("btnQueueAddYouTube");
+  const btnCloseYTModal = document.getElementById("btnCloseYouTubeModal");
+  const btnPlayYTNow = document.getElementById("btnPlayYouTubeNow");
+  const btnEnqueueYT = document.getElementById("btnEnqueueYouTube");
+  const btnPasteClipboardYT = document.getElementById("btnPasteClipboardYT");
+
+  const openYTModal = () => {
+    if (!ytModalOverlay) return;
+    ytModalOverlay.classList.remove("hidden");
+    ytModalOverlay.style.display = "flex";
+    if (ytModalInput) {
+      ytModalInput.value = "";
+      ytModalInput.focus();
+    }
+  };
+
+  const closeYTModal = () => {
+    if (ytModalOverlay) {
+      ytModalOverlay.classList.add("hidden");
+      ytModalOverlay.style.display = "none";
+    }
+  };
+
+  btnOpenYTModal?.addEventListener("click", openYTModal);
+  btnQueueAddYT?.addEventListener("click", openYTModal);
+  btnCloseYTModal?.addEventListener("click", closeYTModal);
+  ytModalOverlay?.addEventListener("click", (e) => {
+    if (e.target === ytModalOverlay) closeYTModal();
+  });
+
+  btnPasteClipboardYT?.addEventListener("click", async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && ytModalInput) {
+          ytModalInput.value = text.trim();
+          showToast("Pasted YouTube link from clipboard!");
+        }
+      } else {
+        showToast("Clipboard access not available, paste manually");
+      }
+    } catch (e) {
+      showToast("Clipboard permission denied");
+    }
+  });
+
+  btnPlayYTNow?.addEventListener("click", () => {
+    const url = ytModalInput?.value?.trim();
+    if (!url) return showToast("Please paste a YouTube link");
+    closeYTModal();
+    playYouTubeLink(url, true, activeSystemChannel);
+  });
+
+  btnEnqueueYT?.addEventListener("click", () => {
+    const url = ytModalInput?.value?.trim();
+    if (!url) return showToast("Please paste a YouTube link");
+    closeYTModal();
+    playYouTubeLink(url, false, activeSystemChannel);
+  });
+
+  ytModalInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const url = ytModalInput.value.trim();
+      if (url) {
+        closeYTModal();
+        playYouTubeLink(url, true, activeSystemChannel);
+      }
+    }
+  });
+
   searchInput?.addEventListener("input", (e) => {
     const val = e.target.value.trim();
     clearBtn?.classList.toggle("visible", val.length > 0);
@@ -6834,6 +7061,17 @@ function initEventListeners() {
         if (searchInput) searchInput.value = "";
         clearBtn?.classList.remove("visible");
         importAndPlaySpotifyLink(val, activeSystemChannel);
+      }, 400);
+      return;
+    }
+
+    // If user typed/pasted a YouTube URL, offer instant play
+    if (isYouTubeUrl(val)) {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        if (searchInput) searchInput.value = "";
+        clearBtn?.classList.remove("visible");
+        playYouTubeLink(val, true, activeSystemChannel);
       }, 400);
       return;
     }
@@ -6869,6 +7107,16 @@ function initEventListeners() {
       return;
     }
 
+    if (isYouTubeUrl(val)) {
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        if (inPageSearch) inPageSearch.value = "";
+        if (inPageClear) inPageClear.style.display = "none";
+        playYouTubeLink(val, true, activeSystemChannel);
+      }, 400);
+      return;
+    }
+
     if (!val) {
       clearTimeout(searchDebounceTimer);
       handleSearch("");
@@ -6885,6 +7133,24 @@ function initEventListeners() {
     if (searchInput) searchInput.value = "";
     clearBtn?.classList.remove("visible");
     handleSearch("");
+  });
+
+  inPageSearch?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const val = (inPageSearch.value || "").trim();
+      if (!val) return;
+      if (isSpotifyUrl(val)) {
+        inPageSearch.value = "";
+        if (inPageClear) inPageClear.style.display = "none";
+        importAndPlaySpotifyLink(val, activeSystemChannel);
+      } else if (isYouTubeUrl(val)) {
+        inPageSearch.value = "";
+        if (inPageClear) inPageClear.style.display = "none";
+        playYouTubeLink(val, true, activeSystemChannel);
+      } else {
+        dispatchPlayNow(val, currentFilterMode);
+      }
+    }
   });
 
   // Mobile Filter Chips
@@ -6911,6 +7177,10 @@ function initEventListeners() {
         searchInput.value = "";
         clearBtn?.classList.remove("visible");
         importAndPlaySpotifyLink(val, activeSystemChannel);
+      } else if (isYouTubeUrl(val)) {
+        searchInput.value = "";
+        clearBtn?.classList.remove("visible");
+        playYouTubeLink(val, true, activeSystemChannel);
       } else {
         dispatchPlayNow(val, currentFilterMode);
       }
