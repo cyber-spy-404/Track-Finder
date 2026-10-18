@@ -106,9 +106,14 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void updateMediaState(String title, String artist, String album, String coverUrl, double durationSec, double positionSec, boolean isPlaying) {
+            updateMediaState(title, artist, album, coverUrl, durationSec, positionSec, isPlaying, false);
+        }
+
+        @JavascriptInterface
+        public void updateMediaState(String title, String artist, String album, String coverUrl, double durationSec, double positionSec, boolean isPlaying, boolean isBuffering) {
             MediaPlaybackService service = MediaPlaybackService.getInstance();
             if (service != null) {
-                service.updateDirectState(title, artist, album, coverUrl, durationSec, positionSec, isPlaying);
+                service.updateDirectState(title, artist, album, coverUrl, durationSec, positionSec, isPlaying, isBuffering);
                 return;
             }
 
@@ -121,7 +126,30 @@ public class MainActivity extends AppCompatActivity {
             intent.putExtra(MediaPlaybackService.EXTRA_DURATION, durationSec);
             intent.putExtra(MediaPlaybackService.EXTRA_POSITION, positionSec);
             intent.putExtra(MediaPlaybackService.EXTRA_IS_PLAYING, isPlaying);
+            intent.putExtra(MediaPlaybackService.EXTRA_IS_BUFFERING, isBuffering);
 
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent);
+                } else {
+                    context.startService(intent);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        @JavascriptInterface
+        public void setBuffering(boolean isBuffering) {
+            MediaPlaybackService service = MediaPlaybackService.getInstance();
+            if (service != null) {
+                service.setBuffering(isBuffering);
+                return;
+            }
+
+            Intent intent = new Intent(context, MediaPlaybackService.class);
+            intent.setAction(MediaPlaybackService.ACTION_UPDATE_STATE);
+            intent.putExtra(MediaPlaybackService.EXTRA_IS_BUFFERING, isBuffering);
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent);

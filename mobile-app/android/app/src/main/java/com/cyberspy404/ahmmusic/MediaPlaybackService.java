@@ -53,6 +53,7 @@ public class MediaPlaybackService extends Service {
     public static final String EXTRA_DURATION = "extra_duration";
     public static final String EXTRA_POSITION = "extra_position";
     public static final String EXTRA_IS_PLAYING = "extra_is_playing";
+    public static final String EXTRA_IS_BUFFERING = "extra_is_buffering";
     public static final String EXTRA_SEEK_POS = "extra_seek_pos";
 
     private static MediaPlaybackService instance;
@@ -68,6 +69,7 @@ public class MediaPlaybackService extends Service {
     private double currentDuration = 0.0;
     private double currentPosition = 0.0;
     private boolean isCurrentlyPlaying = false;
+    private boolean isBuffering = false;
 
     private Bitmap cachedCoverBitmap = null;
     private String lastCoverLoaded = "";
@@ -230,7 +232,18 @@ public class MediaPlaybackService extends Service {
         return START_STICKY;
     }
 
+    public void setBuffering(boolean buffering) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            this.isBuffering = buffering;
+            publishPlaybackState();
+        });
+    }
+
     public void updateDirectState(String title, String artist, String album, String cover, double duration, double position, boolean isPlaying) {
+        updateDirectState(title, artist, album, cover, duration, position, isPlaying, false);
+    }
+
+    public void updateDirectState(String title, String artist, String album, String cover, double duration, double position, boolean isPlaying, boolean buffering) {
         new Handler(Looper.getMainLooper()).post(() -> {
             currentTitle = title;
             currentArtist = artist;
@@ -238,6 +251,7 @@ public class MediaPlaybackService extends Service {
             currentDuration = duration;
             currentPosition = position;
             isCurrentlyPlaying = isPlaying;
+            isBuffering = buffering;
 
             if (isCurrentlyPlaying) {
                 if (wakeLock != null && !wakeLock.isHeld()) {
@@ -270,6 +284,7 @@ public class MediaPlaybackService extends Service {
         currentDuration = intent.getDoubleExtra(EXTRA_DURATION, 0.0);
         currentPosition = intent.getDoubleExtra(EXTRA_POSITION, 0.0);
         isCurrentlyPlaying = intent.getBooleanExtra(EXTRA_IS_PLAYING, false);
+        isBuffering = intent.getBooleanExtra(EXTRA_IS_BUFFERING, false);
 
         if (isCurrentlyPlaying) {
             if (wakeLock != null && !wakeLock.isHeld()) {
@@ -360,8 +375,16 @@ public class MediaPlaybackService extends Service {
                 PlaybackStateCompat.ACTION_SEEK_TO |
                 PlaybackStateCompat.ACTION_STOP;
 
-        int state = isCurrentlyPlaying ? PlaybackStateCompat.STATE_PLAYING : PlaybackStateCompat.STATE_PAUSED;
-        float speed = isCurrentlyPlaying ? 1.0f : 0.0f;
+        int state;
+        if (isBuffering) {
+            state = PlaybackStateCompat.STATE_BUFFERING;
+        } else if (isCurrentlyPlaying) {
+            state = PlaybackStateCompat.STATE_PLAYING;
+        } else {
+            state = PlaybackStateCompat.STATE_PAUSED;
+        }
+
+        float speed = (isCurrentlyPlaying && !isBuffering) ? 1.0f : 0.0f;
 
         PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
                 .setActions(actions)
@@ -378,10 +401,12 @@ public class MediaPlaybackService extends Service {
             } else {
                 startForeground(NOTIFICATION_ID, notification);
             }
-        } catch (Exception e) {
-            if (notificationManager != null) {
+        } catch (Exception ignored) {}
+
+        if (notificationManager != null) {
+            try {
                 notificationManager.notify(NOTIFICATION_ID, notification);
-            }
+            } catch (Exception ignored) {}
         }
     }
 
@@ -411,7 +436,7 @@ public class MediaPlaybackService extends Service {
                 .setDeleteIntent(pStop)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOnlyAlertOnce(true)
-                .setOngoing(isCurrentlyPlaying)
+                .setOngoing(isCurrentlyPlaying || isBuffering)
                 .addAction(android.R.drawable.ic_media_previous, "Previous", pPrev)
                 .addAction(playPauseIcon, playPauseTitle, pToggle)
                 .addAction(android.R.drawable.ic_media_next, "Next", pNext)
@@ -421,6 +446,14 @@ public class MediaPlaybackService extends Service {
                         .setShowCancelButton(true)
                         .setCancelButtonIntent(pStop)
                 );
+
+        if (isBuffering) {
+            // Indeterminate moving progress bar in notification bar for network delay/buffering
+            builder.setProgress(100, 0, true);
+            builder.setSubText("Buffering audio...");
+        } else {
+            builder.setProgress(0, 0, false);
+        }
 
         if (cachedCoverBitmap != null) {
             builder.setLargeIcon(cachedCoverBitmap);

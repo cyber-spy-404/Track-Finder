@@ -415,6 +415,28 @@ const BrowserPlayer = {
   isRadioActive: false,
   activeRadioSeed: null,
   isFetchingRadio: false,
+  isBuffering: false,
+  _userExplicitlyPaused: false,
+
+  setBuffering(buffering) {
+    buffering = Boolean(buffering);
+    if (this.isBuffering === buffering) return;
+    this.isBuffering = buffering;
+    console.log(`[Audio Engine] Buffering state changed: ${buffering}`);
+
+    updatePlayPauseIcons(!this.audio?.paused);
+
+    // Sync with Native Android Bridge for notification bar progress bar & MediaSessionCompat
+    if (window.AndroidAudioBridge && typeof window.AndroidAudioBridge.setBuffering === "function") {
+      try {
+        window.AndroidAudioBridge.setBuffering(buffering);
+      } catch (e) {
+        console.warn("[AndroidAudioBridge] setBuffering sync error:", e);
+      }
+    }
+
+    this.updateMediaSession(this.currentTrack, !this.audio?.paused, buffering);
+  },
 
   init() {
     if (this.isInitialized) return;
@@ -443,6 +465,27 @@ const BrowserPlayer = {
     this.audio.addEventListener("pause", () => this.onPause());
     this.audio.addEventListener("ended", () => this.onEnded());
     this.audio.addEventListener("error", (e) => this.onError(e));
+
+    // Audio buffering and network delay event listeners
+    this.audio.addEventListener("waiting", () => {
+      console.log("[Audio Engine] Audio waiting / network delay detected");
+      this.setBuffering(true);
+    });
+    this.audio.addEventListener("stalled", () => {
+      console.log("[Audio Engine] Audio stalled due to network delay");
+      this.setBuffering(true);
+    });
+    this.audio.addEventListener("loadstart", () => {
+      if (this.currentTrack && !this._userExplicitlyPaused) {
+        this.setBuffering(true);
+      }
+    });
+    this.audio.addEventListener("canplay", () => {
+      this.setBuffering(false);
+    });
+    this.audio.addEventListener("playing", () => {
+      this.setBuffering(false);
+    });
 
     // Media Session Support (System Notification Bar, Lockscreen & Hardware media keys)
     if ("mediaSession" in navigator) {
@@ -481,7 +524,7 @@ const BrowserPlayer = {
     } catch (e) {}
   },
 
-  updateMediaSession(track, isPlayingOverride) {
+  updateMediaSession(track, isPlayingOverride, isBufferingOverride) {
     track = track || this.currentTrack;
     if (!track) return;
     const title = track.title || track.info?.title || "Spy Sec Music";
@@ -499,6 +542,9 @@ const BrowserPlayer = {
     const isPlaying = typeof isPlayingOverride === "boolean"
       ? isPlayingOverride
       : Boolean(this.audio && !this.audio.paused);
+    const isBuffering = typeof isBufferingOverride === "boolean"
+      ? isBufferingOverride
+      : Boolean(this.isBuffering);
 
     // 1. Standard W3C navigator.mediaSession (for Chrome, Edge, WebView)
     if ("mediaSession" in navigator) {
@@ -521,7 +567,7 @@ const BrowserPlayer = {
         if (dur > 0 && Number.isFinite(dur)) {
           navigator.mediaSession.setPositionState({
             duration: dur,
-            playbackRate: isPlaying ? (this.audio?.playbackRate || 1.0) : 0,
+            playbackRate: (isPlaying && !isBuffering) ? (this.audio?.playbackRate || 1.0) : 0,
             position: Math.min(Math.max(cur, 0), dur)
           });
         }
@@ -533,7 +579,7 @@ const BrowserPlayer = {
     // 2. Native Android Media Bridge (MediaSessionCompat & MediaStyle Notification on Android 10+)
     if (window.AndroidAudioBridge && typeof window.AndroidAudioBridge.updateMediaState === "function") {
       try {
-        window.AndroidAudioBridge.updateMediaState(title, artist, album, fullArtUrl, dur || 0, cur, isPlaying);
+        window.AndroidAudioBridge.updateMediaState(title, artist, album, fullArtUrl, dur || 0, cur, isPlaying, isBuffering);
       } catch (err) {
         console.warn("[AndroidAudioBridge] Sync error:", err);
       }
@@ -543,6 +589,8 @@ const BrowserPlayer = {
   async playTrack(track) {
     if (!track) return;
     this.init();
+    this._userExplicitlyPaused = false;
+    this.setBuffering(true);
     window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
 
     // Spotify Infinite Radio state synchronization:
@@ -569,7 +617,10 @@ const BrowserPlayer = {
         const resolveUrl = resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=true`);
         const res = await fetch(resolveUrl);
         const data = await res.json();
-        if (data.dropped) return;
+        if (data.dropped) {
+          this.setBuffering(false);
+          return;
+        }
         if (data.success && data.track) {
           track = {
             ...track,
@@ -622,6 +673,7 @@ const BrowserPlayer = {
     }
 
     if (!src) {
+      this.setBuffering(false);
       showToast(`Could not play "${track.title}" - audio stream unavailable`);
       if (this.queue.length > 0) {
         return this.next();
@@ -655,6 +707,7 @@ const BrowserPlayer = {
       playPromise.then(() => {
         if (this._playRequestId !== currentReqId) return;
         this._isChangingTrack = false;
+        this.setBuffering(false);
         if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
           EqualizerEngine.resume();
         }
@@ -664,6 +717,7 @@ const BrowserPlayer = {
       }).catch(err => {
         if (this._playRequestId !== currentReqId) return;
         this._isChangingTrack = false;
+        this.setBuffering(false);
         if (err.name === "AbortError") {
           return; // Aborted by subsequent track skip
         }
@@ -673,9 +727,13 @@ const BrowserPlayer = {
           if (typeof EqualizerEngine !== "undefined") EqualizerEngine.resume();
           this.audio.muted = false;
           this.audio.removeAttribute("muted");
+          this.setBuffering(true);
           this.audio.play().then(() => {
+            this.setBuffering(false);
             showToast(`▶ Playing: ${track.title}`);
-          }).catch(() => {});
+          }).catch(() => {
+            this.setBuffering(false);
+          });
           window.removeEventListener("pointerdown", resumeOnTap);
           window.removeEventListener("click", resumeOnTap);
         };
@@ -767,14 +825,21 @@ const BrowserPlayer = {
       return importAndPlaySpotifyLink(query, activeSystemChannel);
     }
     showToast(`Loading: ${query}...`);
+    const isCurrentlySilent = !this.isPlaying() && (!this.audio?.src || this.audio.ended || !this.currentTrack);
+    if (immediate || isCurrentlySilent) {
+      this._userExplicitlyPaused = false;
+      this.setBuffering(true);
+    }
 
     try {
       const shouldSet = immediate ? "true" : "false";
       const res = await fetch(resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(filterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=${shouldSet}`));
       const data = await res.json();
-      if (data.dropped) return;
+      if (data.dropped) {
+        if (immediate || isCurrentlySilent) this.setBuffering(false);
+        return;
+      }
       if (data.success && data.track) {
-        const isCurrentlySilent = !this.isPlaying() && (!this.audio?.src || this.audio.ended || !this.currentTrack);
         if (immediate || isCurrentlySilent) {
           if (!data.track.isRadio) {
             this.isRadioActive = false;
@@ -786,6 +851,7 @@ const BrowserPlayer = {
           if (this.currentTrack) this.history.push(this.currentTrack);
           await this.playTrack(data.track);
         } else {
+          this.setBuffering(false);
           this.queue.push(data.track);
           showToast(`Queued in Browser: ${data.track.title}`);
           renderQueueView();
@@ -793,9 +859,11 @@ const BrowserPlayer = {
           if (typeof saveUserQueue === "function") saveUserQueue();
         }
       } else {
+        if (immediate || isCurrentlySilent) this.setBuffering(false);
         showToast(`Could not play "${query}": ${data.error || "Not found"}`);
       }
     } catch (err) {
+      if (immediate || isCurrentlySilent) this.setBuffering(false);
       console.error("playQuery error:", err);
       showToast(`Connection error resolving "${query}"`);
     }
@@ -897,7 +965,12 @@ const BrowserPlayer = {
   playPause() {
     this.init();
     if (!this.audio) return;
+    if (this.isBuffering && !this.audio.paused) {
+      this.pause();
+      return;
+    }
     if (this.audio.paused) {
+      this._userExplicitlyPaused = false;
       if ((!this.audio.src || this.audio.src === "" || this.audio.src.endsWith("#")) && this.currentTrack) {
         if (typeof resumeSavedPlayback === "function") {
           resumeSavedPlayback();
@@ -907,7 +980,14 @@ const BrowserPlayer = {
       } else if (!this.audio.src && this.queue.length > 0) {
         this.next();
       } else if (this.audio.src) {
-        this.audio.play().then(() => this.onPlay()).catch(e => console.warn("play error:", e));
+        this.setBuffering(true);
+        this.audio.play().then(() => {
+          this.setBuffering(false);
+          this.onPlay();
+        }).catch(e => {
+          this.setBuffering(false);
+          console.warn("play error:", e);
+        });
       }
     } else {
       this.pause();
@@ -916,6 +996,7 @@ const BrowserPlayer = {
 
   play() {
     this.init();
+    this._userExplicitlyPaused = false;
     if (this.audio) {
       this.audio.muted = false;
       this.audio.removeAttribute("muted");
@@ -924,7 +1005,13 @@ const BrowserPlayer = {
         EqualizerEngine.resume();
       }
       if (this.audio.paused) {
-        this.audio.play().then(() => this.onPlay()).catch(() => {});
+        this.setBuffering(true);
+        this.audio.play().then(() => {
+          this.setBuffering(false);
+          this.onPlay();
+        }).catch(() => {
+          this.setBuffering(false);
+        });
       } else {
         this.onPlay();
       }
@@ -932,6 +1019,8 @@ const BrowserPlayer = {
   },
 
   pause() {
+    this._userExplicitlyPaused = true;
+    this.setBuffering(false);
     if (this.audio) {
       try { this.audio.pause(); } catch (_) {}
     }
@@ -1279,7 +1368,7 @@ const BrowserPlayer = {
             if (art.startsWith("/")) art = art.substring(1);
             const fullArtUrl = (art.startsWith("http://") || art.startsWith("https://")) ? art : new URL(art, window.location.href).href;
             const isPlaying = Boolean(this.audio && !this.audio.paused);
-            window.AndroidAudioBridge.updateMediaState(title, artist, album, fullArtUrl, dur, cur, isPlaying);
+            window.AndroidAudioBridge.updateMediaState(title, artist, album, fullArtUrl, dur, cur, isPlaying, Boolean(this.isBuffering));
           }
         } catch (_) {}
       }
@@ -1425,33 +1514,6 @@ const BrowserPlayer = {
     } else if (this.queue.length > 0) {
       this.next();
     }
-  },
-
-  updateMediaSession(track) {
-    if (!("mediaSession" in navigator) || !track) return;
-    try {
-      const art = track.artworkUrl || track.info?.artworkUrl || "logo.png";
-      const title = track.title || track.info?.title || "Spy Sec Music";
-      const artist = track.author || track.info?.author || "Artist";
-
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: title,
-        artist: artist,
-        album: "Spy Sec Music • Vivo OriginOS",
-        artwork: [
-          { src: art, sizes: "96x96", type: "image/png" },
-          { src: art, sizes: "128x128", type: "image/png" },
-          { src: art, sizes: "192x192", type: "image/png" },
-          { src: art, sizes: "256x256", type: "image/png" },
-          { src: art, sizes: "384x384", type: "image/png" },
-          { src: art, sizes: "512x512", type: "image/png" }
-        ]
-      });
-
-      if ("playbackState" in navigator.mediaSession) {
-        navigator.mediaSession.playbackState = this.isPlaying() ? "playing" : "paused";
-      }
-    } catch (e) {}
   },
 
   reportState() {
@@ -5670,12 +5732,86 @@ function updatePlayPauseIcons(isPlaying) {
   const equalizers = document.querySelectorAll(".vivo-equalizer");
   const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
 
-  if (isPlaying) {
-    if (svg) svg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
-    if (mobileBtn) mobileBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/></svg>';
-    if (capsuleSvg) capsuleSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
-    if (notchQuickSvg) notchQuickSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
-    if (expSvg) expSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
+  // Play button wrappers
+  const mainBtn = document.getElementById("btnMainPlayPause");
+  const capsuleBtn = document.getElementById("btnCapsulePlayPause");
+  const notchBtn = document.getElementById("btnNotchQuickPlay");
+  const expBtn = document.getElementById("btnExpandedPlayPause");
+  const notchRingContainer = document.querySelector(".notch-progress-ring-container");
+
+  const isBuffering = Boolean(BrowserPlayer.isBuffering);
+
+  // Toggle buffering animation classes on all play buttons
+  [mainBtn, mobileBtn, capsuleBtn, notchBtn, expBtn, notchRingContainer].forEach(el => {
+    if (el) el.classList.toggle("is-buffering", isBuffering);
+  });
+
+  const spinnerPaths = '<circle class="spinner-track" cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.6" opacity="0.25"/><circle class="spinner-head" cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="59" stroke-dashoffset="40"/>';
+  const pausePaths = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
+  const playPaths = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
+
+  if (isBuffering) {
+    if (svg) {
+      svg.setAttribute("viewBox", "0 0 24 24");
+      svg.classList.add("buffering-spinner-svg");
+      svg.innerHTML = spinnerPaths;
+    }
+    if (mobileBtn) {
+      mobileBtn.innerHTML = `<svg class="buffering-spinner-svg" viewBox="0 0 24 24" width="16" height="16">${spinnerPaths}</svg>`;
+    }
+    if (capsuleSvg) {
+      capsuleSvg.setAttribute("viewBox", "0 0 24 24");
+      capsuleSvg.classList.add("buffering-spinner-svg");
+      capsuleSvg.innerHTML = spinnerPaths;
+    }
+    if (notchQuickSvg) {
+      notchQuickSvg.setAttribute("viewBox", "0 0 24 24");
+      notchQuickSvg.classList.add("buffering-spinner-svg");
+      notchQuickSvg.innerHTML = spinnerPaths;
+    }
+    if (expSvg) {
+      expSvg.setAttribute("viewBox", "0 0 24 24");
+      expSvg.classList.add("buffering-spinner-svg");
+      expSvg.innerHTML = spinnerPaths;
+    }
+
+    if (expOverlay) expOverlay.classList.remove("playing");
+    if (visualizer) visualizer.classList.remove("playing");
+    equalizers.forEach(eq => eq.classList.remove("playing"));
+
+    // Pause vinyl disc rotation while waiting for audio network chunks
+    vinylDiscs.forEach(d => {
+      d.classList.remove("vivo-vinyl-spinning");
+      d.classList.add("vivo-vinyl-paused");
+    });
+
+    if (vivoCapsule && !window._vivoCapsuleDismissed && (BrowserPlayer.currentTrack || Boolean(currentState?.channels?.bot?.current) || Boolean(currentState?.current))) {
+      vivoCapsule.classList.add("visible");
+    }
+  } else if (isPlaying) {
+    if (svg) {
+      svg.setAttribute("viewBox", "0 0 16 16");
+      svg.classList.remove("buffering-spinner-svg");
+      svg.innerHTML = pausePaths;
+    }
+    if (mobileBtn) {
+      mobileBtn.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14">${pausePaths}</svg>`;
+    }
+    if (capsuleSvg) {
+      capsuleSvg.setAttribute("viewBox", "0 0 16 16");
+      capsuleSvg.classList.remove("buffering-spinner-svg");
+      capsuleSvg.innerHTML = pausePaths;
+    }
+    if (notchQuickSvg) {
+      notchQuickSvg.setAttribute("viewBox", "0 0 16 16");
+      notchQuickSvg.classList.remove("buffering-spinner-svg");
+      notchQuickSvg.innerHTML = pausePaths;
+    }
+    if (expSvg) {
+      expSvg.setAttribute("viewBox", "0 0 16 16");
+      expSvg.classList.remove("buffering-spinner-svg");
+      expSvg.innerHTML = pausePaths;
+    }
     if (expOverlay) expOverlay.classList.add("playing");
     if (visualizer) visualizer.classList.add("playing");
 
@@ -5691,11 +5827,29 @@ function updatePlayPauseIcons(isPlaying) {
       vivoCapsule.classList.add("visible");
     }
   } else {
-    if (svg) svg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
-    if (mobileBtn) mobileBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>';
-    if (capsuleSvg) capsuleSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
-    if (notchQuickSvg) notchQuickSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
-    if (expSvg) expSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
+    if (svg) {
+      svg.setAttribute("viewBox", "0 0 16 16");
+      svg.classList.remove("buffering-spinner-svg");
+      svg.innerHTML = playPaths;
+    }
+    if (mobileBtn) {
+      mobileBtn.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14">${playPaths}</svg>`;
+    }
+    if (capsuleSvg) {
+      capsuleSvg.setAttribute("viewBox", "0 0 16 16");
+      capsuleSvg.classList.remove("buffering-spinner-svg");
+      capsuleSvg.innerHTML = playPaths;
+    }
+    if (notchQuickSvg) {
+      notchQuickSvg.setAttribute("viewBox", "0 0 16 16");
+      notchQuickSvg.classList.remove("buffering-spinner-svg");
+      notchQuickSvg.innerHTML = playPaths;
+    }
+    if (expSvg) {
+      expSvg.setAttribute("viewBox", "0 0 16 16");
+      expSvg.classList.remove("buffering-spinner-svg");
+      expSvg.innerHTML = playPaths;
+    }
     if (expOverlay) expOverlay.classList.remove("playing");
     if (visualizer) visualizer.classList.remove("playing");
 
