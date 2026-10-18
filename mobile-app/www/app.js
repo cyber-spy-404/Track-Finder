@@ -1742,38 +1742,12 @@ const ReactiveVisualizerEngine = {
 window.ReactiveVisualizerEngine = ReactiveVisualizerEngine;
 
 // ==========================================================================
-// SYSTEM CHANNELS SWITCHER & ROUTING
+// SYSTEM CHANNELS & ROUTING (Fixed to Local Device Output)
 // ==========================================================================
-function switchSystemChannel(chanKey) {
-  activeSystemChannel = chanKey;
-
-  // Update Topbar Pill Tabs
-  document.querySelectorAll(".sys-tab").forEach(tab => {
-    tab.classList.toggle("active", tab.getAttribute("data-channel") === chanKey);
-  });
-
-  const names = {
-    browser: "Web Browser (Local Speakers)",
-    app: "Mobile App (Android APK)",
-    bot: "Discord Bot (Voice Channel)",
-    all: "All 3 Systems (Multi-Sync)"
-  };
-  const shortNames = { browser: "Browser", app: "App", bot: "Discord", all: "All 3" };
-
-  const activePillText = document.getElementById("activeRoutePillText");
-  const mobileLabel = document.getElementById("mobileNavChannelLabel");
-  const rightDest = document.getElementById("rightDestinationText");
-
-  if (activePillText) activePillText.textContent = `Active: ${shortNames[chanKey] || chanKey}`;
-  if (mobileLabel) mobileLabel.textContent = shortNames[chanKey] || chanKey;
-  if (rightDest) rightDest.textContent = `Playing on: ${names[chanKey] || chanKey}`;
-
-  showToast(`Active Channel: ${names[chanKey] || chanKey}`);
-
-  if (chanKey === "browser") {
-    if (BrowserPlayer.currentTrack) {
-      updateUIWithTrack(BrowserPlayer.currentTrack, BrowserPlayer.isPlaying());
-    }
+function switchSystemChannel(chanKey = "browser") {
+  activeSystemChannel = "browser";
+  if (BrowserPlayer.currentTrack) {
+    updateUIWithTrack(BrowserPlayer.currentTrack, BrowserPlayer.isPlaying());
   } else if (currentState) {
     updateUI(currentState);
   }
@@ -1782,7 +1756,7 @@ window.switchSystemChannel = switchSystemChannel;
 
 // Legacy alias
 function setAudioRouting(mode) {
-  switchSystemChannel(mode === "discord" ? "bot" : (mode === "browser" ? "browser" : "all"));
+  switchSystemChannel("browser");
 }
 window.setAudioRouting = setAudioRouting;
 
@@ -5813,14 +5787,6 @@ function initEventListeners() {
     handleSearch("");
   });
 
-  // System Channels Tabs
-  document.querySelectorAll(".sys-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      const chan = tab.getAttribute("data-channel");
-      if (chan) switchSystemChannel(chan);
-    });
-  });
-
   // Announcement Channel Selector
   const announceSelect = document.getElementById("announcementChannelSelect");
   announceSelect?.addEventListener("change", async (e) => {
@@ -6100,22 +6066,12 @@ function initEventListeners() {
   document.getElementById("btnTopQueue")?.addEventListener("click", () => switchView("queue"));
   document.getElementById("btnMobileQueue")?.addEventListener("click", () => switchView("queue"));
 
-  // Device Route Button
-  document.getElementById("btnDeviceRoute")?.addEventListener("click", () => {
-    const cycle = { browser: "app", app: "bot", bot: "all", all: "browser" };
-    switchSystemChannel(cycle[activeSystemChannel] || "browser");
-  });
-
-  // Mobile Bottom Navigation (5 tabs)
+  // Mobile Bottom Navigation (4 tabs)
   document.getElementById("mobileNavHome")?.addEventListener("click", () => switchView("home"));
   document.getElementById("mobileNavSearch")?.addEventListener("click", () => switchView("search"));
   document.getElementById("mobileNavQueue")?.addEventListener("click", () => switchView("queue"));
   document.getElementById("mobileNavLibrary")?.addEventListener("click", () => {
     switchView("liked");
-  });
-  document.getElementById("mobileNavChannel")?.addEventListener("click", () => {
-    const cycle = { browser: "app", app: "bot", bot: "all", all: "browser" };
-    switchSystemChannel(cycle[activeSystemChannel] || "browser");
   });
 
   // Spotify Feature 1: Time-Synced Karaoke Lyrics Listeners
@@ -6371,15 +6327,6 @@ function initEventListeners() {
     switchView("home");
     const el = document.getElementById("sectionSpotifyRadioStations");
     if (el) el.scrollIntoView({ behavior: "smooth" });
-  });
-  document.getElementById("btnExpandedRouting")?.addEventListener("click", () => {
-    const cycle = { browser: "app", app: "bot", bot: "all", all: "browser" };
-    switchSystemChannel(cycle[activeSystemChannel] || "browser");
-    const routeLabel = document.getElementById("expandedRoutingText");
-    if (routeLabel) {
-      const routeNames = { browser: "Web Browser", app: "Mobile App", bot: "Discord Bot", all: "All Output" };
-      routeLabel.textContent = routeNames[activeSystemChannel] || "Web Browser";
-    }
   });
   document.getElementById("btnExpandedQueueToggle")?.addEventListener("click", () => {
     closeExpandedPlayer();
