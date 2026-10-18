@@ -26,6 +26,7 @@ import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.media.app.NotificationCompat.MediaStyle;
+import androidx.media.session.MediaButtonReceiver;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -122,11 +123,15 @@ public class MediaPlaybackService extends Service {
         mediaSession.setCallback(new MediaSessionCompat.Callback() {
             @Override
             public void onPlay() {
+                isCurrentlyPlaying = true;
+                publishPlaybackState();
                 MainActivity.dispatchMediaAction("play", 0);
             }
 
             @Override
             public void onPause() {
+                isCurrentlyPlaying = false;
+                publishPlaybackState();
                 MainActivity.dispatchMediaAction("pause", 0);
             }
 
@@ -142,15 +147,21 @@ public class MediaPlaybackService extends Service {
 
             @Override
             public void onSeekTo(long posMs) {
-                double posSec = posMs / 1000.0;
-                MainActivity.dispatchMediaAction("seek", posSec);
+                currentPosition = posMs / 1000.0;
+                publishPlaybackState();
+                MainActivity.dispatchMediaAction("seek", currentPosition);
             }
 
             @Override
             public void onStop() {
+                isCurrentlyPlaying = false;
                 abandonAudioFocus();
                 MainActivity.dispatchMediaAction("stop", 0);
-                stopForeground(true);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE);
+                } else {
+                    stopForeground(true);
+                }
                 stopSelf();
             }
         });
@@ -160,24 +171,33 @@ public class MediaPlaybackService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null || intent.getAction() == null) {
+        if (intent == null) {
             return START_STICKY;
         }
 
+        // Route media button actions (headset, lockscreen, bluetooth)
+        MediaButtonReceiver.handleIntent(mediaSession, intent);
+
         String action = intent.getAction();
+        if (action == null) {
+            return START_STICKY;
+        }
+
         switch (action) {
             case ACTION_PLAY:
+                isCurrentlyPlaying = true;
+                publishPlaybackState();
                 MainActivity.dispatchMediaAction("play", 0);
                 break;
             case ACTION_PAUSE:
+                isCurrentlyPlaying = false;
+                publishPlaybackState();
                 MainActivity.dispatchMediaAction("pause", 0);
                 break;
             case ACTION_TOGGLE:
-                if (isCurrentlyPlaying) {
-                    MainActivity.dispatchMediaAction("pause", 0);
-                } else {
-                    MainActivity.dispatchMediaAction("play", 0);
-                }
+                isCurrentlyPlaying = !isCurrentlyPlaying;
+                publishPlaybackState();
+                MainActivity.dispatchMediaAction(isCurrentlyPlaying ? "play" : "pause", 0);
                 break;
             case ACTION_NEXT:
                 MainActivity.dispatchMediaAction("next", 0);
@@ -187,15 +207,22 @@ public class MediaPlaybackService extends Service {
                 break;
             case ACTION_SEEK:
                 double seekPos = intent.getDoubleExtra(EXTRA_SEEK_POS, 0.0);
+                currentPosition = seekPos;
+                publishPlaybackState();
                 MainActivity.dispatchMediaAction("seek", seekPos);
                 break;
             case ACTION_UPDATE_STATE:
                 handleUpdateState(intent);
                 break;
             case ACTION_STOP:
+                isCurrentlyPlaying = false;
                 abandonAudioFocus();
                 MainActivity.dispatchMediaAction("stop", 0);
-                stopForeground(true);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE);
+                } else {
+                    stopForeground(true);
+                }
                 stopSelf();
                 break;
         }
@@ -226,11 +253,11 @@ public class MediaPlaybackService extends Service {
             if (currentArtist == null || currentArtist.isEmpty()) currentArtist = "CyberSpy 404";
             if (currentAlbum == null || currentAlbum.isEmpty()) currentAlbum = "Lossless Audio";
 
+            publishPlaybackState();
+
             if (cover != null && !cover.equals(currentCover)) {
                 currentCover = cover;
                 loadCoverBitmap(cover);
-            } else {
-                publishPlaybackState();
             }
         });
     }
@@ -258,17 +285,17 @@ public class MediaPlaybackService extends Service {
         if (currentArtist == null || currentArtist.isEmpty()) currentArtist = "CyberSpy 404";
         if (currentAlbum == null || currentAlbum.isEmpty()) currentAlbum = "Lossless Audio";
 
+        publishPlaybackState();
+
         if (cover != null && !cover.equals(currentCover)) {
             currentCover = cover;
             loadCoverBitmap(cover);
-        } else {
-            publishPlaybackState();
         }
     }
 
     private void loadCoverBitmap(String coverUrl) {
         if (coverUrl.equals(lastCoverLoaded) && cachedCoverBitmap != null) {
-            publishPlaybackState();
+            new Handler(Looper.getMainLooper()).post(this::publishPlaybackState);
             return;
         }
 
@@ -300,7 +327,7 @@ public class MediaPlaybackService extends Service {
 
             cachedCoverBitmap = bmp;
             lastCoverLoaded = coverUrl;
-            publishPlaybackState();
+            new Handler(Looper.getMainLooper()).post(this::publishPlaybackState);
         });
     }
 
@@ -345,19 +372,13 @@ public class MediaPlaybackService extends Service {
         // 3. Build MediaStyle Notification
         Notification notification = buildMediaNotification();
 
-        if (isCurrentlyPlaying) {
+        try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
             } else {
                 startForeground(NOTIFICATION_ID, notification);
             }
-        } else {
-            // Keep notification showing in notification tray so user can resume playback anytime
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_DETACH);
-            } else {
-                stopForeground(false);
-            }
+        } catch (Exception e) {
             if (notificationManager != null) {
                 notificationManager.notify(NOTIFICATION_ID, notification);
             }
@@ -377,6 +398,7 @@ public class MediaPlaybackService extends Service {
         PendingIntent pPrev = buildActionPendingIntent(ACTION_PREV, 1);
         PendingIntent pToggle = buildActionPendingIntent(ACTION_TOGGLE, 2);
         PendingIntent pNext = buildActionPendingIntent(ACTION_NEXT, 3);
+        PendingIntent pStop = buildActionPendingIntent(ACTION_STOP, 4);
 
         int playPauseIcon = isCurrentlyPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
         String playPauseTitle = isCurrentlyPlaying ? "Pause" : "Play";
@@ -386,6 +408,7 @@ public class MediaPlaybackService extends Service {
                 .setContentText(currentArtist + " • " + currentAlbum)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentIntent(pContent)
+                .setDeleteIntent(pStop)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setOnlyAlertOnce(true)
                 .setOngoing(isCurrentlyPlaying)
@@ -396,7 +419,7 @@ public class MediaPlaybackService extends Service {
                         .setMediaSession(mediaSession.getSessionToken())
                         .setShowActionsInCompactView(0, 1, 2)
                         .setShowCancelButton(true)
-                        .setCancelButtonIntent(buildActionPendingIntent(ACTION_STOP, 4))
+                        .setCancelButtonIntent(pStop)
                 );
 
         if (cachedCoverBitmap != null) {

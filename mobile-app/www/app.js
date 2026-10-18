@@ -481,7 +481,7 @@ const BrowserPlayer = {
     } catch (e) {}
   },
 
-  updateMediaSession(track) {
+  updateMediaSession(track, isPlayingOverride) {
     track = track || this.currentTrack;
     if (!track) return;
     const title = track.title || track.info?.title || "Spy Sec Music";
@@ -496,7 +496,9 @@ const BrowserPlayer = {
     if (!dur || !Number.isFinite(dur) || dur <= 0) {
       dur = (track.duration && track.duration > 0) ? (track.duration > 1000 ? track.duration / 1000 : track.duration) : 0;
     }
-    const isPlaying = Boolean(this.audio && !this.audio.paused);
+    const isPlaying = typeof isPlayingOverride === "boolean"
+      ? isPlayingOverride
+      : Boolean(this.audio && !this.audio.paused);
 
     // 1. Standard W3C navigator.mediaSession (for Chrome, Edge, WebView)
     if ("mediaSession" in navigator) {
@@ -519,7 +521,7 @@ const BrowserPlayer = {
         if (dur > 0 && Number.isFinite(dur)) {
           navigator.mediaSession.setPositionState({
             duration: dur,
-            playbackRate: this.audio?.playbackRate || 1.0,
+            playbackRate: isPlaying ? (this.audio?.playbackRate || 1.0) : 0,
             position: Math.min(Math.max(cur, 0), dur)
           });
         }
@@ -879,10 +881,10 @@ const BrowserPlayer = {
       } else if (!this.audio.src && this.queue.length > 0) {
         this.next();
       } else if (this.audio.src) {
-        this.audio.play().catch(e => console.warn("play error:", e));
+        this.audio.play().then(() => this.onPlay()).catch(e => console.warn("play error:", e));
       }
     } else {
-      this.audio.pause();
+      this.pause();
     }
   },
 
@@ -896,15 +898,18 @@ const BrowserPlayer = {
         EqualizerEngine.resume();
       }
       if (this.audio.paused) {
-        this.audio.play().catch(() => {});
+        this.audio.play().then(() => this.onPlay()).catch(() => {});
+      } else {
+        this.onPlay();
       }
     }
   },
 
   pause() {
-    if (this.audio && !this.audio.paused) {
-      this.audio.pause();
+    if (this.audio) {
+      try { this.audio.pause(); } catch (_) {}
     }
+    this.onPause();
   },
 
   async next() {
@@ -1227,7 +1232,7 @@ const BrowserPlayer = {
     if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
       try { navigator.mediaSession.playbackState = "playing"; } catch (e) {}
     }
-    this.updateMediaSession(this.currentTrack);
+    this.updateMediaSession(this.currentTrack, true);
     // Note: Android WebView automatically manages Audio Focus for HTMLMediaElements.
     // Avoid manual AudioFocus calls through bridge that cause focus collisions and silent playback.
     updatePlayPauseIcons(true);
@@ -1246,7 +1251,7 @@ const BrowserPlayer = {
     if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
       try { navigator.mediaSession.playbackState = "paused"; } catch (e) {}
     }
-    this.updateMediaSession(this.currentTrack);
+    this.updateMediaSession(this.currentTrack, false);
     updatePlayPauseIcons(false);
     if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.stop();
     this.reportState();

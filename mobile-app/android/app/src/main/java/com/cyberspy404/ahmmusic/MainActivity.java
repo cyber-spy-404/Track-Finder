@@ -123,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
             intent.putExtra(MediaPlaybackService.EXTRA_IS_PLAYING, isPlaying);
 
             try {
-                if (isPlaying && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     context.startForegroundService(intent);
                 } else {
                     context.startService(intent);
