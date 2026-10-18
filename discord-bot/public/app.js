@@ -102,6 +102,33 @@ function isDirectPlayableAudioUrl(url) {
 }
 window.isDirectPlayableAudioUrl = isDirectPlayableAudioUrl;
 
+// Universal Duration Parser: Converts "MM:SS", "HH:MM:SS", numbers, or strings into milliseconds
+function parseDurationMs(duration) {
+  if (!duration) return 0;
+  if (typeof duration === "number") {
+    if (isNaN(duration) || duration <= 0) return 0;
+    return duration > 1000 ? Math.round(duration) : Math.round(duration * 1000);
+  }
+  if (typeof duration === "string") {
+    const trimmed = duration.trim();
+    if (!trimmed) return 0;
+    if (trimmed.includes(":")) {
+      const parts = trimmed.split(":").map(p => parseFloat(p) || 0);
+      if (parts.length === 2) {
+        return Math.round((parts[0] * 60 + parts[1]) * 1000);
+      } else if (parts.length === 3) {
+        return Math.round((parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000);
+      }
+    }
+    const parsedNum = parseFloat(trimmed);
+    if (!isNaN(parsedNum) && parsedNum > 0) {
+      return parsedNum > 1000 ? Math.round(parsedNum) : Math.round(parsedNum * 1000);
+    }
+  }
+  return 0;
+}
+window.parseDurationMs = parseDurationMs;
+
 // Transparently wrap window.fetch so all relative API requests hit the server cleanly without CORS preflight failures
 const _nativeFetch = window.fetch;
 window.fetch = function(input, init) {
@@ -537,7 +564,8 @@ const BrowserPlayer = {
     const cur = this.audio?.currentTime || 0;
     let dur = this.audio?.duration;
     if (!dur || !Number.isFinite(dur) || dur <= 0) {
-      dur = (track.duration && track.duration > 0) ? (track.duration > 1000 ? track.duration / 1000 : track.duration) : 0;
+      const durMs = parseDurationMs(track.duration);
+      dur = durMs > 0 ? durMs / 1000 : 0;
     }
     const isPlaying = typeof isPlayingOverride === "boolean"
       ? isPlayingOverride
@@ -590,8 +618,30 @@ const BrowserPlayer = {
     if (!track) return;
     this.init();
     this._userExplicitlyPaused = false;
+    this._isChangingTrack = true;
+    this._playRequestId = (this._playRequestId || 0) + 1;
+    const currentReqId = this._playRequestId;
+
+    // Immediately stop prior playback to avoid false ended events or audio overlap while resolving
+    if (this.audio) {
+      try {
+        this.audio.pause();
+      } catch (_) {}
+    }
+
+    // Normalize duration on track object
+    if (track.duration) {
+      track.duration = parseDurationMs(track.duration);
+    }
+
     this.setBuffering(true);
     window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
+
+    // Immediately reflect selected track in UI so user gets instant visual confirmation
+    this.currentTrack = track;
+    updateUIWithTrack(track, false);
+    if (typeof updateAllQueueBadges === "function") updateAllQueueBadges();
+    if (typeof updateHeartButtonStatus === "function") updateHeartButtonStatus();
 
     // Spotify Infinite Radio state synchronization:
     if (track.isRadio || (this.isRadioActive && (this.queue.some(t => t.isRadio) || this.activeRadioSeed))) {
@@ -617,7 +667,15 @@ const BrowserPlayer = {
         const resolveUrl = resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=true`);
         const res = await fetch(resolveUrl);
         const data = await res.json();
+
+        // If superseded by a newer track selection while resolving, abort cleanly
+        if (this._playRequestId !== currentReqId) {
+          console.log(`[Audio Engine] playTrack superseded during resolve for "${track.title}"`);
+          return;
+        }
+
         if (data.dropped) {
+          this._isChangingTrack = false;
           this.setBuffering(false);
           return;
         }
@@ -627,13 +685,15 @@ const BrowserPlayer = {
             ...data.track,
             title: track.title && track.title !== "YouTube Audio" ? track.title : data.track.title,
             author: track.author && track.author !== "Trending Music" ? track.author : (data.track.author || "YouTube Music"),
-            duration: track.duration && track.duration > 0 ? track.duration : data.track.duration,
+            duration: (data.track.duration && data.track.duration > 0) ? parseDurationMs(data.track.duration) : (track.duration || 0),
             artworkUrl: track.artworkUrl && track.artworkUrl !== "logo.png" ? track.artworkUrl : (data.track.artworkUrl || "logo.png")
           };
         }
       } catch (err) {
         console.error("Auto stream resolve error:", err);
       }
+
+      if (this._playRequestId !== currentReqId) return;
 
       // Secondary client-side fallback if server resolution yielded no playable stream
       if (!track.streamUrl || !isDirectPlayableAudioUrl(track.streamUrl)) {
@@ -643,11 +703,12 @@ const BrowserPlayer = {
           const fallbackQuery = cleanArtist ? `${cleanTitle} ${cleanArtist}` : cleanTitle;
           const searchRes = await fetch(resolveApiUrl(`/api/search?q=${encodeURIComponent(fallbackQuery)}&type=tracks&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}`));
           const searchData = await searchRes.json();
+          if (this._playRequestId !== currentReqId) return;
           const match = (searchData.results || []).find(r => r && isDirectPlayableAudioUrl(r.streamUrl));
           if (match) {
             track.streamUrl = match.streamUrl;
             track.proxyStreamUrl = match.proxyStreamUrl || `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(match.streamUrl)}`;
-            if (!track.duration && match.duration) track.duration = match.duration;
+            if (!track.duration && match.duration) track.duration = parseDurationMs(match.duration);
             if ((!track.artworkUrl || track.artworkUrl === "logo.png") && match.artworkUrl) track.artworkUrl = match.artworkUrl;
           }
         } catch (e) {
@@ -655,6 +716,8 @@ const BrowserPlayer = {
         }
       }
     }
+
+    if (this._playRequestId !== currentReqId) return;
 
     this.currentTrack = track;
 
@@ -673,11 +736,11 @@ const BrowserPlayer = {
     }
 
     if (!src) {
+      this._isChangingTrack = false;
       this.setBuffering(false);
-      showToast(`Could not play "${track.title}" - audio stream unavailable`);
-      if (this.queue.length > 0) {
-        return this.next();
-      }
+      showToast(`Could not play "${track.title}" - audio stream unavailable. Tap Next to continue.`);
+      // IMPORTANT: Do NOT auto-skip to this.next() here!
+      // Recursive skipping on missing stream is what previously emptied the playlist queue down to the last track!
       return;
     }
 
@@ -690,9 +753,6 @@ const BrowserPlayer = {
     } else {
       try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
     }
-    this._isChangingTrack = true;
-    this._playRequestId = (this._playRequestId || 0) + 1;
-    const currentReqId = this._playRequestId;
 
     this.audio.src = src;
     this.audio.currentTime = 0;
@@ -903,15 +963,17 @@ const BrowserPlayer = {
     this.isRadioActive = false;
     this.activeRadioSeed = null;
     this.queue = [];
+    this.history = [];
 
     // Push preceding songs to history so user can navigate back
     for (let i = 0; i < safeIndex; i++) {
       const p = tracks[i];
+      const durMs = p.durationMs || parseDurationMs(p.duration);
       this.history.push({
         title: p.title,
         author: p.artist || p.author || playlist.name,
         artist: p.artist || p.author || playlist.name,
-        duration: p.duration || 0,
+        duration: durMs,
         artworkUrl: p.artworkUrl || playlist.coverUrl || "logo.png",
         query: p.query || `${p.title} ${p.artist || ""}`.trim(),
         url: p.url || null,
@@ -922,11 +984,12 @@ const BrowserPlayer = {
     }
 
     const cur = tracks[safeIndex];
+    const curDurMs = cur.durationMs || parseDurationMs(cur.duration);
     const currentTrack = {
       title: cur.title,
       author: cur.artist || cur.author || playlist.name,
       artist: cur.artist || cur.author || playlist.name,
-      duration: cur.duration || 0,
+      duration: curDurMs,
       artworkUrl: cur.artworkUrl || playlist.coverUrl || "logo.png",
       query: cur.query || `${cur.title} ${cur.artist || ""}`.trim(),
       url: cur.url || null,
@@ -938,11 +1001,12 @@ const BrowserPlayer = {
     // Subsequent songs populate the Upcoming Queue
     for (let i = safeIndex + 1; i < tracks.length; i++) {
       const t = tracks[i];
+      const tDurMs = t.durationMs || parseDurationMs(t.duration);
       this.queue.push({
         title: t.title,
         author: t.artist || t.author || playlist.name,
         artist: t.artist || t.author || playlist.name,
-        duration: t.duration || 0,
+        duration: tDurMs,
         artworkUrl: t.artworkUrl || playlist.coverUrl || "logo.png",
         query: t.query || `${t.title} ${t.artist || ""}`.trim(),
         url: t.url || null,
@@ -1029,6 +1093,13 @@ const BrowserPlayer = {
 
   async next() {
     this.init();
+    const now = Date.now();
+    if (this._lastNextTimestamp && (now - this._lastNextTimestamp) < 350) {
+      console.warn("[Audio Engine] Debounced rapid duplicate next() call.");
+      return;
+    }
+    this._lastNextTimestamp = now;
+
     if (this.queue.length > 0) {
       if (this.currentTrack) this.history.push(this.currentTrack);
       const nextTrack = this.queue.shift();
@@ -1255,6 +1326,13 @@ const BrowserPlayer = {
 
   async prev() {
     this.init();
+    const now = Date.now();
+    if (this._lastPrevTimestamp && (now - this._lastPrevTimestamp) < 350) {
+      console.warn("[Audio Engine] Debounced rapid duplicate prev() call.");
+      return;
+    }
+    this._lastPrevTimestamp = now;
+
     if (this.audio && this.audio.currentTime > 5) {
       this.audio.currentTime = 0;
       return;
@@ -1284,11 +1362,17 @@ const BrowserPlayer = {
     this.reportState();
   },
 
+  getTrackDurationSec() {
+    if (Number.isFinite(this.audio?.duration) && this.audio.duration > 0) {
+      return this.audio.duration;
+    }
+    const ms = parseDurationMs(this.currentTrack?.duration);
+    return ms > 0 ? ms / 1000 : 0;
+  },
+
   seek(seconds) {
     if (!this.audio) return;
-    const dur = (Number.isFinite(this.audio.duration) && this.audio.duration > 0)
-      ? this.audio.duration
-      : (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
+    const dur = this.getTrackDurationSec();
     const target = dur > 0 ? Math.min(Math.max(seconds, 0), dur) : Math.max(seconds, 0);
     this.audio.currentTime = target;
     this.updateMediaSession(this.currentTrack);
@@ -1331,9 +1415,7 @@ const BrowserPlayer = {
   onTimeUpdate() {
     if (isScrubbing) return;
     const cur = this.audio?.currentTime || 0;
-    const dur = (Number.isFinite(this.audio?.duration) && this.audio.duration > 0)
-      ? this.audio.duration
-      : (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
+    const dur = this.getTrackDurationSec();
 
     const pct = dur > 0 ? (cur / dur) * 100 : 0;
     updateProgressUI(cur, dur, pct);
@@ -1399,9 +1481,7 @@ const BrowserPlayer = {
     // Avoid manual AudioFocus calls through bridge that cause focus collisions and silent playback.
     updatePlayPauseIcons(true);
     const cur = this.audio?.currentTime || 0;
-    const dur = (Number.isFinite(this.audio?.duration) && this.audio.duration > 0)
-      ? this.audio.duration
-      : (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
+    const dur = this.getTrackDurationSec();
     const pct = dur > 0 ? (cur / dur) * 100 : 0;
     updateProgressUI(cur, dur, pct);
     if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) EqualizerEngine.resume();
@@ -1422,6 +1502,13 @@ const BrowserPlayer = {
 
   onEnded() {
     if (!this.audio || !this.currentTrack) return;
+
+    // Never trigger ended if the player is actively transitioning or resolving a track
+    if (this._isChangingTrack) {
+      console.warn("[Audio Engine] Ignored ended event during track transition.");
+      return;
+    }
+
     const cur = this.audio.currentTime || 0;
 
     // Ignore ended events for dummy data URLs or empty audio
@@ -1430,11 +1517,12 @@ const BrowserPlayer = {
     }
 
     // Determine expected track duration: check finite audio.duration first, else currentTrack.duration in seconds
+    const trackDurMs = parseDurationMs(this.currentTrack.duration);
     let expectedDur = 0;
     if (Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
       expectedDur = this.audio.duration;
-    } else if (this.currentTrack && typeof this.currentTrack.duration === "number" && this.currentTrack.duration > 0) {
-      expectedDur = this.currentTrack.duration / 1000;
+    } else if (trackDurMs > 0) {
+      expectedDur = trackDurMs / 1000;
     }
 
     // Guard 1: Never trigger track end if playback just started (< 3 seconds)
@@ -1450,6 +1538,14 @@ const BrowserPlayer = {
       this.audio.play().catch(() => {});
       return;
     }
+
+    // Debounce rapid duplicate ended events
+    const now = Date.now();
+    if (this._lastEndedTimestamp && (now - this._lastEndedTimestamp) < 1500) {
+      console.warn("[Audio Engine] Debounced rapid duplicate ended event.");
+      return;
+    }
+    this._lastEndedTimestamp = now;
 
     if (typeof SleepTimerEngine !== "undefined") SleepTimerEngine.checkTrackEnd();
 
@@ -1504,15 +1600,21 @@ const BrowserPlayer = {
             this.audio.src = chosenSrc;
             this.audio.currentTime = 0;
             this.audio.play().catch(() => {});
-          } else if (this.queue.length > 0) {
-            this.next();
+          } else {
+            this._isChangingTrack = false;
+            this.setBuffering(false);
+            showToast(`Audio unavailable for "${this.currentTrack.title}". Tap Next to skip.`);
           }
         })
         .catch(() => {
-          if (this.queue.length > 0) this.next();
+          this._isChangingTrack = false;
+          this.setBuffering(false);
+          showToast(`Audio unavailable for "${this.currentTrack.title}". Tap Next to skip.`);
         });
-    } else if (this.queue.length > 0) {
-      this.next();
+    } else {
+      this._isChangingTrack = false;
+      this.setBuffering(false);
+      showToast(`Playback error for "${this.currentTrack.title}". Tap Next to skip.`);
     }
   },
 
