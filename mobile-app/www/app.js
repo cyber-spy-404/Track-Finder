@@ -3268,11 +3268,15 @@ async function playSearchPlaylist(pl, immediate = true) {
         tracksCount: data.playlist.tracks.length,
         badge: "Playlist",
         tracks: data.playlist.tracks.map(t => ({
+          id: t.id,
           title: t.title,
           artist: t.artist,
-          duration: formatTime(t.duration),
+          duration: typeof t.duration === "number" ? formatTime(t.duration) : (t.duration || "03:30"),
           query: `${t.title} ${t.artist}`,
-          artworkUrl: t.artworkUrl
+          artworkUrl: t.artworkUrl || data.playlist.artworkUrl || "logo.png",
+          streamUrl: t.streamUrl,
+          rawStreamUrl: t.rawStreamUrl,
+          source: t.source || "jiosaavn"
         }))
       };
       if (!customPlaylists.some(p => p.id === fullPl.id)) {
@@ -3302,14 +3306,18 @@ async function loadAndOpenSearchPlaylist(pl) {
         author: data.playlist.author || pl.author,
         coverUrl: data.playlist.artworkUrl || pl.artworkUrl || "logo.png",
         tracksCount: data.playlist.tracks.length,
-        badge: "YouTube Playlist",
+        badge: pl.isAlbum ? "Official Album" : "Featured Playlist",
         gradient: "linear-gradient(135deg, #1db954 0%, #121212 100%)",
         tracks: data.playlist.tracks.map(t => ({
+          id: t.id,
           title: t.title,
           artist: t.artist,
-          duration: formatTime(t.duration),
+          duration: typeof t.duration === "number" ? formatTime(t.duration) : (t.duration || "03:30"),
           query: `${t.title} ${t.artist}`,
-          artworkUrl: t.artworkUrl
+          artworkUrl: t.artworkUrl || data.playlist.artworkUrl || "logo.png",
+          streamUrl: t.streamUrl,
+          rawStreamUrl: t.rawStreamUrl,
+          source: t.source || "jiosaavn"
         }))
       };
       if (!customPlaylists.some(p => p.id === fullPl.id)) {
@@ -3322,6 +3330,136 @@ async function loadAndOpenSearchPlaylist(pl) {
     }
   } catch (err) {
     showToast("Network error opening playlist");
+  }
+}
+
+// --------------------------------------------------------------------------
+// PROGRESSIVE SEARCH: MODULAR RENDERERS (TRACKS & PLAYLISTS STREAMED)
+// --------------------------------------------------------------------------
+function renderSearchResultsPlaylists(playlists, q) {
+  const searchPlaylistsSec = document.getElementById("searchPlaylistsSection");
+  const searchPlaylistsGrid = document.getElementById("gridSearchPlaylists");
+  const searchPlaylistsBadge = document.getElementById("searchPlaylistsCountBadge");
+  if (!searchPlaylistsGrid) return;
+
+  if (Array.isArray(playlists) && playlists.length > 0) {
+    if (searchPlaylistsSec) searchPlaylistsSec.style.display = "block";
+    if (searchPlaylistsBadge) searchPlaylistsBadge.textContent = `${playlists.length} Playlists`;
+    searchPlaylistsGrid.innerHTML = "";
+
+    playlists.forEach(pl => {
+      const card = document.createElement("div");
+      card.className = "spotify-card";
+      card.title = pl.title;
+      card.innerHTML = `
+        <div class="card-artwork">
+          <img src="${pl.artworkUrl || 'logo.png'}" alt="${escapeHtml(pl.title)}" onerror="this.src='logo.png'">
+          <button class="circle-play" title="Play ${escapeHtml(pl.title)}">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+        <span class="card-title">${escapeHtml(pl.title)}</span>
+        <span class="card-desc">${escapeHtml(pl.author || "Featured Playlist")}${pl.trackCount ? ` • ${pl.trackCount} songs` : ''}</span>
+      `;
+
+      card.querySelector(".circle-play")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        playSearchPlaylist(pl, true);
+      });
+
+      card.addEventListener("click", () => {
+        loadAndOpenSearchPlaylist(pl);
+      });
+
+      searchPlaylistsGrid.appendChild(card);
+    });
+    setTimeout(initShelfScrollButtons, 50);
+  } else if (searchPlaylistsSec) {
+    searchPlaylistsSec.style.display = "none";
+  }
+}
+
+function renderSearchResultsTracks(results, q) {
+  const searchBody = document.getElementById("searchResultsBody");
+  const searchFilterBadge = document.getElementById("searchResultFilterBadge");
+  if (!searchBody) return;
+
+  if (Array.isArray(results) && results.length > 0) {
+    if (searchFilterBadge) {
+      searchFilterBadge.textContent = `${results.length} Tracks • High Fidelity`;
+    }
+    searchBody.innerHTML = "";
+    results.forEach((t, idx) => {
+      const isFav = isTrackFavorited(t);
+      const tr = document.createElement("tr");
+      tr.className = "song-row";
+      tr.innerHTML = `
+        <td class="td-num">${idx + 1}</td>
+        <td>
+          <div class="song-info-cell">
+            <img class="song-cell-art" src="${t.artworkUrl || 'logo.png'}" onerror="this.src='logo.png'">
+            <div class="song-title-group">
+              <span class="song-title">${escapeHtml(t.title)}</span>
+              <span class="song-artist">${escapeHtml(t.author || t.artist || "Artist")}</span>
+            </div>
+          </div>
+        </td>
+        <td class="song-album-cell">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn-play-now-pill btn-search-play-now" title="Interrupt and play immediately">Play Now</button>
+            <button class="btn-enqueue-pill btn-search-enqueue" title="Add to end of queue">Enqueue</button>
+            <button class="btn-search-heart ${isFav ? 'liked' : ''}" title="${isFav ? 'Remove from Liked' : 'Save to Liked Songs'}" style="background:none; border:none; cursor:pointer; padding:4px; display:inline-flex; align-items:center;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </button>
+          </div>
+        </td>
+        <td class="song-time-cell">${formatTime(t.duration)}</td>
+      `;
+
+      tr.querySelector(".btn-search-play-now")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dispatchPlayNow(t);
+      });
+
+      tr.querySelector(".btn-search-enqueue")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dispatchEnqueue(t);
+      });
+
+      const heartBtn = tr.querySelector(".btn-search-heart");
+      heartBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleTrackFavorite(t);
+        const nowFav = !isFav;
+        heartBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="${nowFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+        heartBtn.classList.toggle('liked', nowFav);
+      });
+
+      tr.addEventListener("click", () => {
+        dispatchPlayNow(t);
+      });
+
+      searchBody.appendChild(tr);
+    });
+  } else {
+    if (currentFilterMode !== "filterless") {
+      searchBody.innerHTML = `
+        <tr>
+          <td colspan="4" style="color: var(--text-subdued); padding: 32px 16px; text-align: center;">
+            <div style="display:flex; justify-content:center; margin-bottom: 10px;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            </div>
+            <div style="font-size: 1rem; color: var(--text-header); font-weight: 600; margin-bottom: 6px;">No tracks found for "${escapeHtml(q)}" in ${currentFilterMode === "strict" ? "Strict Halal (#)" : "Islamic Vibes (*)"} mode</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">This track may be filtered by Halal rules. Switch to Filterless mode to search and play all songs without restriction.</div>
+            <button type="button" class="btn-play-now-pill" onclick="window.switchFilterToFilterless('${escapeHtml(q)}')" style="margin: 0 auto; display: inline-flex;">
+              Switch to Filterless Mode & Search "${escapeHtml(q)}"
+            </button>
+          </td>
+        </tr>
+      `;
+    } else {
+      searchBody.innerHTML = `<tr><td colspan="4" style="color: var(--text-subdued); padding: 24px; text-align: center;">No tracks found for "${escapeHtml(q)}"</td></tr>`;
+    }
   }
 }
 
@@ -3347,150 +3485,61 @@ async function handleSearch(query) {
     searchAbortController.abort();
   }
   searchAbortController = new AbortController();
+  const currentSignal = searchAbortController.signal;
 
   if (searchSec) searchSec.style.display = "block";
-  if (searchPlaylistsSec) searchPlaylistsSec.style.display = "block";
   if (browseCat) browseCat.style.display = "none";
 
+  // Provide instant feedback in both sections while parallel requests fetch
+  if (searchPlaylistsSec) searchPlaylistsSec.style.display = "block";
   if (searchPlaylistsGrid) {
     searchPlaylistsGrid.innerHTML = `
-      <div style="grid-column: 1 / -1; color: var(--text-subdued); padding: 18px 0; font-size: 0.9rem;">
-        Finding top playlists for "${escapeHtml(q)}"...
+      <div style="grid-column: 1 / -1; color: var(--text-subdued); padding: 18px 0; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+        <span class="taste-pulse-dot"></span> Finding top playlists for "${escapeHtml(q)}"...
       </div>
     `;
   }
   if (searchBody) {
-    searchBody.innerHTML = `<tr><td colspan="4" style="color: var(--text-subdued); padding: 24px; text-align: center;">Searching for "${escapeHtml(q)}"...</td></tr>`;
+    searchBody.innerHTML = `<tr><td colspan="4" style="color: var(--text-subdued); padding: 24px; text-align: center;"><div style="display:inline-flex; align-items:center; gap:8px;"><span class="pulse-dot"></span> Searching for "${escapeHtml(q)}"...</div></td></tr>`;
   }
 
-  try {
-    const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&filterMode=${encodeURIComponent(currentFilterMode)}`, {
-      signal: searchAbortController.signal
-    });
-    const data = await res.json();
-    if (data.dropped) return;
-
-    // 1. Render Playlists (~5 Playlists)
-    if (data.success && Array.isArray(data.playlists) && data.playlists.length > 0 && searchPlaylistsGrid) {
-      if (searchPlaylistsSec) searchPlaylistsSec.style.display = "block";
-      if (searchPlaylistsBadge) searchPlaylistsBadge.textContent = `${data.playlists.length} Playlists`;
-      searchPlaylistsGrid.innerHTML = "";
-
-      data.playlists.forEach(pl => {
-        const card = document.createElement("div");
-        card.className = "spotify-card";
-        card.title = pl.title;
-        card.innerHTML = `
-          <div class="card-artwork">
-            <img src="${pl.artworkUrl || 'logo.png'}" alt="${escapeHtml(pl.title)}" onerror="this.src='logo.png'">
-            <button class="circle-play" title="Play ${escapeHtml(pl.title)}">
-              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </button>
-          </div>
-          <span class="card-title">${escapeHtml(pl.title)}</span>
-          <span class="card-desc">${escapeHtml(pl.author || "YouTube Playlist")}${pl.trackCount ? ` • ${pl.trackCount} songs` : ''}</span>
-        `;
-
-        card.querySelector(".circle-play")?.addEventListener("click", (e) => {
-          e.stopPropagation();
-          playSearchPlaylist(pl, true);
-        });
-
-        card.addEventListener("click", () => {
-          loadAndOpenSearchPlaylist(pl);
-        });
-
-        searchPlaylistsGrid.appendChild(card);
-      });
-      setTimeout(initShelfScrollButtons, 50);
-    } else if (searchPlaylistsSec) {
-      // Hide playlist section if no playlists were found
-      searchPlaylistsSec.style.display = "none";
-    }
-
-    // 2. Render Songs (~20 Tracks)
-    if (data.success && Array.isArray(data.results) && data.results.length > 0 && searchBody) {
-      if (searchFilterBadge) {
-        searchFilterBadge.textContent = `${data.results.length} Tracks • YouTube Music`;
-      }
-      searchBody.innerHTML = "";
-      data.results.forEach((t, idx) => {
-        const isFav = isTrackFavorited(t);
-        const tr = document.createElement("tr");
-        tr.className = "song-row";
-        tr.innerHTML = `
-          <td class="td-num">${idx + 1}</td>
-          <td>
-            <div class="song-info-cell">
-              <img class="song-cell-art" src="${t.artworkUrl || 'logo.png'}" onerror="this.src='logo.png'">
-              <div class="song-title-group">
-                <span class="song-title">${escapeHtml(t.title)}</span>
-                <span class="song-artist">${escapeHtml(t.author)}</span>
-              </div>
-            </div>
-          </td>
-          <td class="song-album-cell">
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button class="btn-play-now-pill btn-search-play-now" title="Interrupt and play immediately">Play Now</button>
-              <button class="btn-enqueue-pill btn-search-enqueue" title="Add to end of queue">Enqueue</button>
-              <button class="btn-search-heart ${isFav ? 'liked' : ''}" title="${isFav ? 'Remove from Liked' : 'Save to Liked Songs'}" style="background:none; border:none; cursor:pointer; padding:4px; display:inline-flex; align-items:center;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-              </button>
-            </div>
-          </td>
-          <td class="song-time-cell">${formatTime(t.duration)}</td>
-        `;
-
-        tr.querySelector(".btn-search-play-now")?.addEventListener("click", (e) => {
-          e.stopPropagation();
-          dispatchPlayNow(t);
-        });
-
-        tr.querySelector(".btn-search-enqueue")?.addEventListener("click", (e) => {
-          e.stopPropagation();
-          dispatchEnqueue(t);
-        });
-
-        const heartBtn = tr.querySelector(".btn-search-heart");
-        heartBtn?.addEventListener("click", (e) => {
-          e.stopPropagation();
-          toggleTrackFavorite(t);
-          const nowFav = !isFav;
-          heartBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="${nowFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
-          heartBtn.classList.toggle('liked', nowFav);
-        });
-
-        tr.addEventListener("click", () => {
-          dispatchPlayNow(t);
-        });
-
-        searchBody.appendChild(tr);
-      });
-    } else if (searchBody) {
-      if (currentFilterMode !== "filterless") {
-        searchBody.innerHTML = `
-          <tr>
-            <td colspan="4" style="color: var(--text-subdued); padding: 32px 16px; text-align: center;">
-              <div style="display:flex; justify-content:center; margin-bottom: 10px;">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-              </div>
-              <div style="font-size: 1rem; color: var(--text-header); font-weight: 600; margin-bottom: 6px;">No tracks found for "${escapeHtml(q)}" in ${currentFilterMode === "strict" ? "Strict Halal (#)" : "Islamic Vibes (*)"} mode</div>
-              <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">This track may be filtered by Halal rules. Switch to Filterless mode to search and play all songs without restriction.</div>
-              <button type="button" class="btn-play-now-pill" onclick="window.switchFilterToFilterless('${escapeHtml(q)}')" style="margin: 0 auto; display: inline-flex;">
-                Switch to Filterless Mode & Search "${escapeHtml(q)}"
-              </button>
-            </td>
-          </tr>
-        `;
+  // 1. FAST STREAM: Fetch Tracks in Parallel (Resolves instantly in ~150ms)
+  fetch(`/api/search?type=tracks&q=${encodeURIComponent(q)}&filterMode=${encodeURIComponent(currentFilterMode)}`, {
+    signal: currentSignal
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (currentSignal.aborted || data.dropped) return;
+      if (data.success && Array.isArray(data.results)) {
+        renderSearchResultsTracks(data.results, q);
       } else {
-        searchBody.innerHTML = `<tr><td colspan="4" style="color: var(--text-subdued); padding: 24px; text-align: center;">No tracks found for "${escapeHtml(q)}"</td></tr>`;
+        renderSearchResultsTracks([], q);
       }
-    }
-  } catch (err) {
-    if (err.name === "AbortError") return; // Handled normal search debounce cancellation
-    if (searchBody) searchBody.innerHTML = `<tr><td colspan="4" style="color: var(--text-subdued); padding: 24px; text-align: center;">Search error: ${err.message}</td></tr>`;
-  }
+    })
+    .catch(err => {
+      if (err.name === "AbortError" || currentSignal.aborted) return;
+      if (searchBody) searchBody.innerHTML = `<tr><td colspan="4" style="color: var(--text-subdued); padding: 24px; text-align: center;">Track search error: ${escapeHtml(err.message)}</td></tr>`;
+    });
+
+  // 2. PARALLEL STREAM: Fetch Playlists in Parallel (Resolves in ~180-250ms)
+  fetch(`/api/search?type=playlists&q=${encodeURIComponent(q)}&filterMode=${encodeURIComponent(currentFilterMode)}`, {
+    signal: currentSignal
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (currentSignal.aborted || data.dropped) return;
+      if (data.success && Array.isArray(data.playlists)) {
+        renderSearchResultsPlaylists(data.playlists, q);
+      } else {
+        renderSearchResultsPlaylists([], q);
+      }
+    })
+    .catch(err => {
+      if (err.name === "AbortError" || currentSignal.aborted) return;
+      if (searchPlaylistsSec) searchPlaylistsSec.style.display = "none";
+    });
 }
+
 
 window.switchFilterToFilterless = function(query) {
   currentFilterMode = "filterless";

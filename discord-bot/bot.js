@@ -124,7 +124,80 @@ async function searchYouTubeMulti(query, limit = 20) {
 }
 
 // In-memory cache for fast playlist searches
-const searchPlaylistCache = new Map();
+function decryptSaavnMediaUrl(encUrl) {
+  if (!encUrl || typeof encUrl !== "string") return null;
+  try {
+    const crypto = require("crypto");
+    const key = Buffer.from("38346591", "utf8");
+    const decipher = crypto.createDecipheriv("des-ecb", key, "");
+    decipher.setAutoPadding(true);
+    let decrypted = decipher.update(encUrl, "base64", "utf8");
+    decrypted += decipher.final("utf8");
+    if (decrypted.startsWith("http")) {
+      return decrypted.replace(/_96\.mp4|_160\.mp4/, "_320.mp4");
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Fast JioSaavn Playlist Search (Instant ~150ms response, zero rate-limits)
+async function searchJioSaavnPlaylists(query, limit = 5) {
+  try {
+    const url = `https://www.jiosaavn.com/api.php?__call=search.getPlaylistResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=${limit}&p=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(2800) });
+    const data = await res.json();
+    const results = data.results || [];
+    return results
+      .filter(r => r && r.title)
+      .map(r => {
+        const cleanT = (r.title || "").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+        const cleanSub = (r.subtitle || "").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+        return {
+          id: `saavn_pl_${r.id}`,
+          rawId: r.id,
+          title: cleanT,
+          author: r.more_info?.firstname || r.more_info?.artist_name?.join(", ") || cleanSub || "Featured Playlist",
+          trackCount: parseInt(r.more_info?.song_count || r.subtitle || "0", 10) || null,
+          artworkUrl: (r.image || "").replace("150x150", "500x500") || "logo.png",
+          url: r.perma_url || `https://www.jiosaavn.com/featured/${r.id}`,
+          source: "jiosaavn"
+        };
+      });
+  } catch (e) {
+    return [];
+  }
+}
+
+// Fast JioSaavn Album Search
+async function searchJioSaavnAlbums(query, limit = 3) {
+  try {
+    const url = `https://www.jiosaavn.com/api.php?__call=search.getAlbumResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=${limit}&p=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(2800) });
+    const data = await res.json();
+    const results = data.results || [];
+    return results
+      .filter(r => r && r.title)
+      .map(r => {
+        const cleanT = (r.title || "").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+        const cleanArtist = (r.artist || r.subtitle || "").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+        return {
+          id: `saavn_alb_${r.id}`,
+          rawId: r.id,
+          isAlbum: true,
+          title: `${cleanT} (Album)`,
+          author: cleanArtist || "Official Album",
+          trackCount: parseInt(r.more_info?.song_count || "0", 10) || null,
+          artworkUrl: (r.image || "").replace("150x150", "500x500") || "logo.png",
+          url: r.perma_url || `https://www.jiosaavn.com/album/${r.id}`,
+          source: "jiosaavn"
+        };
+      });
+  } catch (e) {
+    return [];
+  }
+}
+
+// Multi-Source Playlist Search (JioSaavn + Albums + YouTube Fallback)
 async function searchPlaylistsMulti(query, limit = 5) {
   const cacheKey = (query || "").trim().toLowerCase();
   if (searchPlaylistCache.has(cacheKey)) {
@@ -134,36 +207,55 @@ async function searchPlaylistsMulti(query, limit = 5) {
     }
   }
 
-  const fetchLimit = limit + 4;
+  // 1. Parallel Fast Search: JioSaavn Playlists and Albums (~150ms)
+  const [saavnPlaylists, saavnAlbums] = await Promise.all([
+    searchJioSaavnPlaylists(query, Math.min(limit, 5)),
+    searchJioSaavnAlbums(query, Math.min(limit, 3))
+  ]);
+
+  const combined = [];
+  if (saavnPlaylists.length > 0) combined.push(...saavnPlaylists);
+  if (saavnAlbums.length > 0) combined.push(...saavnAlbums);
+
+  if (combined.length >= 2) {
+    searchPlaylistCache.set(cacheKey, { time: Date.now(), results: combined });
+    return combined.slice(0, limit);
+  }
+
+  // 2. Fallback: Fast YouTube Playlist Search with strict timeout (2.5s)
+  const fetchLimit = limit + 3;
   const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAw%3D%3D`;
 
   return new Promise((resolve) => {
+    const ytTimeout = setTimeout(() => resolve(combined.slice(0, limit)), 2500);
     execFile(
       "python",
       ["-m", "yt_dlp", "--flat-playlist", "-J", "--playlist-end", String(fetchLimit), url],
-      { timeout: 15000, maxBuffer: 15 * 1024 * 1024 },
+      { timeout: 3500, maxBuffer: 10 * 1024 * 1024 },
       (err, stdout) => {
-        if (err || !stdout) return resolve([]);
-        try {
-          const data = JSON.parse(stdout);
-          const entries = data.entries || [];
-          const playlists = entries
-            .filter(e => e && e.title && !e.id?.startsWith("UC") && !e.url?.includes("/channel/") && !e.url?.includes("/user/") && (e.url?.includes("list=") || e.id?.startsWith("PL") || e.id?.startsWith("OL") || e.id?.startsWith("RD") || e.id?.startsWith("UU") || e._type === "url"))
-            .map(e => ({
-              id: e.id,
-              title: e.title,
-              author: e.channel || e.uploader || "YouTube Playlist",
-              trackCount: e.playlist_count || null,
-              artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : "logo.png",
-              url: (e.url && e.url.startsWith("http")) ? e.url : `https://www.youtube.com/playlist?list=${e.id}`
-            }));
-          if (playlists.length > 0) {
-            searchPlaylistCache.set(cacheKey, { time: Date.now(), results: playlists });
-          }
-          resolve(playlists.slice(0, limit));
-        } catch(e) {
-          resolve([]);
+        clearTimeout(ytTimeout);
+        if (!err && stdout) {
+          try {
+            const data = JSON.parse(stdout);
+            const entries = data.entries || [];
+            const ytPlaylists = entries
+              .filter(e => e && e.title && !e.id?.startsWith("UC") && (e.url?.includes("list=") || e.id?.startsWith("PL") || e.id?.startsWith("OL") || e.id?.startsWith("RD") || e.id?.startsWith("UU") || e._type === "url"))
+              .map(e => ({
+                id: e.id,
+                title: e.title,
+                author: e.channel || e.uploader || "YouTube Playlist",
+                trackCount: e.playlist_count || null,
+                artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : "logo.png",
+                url: (e.url && e.url.startsWith("http")) ? e.url : `https://www.youtube.com/playlist?list=${e.id}`,
+                source: "youtube"
+              }));
+            combined.push(...ytPlaylists);
+          } catch(e) {}
         }
+        if (combined.length > 0) {
+          searchPlaylistCache.set(cacheKey, { time: Date.now(), results: combined });
+        }
+        resolve(combined.slice(0, limit));
       }
     );
   });
@@ -171,7 +263,7 @@ async function searchPlaylistsMulti(query, limit = 5) {
 
 // In-memory cache for full playlist tracks resolver
 const playlistTracksCache = new Map();
-async function resolvePlaylistTracks(playlistUrlOrId, limit = 30) {
+async function resolvePlaylistTracks(playlistUrlOrId, limit = 50) {
   const clean = String(playlistUrlOrId || "").trim();
   const cacheKey = clean.toLowerCase();
   if (playlistTracksCache.has(cacheKey)) {
@@ -179,12 +271,97 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 30) {
     if (Date.now() - cached.time < 3600000) return cached.data;
   }
 
+  // Case 1: JioSaavn Playlist
+  if (clean.startsWith("saavn_pl_") || clean.includes("jiosaavn.com/featured/")) {
+    const listId = clean.replace("saavn_pl_", "").split("/").pop();
+    try {
+      const url = `https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=${encodeURIComponent(listId)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      const d = await res.json();
+      const list = d.list || [];
+      if (list.length > 0) {
+        const tracks = list.slice(0, limit).map(s => {
+          const encUrl = s.more_info?.encrypted_media_url;
+          const streamUrl = encUrl ? decryptSaavnMediaUrl(encUrl) : null;
+          const artwork = (s.image || "").replace("150x150", "500x500");
+          const cleanTitle = (s.title || "").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+          const artistNames = s.more_info?.artistMap?.primary_artists?.map(a => a.name).join(", ") || s.subtitle || "Artist";
+          return {
+            id: `saavn_${s.id}`,
+            title: cleanTitle,
+            artist: artistNames,
+            duration: Math.round(parseFloat(s.more_info?.duration || 0) * 1000),
+            artworkUrl: artwork || "logo.png",
+            streamUrl: streamUrl,
+            rawStreamUrl: streamUrl,
+            url: s.perma_url || `https://www.jiosaavn.com/song/${s.id}`,
+            source: "jiosaavn"
+          };
+        });
+        const result = {
+          id: `saavn_pl_${d.id}`,
+          title: (d.title || "JioSaavn Playlist").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'"),
+          description: d.header_desc || d.subtitle || "Featured Playlist",
+          author: d.more_info?.firstname || d.subtitle || "JioSaavn",
+          artworkUrl: (d.image || "").replace("150x150", "500x500") || "logo.png",
+          tracks: tracks,
+          trackCount: tracks.length
+        };
+        playlistTracksCache.set(cacheKey, { time: Date.now(), data: result });
+        return result;
+      }
+    } catch (e) {}
+  }
+
+  // Case 2: JioSaavn Album
+  if (clean.startsWith("saavn_alb_") || clean.includes("jiosaavn.com/album/")) {
+    const albId = clean.replace("saavn_alb_", "").split("/").pop();
+    try {
+      const url = `https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=${encodeURIComponent(albId)}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      const d = await res.json();
+      const list = d.list || d.songs || [];
+      if (list.length > 0) {
+        const tracks = list.slice(0, limit).map(s => {
+          const encUrl = s.more_info?.encrypted_media_url;
+          const streamUrl = encUrl ? decryptSaavnMediaUrl(encUrl) : null;
+          const artwork = (s.image || "").replace("150x150", "500x500");
+          const cleanTitle = (s.title || "").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+          const artistNames = s.more_info?.artistMap?.primary_artists?.map(a => a.name).join(", ") || s.subtitle || s.artist || "Artist";
+          return {
+            id: `saavn_${s.id}`,
+            title: cleanTitle,
+            artist: artistNames,
+            duration: Math.round(parseFloat(s.more_info?.duration || 0) * 1000),
+            artworkUrl: artwork || "logo.png",
+            streamUrl: streamUrl,
+            rawStreamUrl: streamUrl,
+            url: s.perma_url || `https://www.jiosaavn.com/song/${s.id}`,
+            source: "jiosaavn"
+          };
+        });
+        const result = {
+          id: `saavn_alb_${d.id}`,
+          title: (d.title || "Album").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'"),
+          description: d.header_desc || d.subtitle || "Album",
+          author: d.artist || d.more_info?.artist_name?.join(", ") || "Artist",
+          artworkUrl: (d.image || "").replace("150x150", "500x500") || "logo.png",
+          tracks: tracks,
+          trackCount: tracks.length
+        };
+        playlistTracksCache.set(cacheKey, { time: Date.now(), data: result });
+        return result;
+      }
+    } catch (e) {}
+  }
+
+  // Case 3: YouTube Playlist via yt-dlp
   const url = clean.startsWith("http") ? clean : `https://www.youtube.com/playlist?list=${clean}`;
   return new Promise((resolve) => {
     execFile(
       "python",
       ["-m", "yt_dlp", "--flat-playlist", "-J", "--playlist-end", String(limit), url],
-      { timeout: 16000, maxBuffer: 20 * 1024 * 1024 },
+      { timeout: 14000, maxBuffer: 15 * 1024 * 1024 },
       (err, stdout) => {
         if (err || !stdout) return resolve(null);
         try {
@@ -196,7 +373,8 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 30) {
             artist: e.uploader || e.channel || data.title || "YouTube Music",
             duration: Math.round((e.duration || 0) * 1000),
             artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
-            url: (e.url && e.url.startsWith("http")) ? e.url : `https://www.youtube.com/watch?v=${e.id}`
+            url: (e.url && e.url.startsWith("http")) ? e.url : `https://www.youtube.com/watch?v=${e.id}`,
+            source: "youtube"
           }));
           const result = {
             id: data.id || clean,
@@ -2306,40 +2484,64 @@ const webServer = http.createServer(async (req, res) => {
   }
 
   // Fast Multi-Track & Playlist Search Endpoint (Returns approx 20 tracks and 5 playlists)
-  if (pathname === "/api/search") {
+  if (pathname === "/api/search" || pathname === "/api/search/tracks" || pathname === "/api/search/playlists") {
     const q = parsedUrl.searchParams.get("q") || "";
     const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
+    const type = parsedUrl.searchParams.get("type") || (pathname.includes("tracks") ? "tracks" : pathname.includes("playlists") ? "playlists" : "all");
+
     if (!q) {
       res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ success: false, error: "Missing search query" }));
     }
 
     try {
-      const [rawResults, rawPlaylists] = await Promise.all([
-        searchYouTubeMulti(q, 20),
-        searchPlaylistsMulti(q, 5)
-      ]);
+      if (type === "tracks") {
+        const rawResults = await searchYouTubeMulti(q, 20);
+        let results = rawResults;
+        if (filterMode !== "filterless") {
+          results = rawResults.filter(t => validateByFilterMode(filterMode, { info: t }).allowed);
+        }
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({
+          success: true,
+          query: q,
+          filterMode,
+          results
+        }));
+      } else if (type === "playlists") {
+        const rawPlaylists = await searchPlaylistsMulti(q, 6);
+        let playlists = rawPlaylists;
+        if (filterMode !== "filterless") {
+          playlists = rawPlaylists.filter(p => validateByFilterMode(filterMode, { info: p }).allowed);
+        }
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({
+          success: true,
+          query: q,
+          filterMode,
+          playlists
+        }));
+      } else {
+        const [rawResults, rawPlaylists] = await Promise.all([
+          searchYouTubeMulti(q, 20),
+          searchPlaylistsMulti(q, 6)
+        ]);
 
-      let results = rawResults;
-      let playlists = rawPlaylists;
-      if (filterMode !== "filterless") {
-        results = rawResults.filter(t => {
-          const check = validateByFilterMode(filterMode, { info: t });
-          return check.allowed;
-        });
-        playlists = rawPlaylists.filter(p => {
-          const check = validateByFilterMode(filterMode, { info: p });
-          return check.allowed;
-        });
+        let results = rawResults;
+        let playlists = rawPlaylists;
+        if (filterMode !== "filterless") {
+          results = rawResults.filter(t => validateByFilterMode(filterMode, { info: t }).allowed);
+          playlists = rawPlaylists.filter(p => validateByFilterMode(filterMode, { info: p }).allowed);
+        }
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({
+          success: true,
+          query: q,
+          filterMode,
+          results,
+          playlists
+        }));
       }
-      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-      return res.end(JSON.stringify({
-        success: true,
-        query: q,
-        filterMode,
-        results,
-        playlists
-      }));
     } catch (e) {
       res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ success: false, error: e.message }));

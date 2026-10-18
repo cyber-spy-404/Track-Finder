@@ -2196,6 +2196,20 @@ button:active:not(:disabled),
   overflow: hidden;
 }
 
+@media (max-width: 1200px) {
+  .spotify-right-panel {
+    position: fixed;
+    right: 8px;
+    top: calc(var(--topbar-height) + 8px);
+    bottom: calc(var(--player-height) + 8px);
+    z-index: 80;
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.75);
+    background: rgba(18, 20, 26, 0.96);
+    backdrop-filter: blur(20px);
+  }
+}
+
+
 .right-panel-header {
   display: flex;
   align-items: center;
@@ -4054,6 +4068,9 @@ button:active:not(:disabled),
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
   animation: bannerFadeIn 350ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -4068,7 +4085,7 @@ button:active:not(:disabled),
   align-items: center;
   gap: 14px;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 260px;
 }
 
 .taste-banner-sparkle {
@@ -4113,7 +4130,9 @@ button:active:not(:disabled),
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
+
 
 .btn-taste-action {
   display: inline-flex;
