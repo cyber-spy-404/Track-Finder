@@ -1476,12 +1476,18 @@ const MIME_TYPES = {
 const server = http.createServer(async (req, res) => {
   // CORS & Streaming Headers
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, Authorization, Accept, Origin, X-Requested-With");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD, PUT, DELETE");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, Authorization, Accept, Origin, X-Requested-With, X-Client-Platform, X-Target-Channel, *");
   res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges");
 
   if (req.method === "OPTIONS") {
-    res.writeHead(204);
+    res.writeHead(204, {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS, HEAD, PUT, DELETE",
+      "Access-Control-Allow-Headers": "Content-Type, Range, Authorization, Accept, Origin, X-Requested-With, X-Client-Platform, X-Target-Channel, *",
+      "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+      "Access-Control-Max-Age": "86400"
+    });
     return res.end();
   }
 

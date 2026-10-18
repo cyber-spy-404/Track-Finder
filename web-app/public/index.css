@@ -3340,12 +3340,13 @@ button:active:not(:disabled),
    ========================================================================== */
 @media (max-width: 900px) {
   .spotify-app {
-    grid-template-rows: var(--topbar-height) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-columns: 1fr;
     grid-template-areas:
       "topbar"
       "main";
     padding: 0;
+    padding-top: env(safe-area-inset-top, 0px);
     gap: 0;
     width: 100%;
     max-width: 100%;
@@ -3415,11 +3416,20 @@ button:active:not(:disabled),
     display: none !important;
   }
   .btn-user-profile {
-    padding: 3px !important;
+    padding: 3px 8px !important;
+    max-width: 130px;
+    flex-shrink: 0;
+  }
+  .user-taste-status-tag {
+    font-size: 0.68rem;
+    padding: 2px 6px;
+    white-space: nowrap;
   }
   .spotify-topbar {
-    padding: 0 10px;
-    height: 52px;
+    padding: 6px 10px;
+    height: auto;
+    min-height: 52px;
+    box-sizing: border-box;
   }
   .hero-quick-grid {
     grid-template-columns: 1fr 1fr;

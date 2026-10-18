@@ -65,10 +65,11 @@ window.resolveApiUrl = resolveApiUrl;
 // CLIENT PLATFORM IDENTIFIER & ENVIRONMENT DETECTION
 // ==========================================================================
 const isMobileAppEnvironment = Boolean(
+  (typeof window !== "undefined" && window.AndroidAudioBridge) ||
   (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) ||
   (typeof window !== "undefined" && window.location?.protocol === "file:") ||
-  (typeof window !== "undefined" && window.location?.origin && (window.location.origin.includes("capacitor") || window.location.origin.includes("localhost:"))) &&
-  (typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
+  ((typeof window !== "undefined" && window.location?.origin && (window.location.origin.includes("capacitor") || window.location.origin.includes("localhost:"))) &&
+  (typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)))
 );
 window.isMobileAppEnvironment = isMobileAppEnvironment;
 
@@ -96,10 +97,14 @@ window.fetch = function(input, init) {
     if (!headers["X-Target-Channel"]) headers["X-Target-Channel"] = channel;
   }
 
-  if (typeof input === "string" && input.startsWith("/api/")) {
-    input = resolveApiUrl(input);
-  } else if (input instanceof Request && input.url && input.url.startsWith("/api/")) {
-    input = new Request(resolveApiUrl(input.url), input);
+  if (typeof input === "string") {
+    if (input.startsWith("/api/") || input.startsWith("api/")) {
+      input = resolveApiUrl(input);
+    }
+  } else if (input instanceof Request && input.url) {
+    if (input.url.startsWith("/api/") || input.url.startsWith("api/")) {
+      input = new Request(resolveApiUrl(input.url), input);
+    }
   }
   return _nativeFetch.call(this, input, init);
 };
