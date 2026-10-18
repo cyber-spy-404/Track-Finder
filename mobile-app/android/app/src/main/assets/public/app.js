@@ -561,11 +561,19 @@ const BrowserPlayer = {
     if (art.startsWith("/")) art = art.substring(1);
     const fullArtUrl = (art.startsWith("http://") || art.startsWith("https://")) ? art : new URL(art, window.location.href).href;
 
-    const cur = this.audio?.currentTime || 0;
-    let dur = this.audio?.duration;
+    const cur = (this.audio && Number.isFinite(this.audio.currentTime)) ? this.audio.currentTime : (this.savedPosition || 0);
+    let dur = typeof this.getTrackDurationSec === "function" ? this.getTrackDurationSec() : (this.audio?.duration || 0);
     if (!dur || !Number.isFinite(dur) || dur <= 0) {
-      const durMs = parseDurationMs(track.duration);
+      const rawDur = track.duration || track.durationMs || track.info?.duration || (track.info?.length_seconds ? track.info.length_seconds * 1000 : 0);
+      const durMs = parseDurationMs(rawDur);
       dur = durMs > 0 ? durMs / 1000 : 0;
+    }
+    if ((!dur || dur <= 0) && this.savedDuration && Number.isFinite(this.savedDuration) && this.savedDuration > 0) {
+      dur = this.savedDuration;
+    }
+    if (dur > 0) {
+      this.savedDuration = dur;
+      if (!track.duration) track.duration = dur * 1000;
     }
     const isPlaying = typeof isPlayingOverride === "boolean"
       ? isPlayingOverride
@@ -611,6 +619,13 @@ const BrowserPlayer = {
       } catch (err) {
         console.warn("[AndroidAudioBridge] Sync error:", err);
       }
+    }
+  },
+
+  syncNativeState() {
+    if (this.currentTrack) {
+      const isPlaying = Boolean(this.audio && !this.audio.paused);
+      this.updateMediaSession(this.currentTrack, isPlaying, Boolean(this.isBuffering));
     }
   },
 
@@ -1070,6 +1085,18 @@ const BrowserPlayer = {
       if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
         EqualizerEngine.resume();
       }
+
+      // If audio has no source or is cleared (e.g. after background relaunch), resume saved playback
+      if ((!this.audio.src || this.audio.src === "" || this.audio.src.endsWith("#")) && this.currentTrack) {
+        if (typeof resumeSavedPlayback === "function") {
+          resumeSavedPlayback();
+          return;
+        } else {
+          this.playTrack(this.currentTrack);
+          return;
+        }
+      }
+
       if (this.audio.paused) {
         this.setBuffering(true);
         this.audio.play().then(() => {
@@ -1368,8 +1395,13 @@ const BrowserPlayer = {
     if (Number.isFinite(this.audio?.duration) && this.audio.duration > 0) {
       return this.audio.duration;
     }
-    const ms = parseDurationMs(this.currentTrack?.duration);
-    return ms > 0 ? ms / 1000 : 0;
+    const rawDur = this.currentTrack?.duration || this.currentTrack?.durationMs || this.currentTrack?.info?.duration || (this.currentTrack?.info?.length_seconds ? this.currentTrack.info.length_seconds * 1000 : 0);
+    const ms = parseDurationMs(rawDur);
+    if (ms > 0) return ms / 1000;
+    if (this.savedDuration && Number.isFinite(this.savedDuration) && this.savedDuration > 0) {
+      return this.savedDuration;
+    }
+    return 0;
   },
 
   seek(seconds) {
@@ -6547,17 +6579,29 @@ function savePlaybackState() {
     let pos = 0;
     let dur = 0;
     if (isLocalChannel(activeSystemChannel)) {
-      pos = BrowserPlayer.audio?.currentTime || (BrowserPlayer.savedPosition || 0);
-      dur = BrowserPlayer.audio?.duration || (cur.duration ? cur.duration / 1000 : 0);
+      pos = (BrowserPlayer.audio && Number.isFinite(BrowserPlayer.audio.currentTime))
+        ? BrowserPlayer.audio.currentTime
+        : (BrowserPlayer.savedPosition || 0);
+      dur = typeof BrowserPlayer.getTrackDurationSec === "function"
+        ? BrowserPlayer.getTrackDurationSec()
+        : (BrowserPlayer.audio?.duration || 0);
+      if (!dur || !Number.isFinite(dur) || dur <= 0) {
+        const rawDur = cur.duration || cur.durationMs || (cur.info?.duration ? cur.info.duration : 0);
+        const durMs = parseDurationMs(rawDur);
+        dur = durMs > 0 ? durMs / 1000 : (BrowserPlayer.savedDuration || 0);
+      }
     } else {
       pos = (currentState?.position || 0) / 1000;
       dur = (currentState?.duration || 0) / 1000;
     }
 
+    pos = Number.isFinite(pos) && pos >= 0 ? Math.floor(pos) : 0;
+    dur = Number.isFinite(dur) && dur > 0 ? Math.floor(dur) : 0;
+
     const stateToSave = {
       track: cur,
-      position: Math.floor(pos),
-      duration: Math.floor(dur),
+      position: pos,
+      duration: dur,
       channel: activeSystemChannel,
       queue: (BrowserPlayer.queue || []).slice(0, 30),
       savedAt: Date.now()
@@ -6582,8 +6626,16 @@ function restorePlaybackState() {
     if (!data || !data.track || !data.track.title) return;
 
     const track = data.track;
-    const pos = data.position || 0;
-    const dur = data.duration || (track.duration ? Math.floor(track.duration / 1000) : 0);
+    const pos = Number.isFinite(data.position) ? data.position : 0;
+    let dur = Number.isFinite(data.duration) ? data.duration : 0;
+    if (dur <= 0 && track.duration) {
+      dur = Math.floor(parseDurationMs(track.duration) / 1000);
+    }
+
+    if (dur > 0) {
+      track.duration = dur * 1000;
+      BrowserPlayer.savedDuration = dur;
+    }
 
     // Stage in BrowserPlayer so it's ready on first tap / play
     BrowserPlayer.currentTrack = track;
@@ -6616,6 +6668,11 @@ function restorePlaybackState() {
       card.style.display = "flex";
       card.classList.add("visible");
     }
+
+    // Immediately inform Android MediaSession so notification displays the staged track with its known duration
+    if (typeof BrowserPlayer.updateMediaSession === "function") {
+      BrowserPlayer.updateMediaSession(track, false, false);
+    }
   } catch (err) {
     console.warn("Could not restore playback state:", err);
   }
@@ -6636,8 +6693,17 @@ function resumeSavedPlayback() {
 
   const track = BrowserPlayer.currentTrack;
   const seekPos = BrowserPlayer.savedPosition || 0;
+  const savedDur = BrowserPlayer.savedDuration || (track.duration ? parseDurationMs(track.duration) / 1000 : 0);
+
+  if (savedDur > 0) {
+    BrowserPlayer.savedDuration = savedDur;
+    if (!track.duration) track.duration = savedDur * 1000;
+  }
 
   showToast(`Resuming "${track.title}"...`);
+
+  // Stage native notification with active duration before network stream begins
+  BrowserPlayer.updateMediaSession(track, true, true);
 
   // If track has a direct audio stream URL or proxy
   let src = track.proxyStreamUrl || track.streamUrl || track.rawStreamUrl;
@@ -6651,7 +6717,7 @@ function resumeSavedPlayback() {
     const p = BrowserPlayer.audio.play();
     if (p !== undefined) {
       p.then(() => {
-        BrowserPlayer.updateMediaSession(track);
+        BrowserPlayer.updateMediaSession(track, true, false);
         BrowserPlayer.reportState();
         updatePlayPauseIcons(true);
       }).catch(err => {

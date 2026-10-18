@@ -20,6 +20,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
@@ -245,11 +246,17 @@ public class MediaPlaybackService extends Service {
 
     public void updateDirectState(String title, String artist, String album, String cover, double duration, double position, boolean isPlaying, boolean buffering) {
         new Handler(Looper.getMainLooper()).post(() -> {
-            currentTitle = title;
-            currentArtist = artist;
-            currentAlbum = album;
-            currentDuration = duration;
-            currentPosition = position;
+            if (title != null && !title.isEmpty()) currentTitle = title;
+            if (artist != null && !artist.isEmpty()) currentArtist = artist;
+            if (album != null && !album.isEmpty()) currentAlbum = album;
+
+            // Never overwrite positive valid duration with 0.0, NaN, or Infinity
+            if (duration > 0 && !Double.isNaN(duration) && !Double.isInfinite(duration)) {
+                currentDuration = duration;
+            }
+            if (position >= 0 && !Double.isNaN(position) && !Double.isInfinite(position)) {
+                currentPosition = position;
+            }
             isCurrentlyPlaying = isPlaying;
             isBuffering = buffering;
 
@@ -277,12 +284,22 @@ public class MediaPlaybackService extends Service {
     }
 
     private void handleUpdateState(Intent intent) {
-        currentTitle = intent.getStringExtra(EXTRA_TITLE);
-        currentArtist = intent.getStringExtra(EXTRA_ARTIST);
-        currentAlbum = intent.getStringExtra(EXTRA_ALBUM);
+        String title = intent.getStringExtra(EXTRA_TITLE);
+        if (title != null && !title.isEmpty()) currentTitle = title;
+        String artist = intent.getStringExtra(EXTRA_ARTIST);
+        if (artist != null && !artist.isEmpty()) currentArtist = artist;
+        String album = intent.getStringExtra(EXTRA_ALBUM);
+        if (album != null && !album.isEmpty()) currentAlbum = album;
         String cover = intent.getStringExtra(EXTRA_COVER);
-        currentDuration = intent.getDoubleExtra(EXTRA_DURATION, 0.0);
-        currentPosition = intent.getDoubleExtra(EXTRA_POSITION, 0.0);
+
+        double duration = intent.getDoubleExtra(EXTRA_DURATION, 0.0);
+        if (duration > 0 && !Double.isNaN(duration) && !Double.isInfinite(duration)) {
+            currentDuration = duration;
+        }
+        double position = intent.getDoubleExtra(EXTRA_POSITION, 0.0);
+        if (position >= 0 && !Double.isNaN(position) && !Double.isInfinite(position)) {
+            currentPosition = position;
+        }
         isCurrentlyPlaying = intent.getBooleanExtra(EXTRA_IS_PLAYING, false);
         isBuffering = intent.getBooleanExtra(EXTRA_IS_BUFFERING, false);
 
@@ -356,8 +373,11 @@ public class MediaPlaybackService extends Service {
         MediaMetadataCompat.Builder metaBuilder = new MediaMetadataCompat.Builder()
                 .putString(MediaMetadataCompat.METADATA_KEY_TITLE, currentTitle)
                 .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
-                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, currentAlbum)
-                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs);
+                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, currentAlbum);
+
+        if (durationMs > 0) {
+            metaBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs);
+        }
 
         if (cachedCoverBitmap != null) {
             metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, cachedCoverBitmap);
@@ -388,7 +408,8 @@ public class MediaPlaybackService extends Service {
 
         PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
                 .setActions(actions)
-                .setState(state, positionMs, speed);
+                .setState(state, positionMs, speed, SystemClock.elapsedRealtime())
+                .setBufferedPosition(durationMs > 0 ? durationMs : positionMs);
 
         mediaSession.setPlaybackState(stateBuilder.build());
 
@@ -451,8 +472,12 @@ public class MediaPlaybackService extends Service {
             // Indeterminate moving progress bar in notification bar for network delay/buffering
             builder.setProgress(100, 0, true);
             builder.setSubText("Buffering audio...");
+        } else if (currentDuration > 0) {
+            builder.setProgress((int) currentDuration, (int) Math.min(currentPosition, currentDuration), false);
+            builder.setSubText(null);
         } else {
             builder.setProgress(0, 0, false);
+            builder.setSubText(null);
         }
 
         if (cachedCoverBitmap != null) {
