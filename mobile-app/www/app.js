@@ -953,8 +953,10 @@ const BrowserPlayer = {
     }
   },
 
-  playPlaylistAtIndex(playlist, startIndex = 0) {
+  playPlaylistAtIndex(playlistOrId, startIndex = 0) {
+    const playlist = (typeof resolvePlaylistObject === "function" ? resolvePlaylistObject(playlistOrId) : null) || playlistOrId;
     if (!playlist || !playlist.tracks || playlist.tracks.length === 0) return;
+    currentActivePlaylist = playlist;
     this.prime();
     const tracks = playlist.tracks;
     const safeIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
@@ -2506,15 +2508,98 @@ if (window.Capacitor?.Plugins?.App) {
 // ==========================================================================
 // PLAYLIST VIEW & RENDERING
 // ==========================================================================
-function openPlaylist(playlistOrId) {
-  let pl = null;
-  if (typeof playlistOrId === "object" && playlistOrId !== null) {
-    pl = playlistOrId;
-  } else {
-    pl = (window.spotifyDailyTrending?.playlists || []).find(p => p.id === playlistOrId) ||
-         SPOTIFY_INDIAN_PLAYLISTS.find(p => p.id === playlistOrId) ||
-         customPlaylists.find(p => p.id === playlistOrId);
+// Universal Playlist Object Resolver: Handles String IDs, Reference Objects, Quick Tiles, and Full Playlists
+function resolvePlaylistObject(playlistOrId) {
+  if (!playlistOrId) return null;
+
+  // 1. If string ID
+  if (typeof playlistOrId === "string") {
+    const id = playlistOrId.trim();
+    // Check Spotify trending playlists
+    let pl = (window.spotifyDailyTrending?.playlists || []).find(p => p.id === id);
+    if (pl && Array.isArray(pl.tracks) && pl.tracks.length > 0) return pl;
+
+    // Check user daily mixes
+    pl = (window.userDailyRecommendations?.dailyMixes || []).find(p => p.id === id);
+    if (pl && Array.isArray(pl.tracks) && pl.tracks.length > 0) return pl;
+
+    // Check curated Indian playlists
+    pl = SPOTIFY_INDIAN_PLAYLISTS.find(p => p.id === id);
+    if (pl && Array.isArray(pl.tracks) && pl.tracks.length > 0) return pl;
+
+    // Check custom playlists
+    pl = (customPlaylists || []).find(p => p.id === id);
+    if (pl && Array.isArray(pl.tracks) && pl.tracks.length > 0) return pl;
+
+    // Check hero quick tiles by ID
+    const tile = (window.userDailyRecommendations?.quickTiles || []).find(t => t.id === id);
+    if (tile) return resolvePlaylistObject(tile);
+
+    return pl || null;
   }
+
+  // 2. If object
+  if (typeof playlistOrId === "object") {
+    // A. Direct playlistObj property (common in quick tiles)
+    if (playlistOrId.playlistObj) {
+      const resolved = resolvePlaylistObject(playlistOrId.playlistObj);
+      if (resolved && Array.isArray(resolved.tracks) && resolved.tracks.length > 0) return resolved;
+    }
+
+    // B. Direct playlistId reference
+    if (playlistOrId.playlistId) {
+      const resolved = resolvePlaylistObject(playlistOrId.playlistId);
+      if (resolved && Array.isArray(resolved.tracks) && resolved.tracks.length > 0) return resolved;
+    }
+
+    // C. Already has valid tracks array
+    if (Array.isArray(playlistOrId.tracks) && playlistOrId.tracks.length > 0) {
+      return playlistOrId;
+    }
+
+    // D. If it has an id, attempt lookup
+    if (playlistOrId.id) {
+      let pl = (window.spotifyDailyTrending?.playlists || []).find(p => p.id === playlistOrId.id);
+      if (pl && Array.isArray(pl.tracks) && pl.tracks.length > 0) return pl;
+
+      pl = (window.userDailyRecommendations?.dailyMixes || []).find(p => p.id === playlistOrId.id);
+      if (pl && Array.isArray(pl.tracks) && pl.tracks.length > 0) return pl;
+
+      pl = SPOTIFY_INDIAN_PLAYLISTS.find(p => p.id === playlistOrId.id);
+      if (pl && Array.isArray(pl.tracks) && pl.tracks.length > 0) return pl;
+
+      pl = (customPlaylists || []).find(p => p.id === playlistOrId.id);
+      if (pl && Array.isArray(pl.tracks) && pl.tracks.length > 0) return pl;
+    }
+
+    // E. If it's a special playlist tile (e.g., liked songs)
+    if (playlistOrId.isLiked) {
+      const likedList = (window.userTasteProfile?.likedSongs || []);
+      return {
+        id: "liked-songs",
+        name: "Liked Songs",
+        desc: "Your favorite saved tracks",
+        badge: "Favorites",
+        coverUrl: playlistOrId.coverUrl || "covers/bollywood_butter.jpg",
+        isLiked: true,
+        tracks: likedList.map(t => ({
+          title: t.title,
+          artist: t.artist || t.author || "Artist",
+          duration: t.duration || "03:30",
+          query: t.query || `${t.title} ${t.artist || t.author || ""}`.trim(),
+          artworkUrl: t.artworkUrl || "logo.png",
+          streamUrl: t.streamUrl || null
+        }))
+      };
+    }
+  }
+
+  return playlistOrId;
+}
+window.resolvePlaylistObject = resolvePlaylistObject;
+
+function openPlaylist(playlistOrId) {
+  let pl = resolvePlaylistObject(playlistOrId);
   if (!pl) return;
   currentActivePlaylist = pl;
 
@@ -2526,17 +2611,17 @@ function openPlaylist(playlistOrId) {
   const heroCount = document.getElementById("playlistHeroTracksCount");
   const ambientGrad = document.getElementById("stageAmbientGradient");
 
-  if (heroTitle) heroTitle.textContent = pl.name;
+  if (heroTitle) heroTitle.textContent = pl.name || pl.title || "Playlist";
   if (heroDesc) heroDesc.textContent = pl.desc || pl.description || "";
   if (heroAuthor) heroAuthor.textContent = pl.author || "Spotify Official";
-  const songCount = pl.tracks ? pl.tracks.length : (pl.trackCount || 0);
+  const songCount = pl.tracks ? pl.tracks.length : (pl.trackCount || pl.tracksCount || 0);
   if (heroCount) heroCount.textContent = `${songCount} songs • ${pl.badge || "Playlist"}`;
   if (heroCover) {
-    heroCover.src = pl.coverUrl || "logo.png";
+    heroCover.src = pl.coverUrl || pl.artworkUrl || "logo.png";
   }
 
   if (ambientGrad) {
-    ambientGrad.style.background = "linear-gradient(180deg, var(--bg-hover) 0%, transparent 100%)";
+    ambientGrad.style.background = pl.gradient || "linear-gradient(180deg, var(--bg-hover) 0%, transparent 100%)";
   }
 
   // Render Track rows in Songs Table
@@ -2559,23 +2644,23 @@ function openPlaylist(playlistOrId) {
             <div class="song-info-cell">
               <div class="song-title-group">
                 <span class="song-title">${escapeHtml(t.title)}</span>
-                <span class="song-artist">${escapeHtml(t.artist)}</span>
+                <span class="song-artist">${escapeHtml(t.artist || t.author || "Artist")}</span>
               </div>
             </div>
           </td>
           <td class="song-album-cell">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-              <span>${escapeHtml(pl.name)}</span>
+              <span>${escapeHtml(pl.name || pl.title || "")}</span>
               <div style="display: flex; gap: 6px;">
                 <button class="btn-play-now-mini btn-row-play-now" title="Play immediately"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play</button>
                 <button class="btn-queue-mini btn-row-enqueue" title="Add to queue"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
               </div>
             </div>
           </td>
-          <td class="song-time-cell">${escapeHtml(t.duration || "3:30")}</td>
+          <td class="song-time-cell">${escapeHtml(t.duration ? (typeof t.duration === "number" ? formatTime(t.duration) : t.duration) : "3:30")}</td>
         `;
 
-        const trackQuery = t.query || `${t.title} ${t.artist}`;
+        const trackQuery = t.query || `${t.title} ${t.artist || t.author || ""}`.trim();
         tr.querySelector(".btn-row-play-now")?.addEventListener("click", (e) => {
           e.stopPropagation();
           if (isLocalChannel(activeSystemChannel)) {
@@ -2599,6 +2684,10 @@ function openPlaylist(playlistOrId) {
         tableBody.appendChild(tr);
       });
     }
+  }
+
+  if (typeof updatePlayPauseIcons === "function") {
+    updatePlayPauseIcons(BrowserPlayer.isPlaying());
   }
 
   switchView("playlist");
@@ -2824,21 +2913,32 @@ function renderHeroGrid() {
       </button>
     `;
 
-    tile.addEventListener("click", (e) => {
-      if (e.target.closest(".hero-quick-play")) {
+    const playBtn = tile.querySelector(".hero-quick-play");
+    if (playBtn) {
+      playBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         if (item.isSurah) {
           dispatchPlaySurah(item.isSurah);
-        } else if (item.tracks && item.tracks.length > 0) {
-          dispatchPlayPlaylist(item);
+        } else if (item.isLiked) {
+          playAllLikedSongs();
+        } else if (item.query) {
+          dispatchPlayNow(item.query, "filterless");
         } else {
           dispatchPlayPlaylist(item);
         }
+      });
+    }
+
+    tile.addEventListener("click", () => {
+      if (item.isSurah) {
+        dispatchPlaySurah(item.isSurah);
+      } else if (item.isLiked) {
+        switchView("liked");
+      } else if (item.query) {
+        dispatchPlayNow(item.query, "filterless");
       } else {
-        if (item.isSurah) {
-          dispatchPlaySurah(item.isSurah);
-        } else {
-          openPlaylist(item);
-        }
+        openPlaylist(item);
       }
     });
 
@@ -2879,12 +2979,17 @@ function renderDailyTasteMixes() {
       <span class="card-desc">${escapeHtml(mix.desc || mix.description || (mix.tracks?.length + " curated tracks"))}</span>
     `;
 
-    card.addEventListener("click", (e) => {
-      if (e.target.closest(".circle-play")) {
+    const playBtn = card.querySelector(".circle-play");
+    if (playBtn) {
+      playBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         dispatchPlayPlaylist(mix);
-      } else {
-        openPlaylist(mix);
-      }
+      });
+    }
+
+    card.addEventListener("click", () => {
+      openPlaylist(mix);
     });
 
     grid.appendChild(card);
@@ -3042,12 +3147,17 @@ function renderDailyTrendingSpotify() {
       <span class="card-desc">${escapeHtml(pl.description || (pl.trackCount + " songs"))}</span>
     `;
 
-    card.addEventListener("click", (e) => {
-      if (e.target.closest(".circle-play")) {
+    const playBtn = card.querySelector(".circle-play");
+    if (playBtn) {
+      playBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         dispatchPlayPlaylist(pl);
-      } else {
-        openPlaylist(pl);
-      }
+      });
+    }
+
+    card.addEventListener("click", () => {
+      openPlaylist(pl);
     });
 
     grid.appendChild(card);
@@ -3233,12 +3343,17 @@ function renderPlaylistsGrid() {
       <span class="card-desc">${escapeHtml(pl.desc)}</span>
     `;
 
-    card.addEventListener("click", (e) => {
-      if (e.target.closest(".circle-play")) {
+    const playBtn = card.querySelector(".circle-play");
+    if (playBtn) {
+      playBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         dispatchPlayPlaylist(pl);
-      } else {
-        openPlaylist(pl.id);
-      }
+      });
+    }
+
+    card.addEventListener("click", () => {
+      openPlaylist(pl);
     });
 
     grid.appendChild(card);
@@ -3802,24 +3917,33 @@ function dispatchPlaySurah(surahNum, immediate = true) {
   }
 }
 
-function dispatchPlayPlaylist(playlist, immediate = true) {
+function dispatchPlayPlaylist(playlistOrId, immediate = true) {
+  const pl = (typeof resolvePlaylistObject === "function" ? resolvePlaylistObject(playlistOrId) : null) || playlistOrId;
+  if (!pl || !pl.tracks || pl.tracks.length === 0) {
+    console.warn("[dispatchPlayPlaylist] Could not resolve tracks for playlist:", playlistOrId);
+    showToast("Playlist is loading or has no tracks");
+    return;
+  }
+
+  currentActivePlaylist = pl;
+
   const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
   if (isLocalPlayer) {
-    BrowserPlayer.playPlaylist(playlist);
+    BrowserPlayer.playPlaylist(pl);
   }
   if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
     sendAction("play_playlist", null, {
       targetChannel: "bot",
-      name: playlist.name,
+      name: pl.name || pl.title || "Playlist",
       immediate,
-      tracks: (playlist.tracks || []).map(t => `${t.title} ${t.artist}`)
+      tracks: (pl.tracks || []).map(t => `${t.title} ${t.artist || t.author || ""}`.trim())
     });
   } else if (!isLocalPlayer) {
     sendAction("play_playlist", null, {
       targetChannel: activeSystemChannel,
-      name: playlist.name,
+      name: pl.name || pl.title || "Playlist",
       immediate,
-      tracks: (playlist.tracks || []).map(t => `${t.title} ${t.artist}`)
+      tracks: (pl.tracks || []).map(t => `${t.title} ${t.artist || t.author || ""}`.trim())
     });
   }
 }
@@ -5963,6 +6087,24 @@ function updatePlayPauseIcons(isPlaying) {
     // Pause equalizer animation
     equalizers.forEach(eq => eq.classList.remove("playing"));
   }
+
+  // Synchronize Playlist View Hero Play Button
+  const heroPlayBtn = document.getElementById("btnPlaylistHeroPlay");
+  if (heroPlayBtn) {
+    const isHeroActive = Boolean(
+      currentActivePlaylist &&
+      BrowserPlayer.currentTrack &&
+      (currentActivePlaylist.tracks || []).some(t => (t.title || "").toLowerCase() === (BrowserPlayer.currentTrack.title || "").toLowerCase())
+    );
+
+    if (isBuffering && isHeroActive) {
+      heroPlayBtn.innerHTML = `<svg viewBox="0 0 24 24" class="buffering-spinner-svg" style="width:26px;height:26px;">${spinnerPaths}</svg>`;
+    } else if (isPlaying && isHeroActive) {
+      heroPlayBtn.innerHTML = `<svg viewBox="0 0 16 16" style="width:22px;height:22px;"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/></svg>`;
+    } else {
+      heroPlayBtn.innerHTML = `<svg viewBox="0 0 24 24" style="width:24px;height:24px;"><path d="M8 5v14l11-7z"/></svg>`;
+    }
+  }
 }
 
 function updateProgressUI(curSec, durSec, pct) {
@@ -6830,7 +6972,19 @@ function initEventListeners() {
   document.getElementById("btnMobilePlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnCapsulePlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnPlaylistHeroPlay")?.addEventListener("click", () => {
-    if (currentActivePlaylist) dispatchPlayPlaylist(currentActivePlaylist);
+    if (!currentActivePlaylist) return;
+    const pl = (typeof resolvePlaylistObject === "function" ? resolvePlaylistObject(currentActivePlaylist) : null) || currentActivePlaylist;
+    if (!pl || !pl.tracks || pl.tracks.length === 0) return;
+
+    const isPlaying = BrowserPlayer.isPlaying();
+    const curTitle = (BrowserPlayer.currentTrack?.title || "").toLowerCase();
+    const isCurrentInPlaylist = curTitle && pl.tracks.some(t => (t.title || "").toLowerCase() === curTitle);
+
+    if (isCurrentInPlaylist) {
+      BrowserPlayer.playPause();
+    } else {
+      dispatchPlayPlaylist(pl);
+    }
   });
 
   // Next & Previous (Desktop, Mobile Pill, Vivo OriginOS Capsule)

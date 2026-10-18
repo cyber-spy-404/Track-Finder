@@ -1782,6 +1782,21 @@ button:active:not(:disabled),
   height: 18px;
   fill: #000;
   margin-left: 2px;
+  pointer-events: none;
+}
+.circle-play svg,
+.circle-play svg path,
+.hero-quick-play svg,
+.hero-quick-play svg path {
+  pointer-events: none;
+}
+
+@media (hover: none), (max-width: 768px) {
+  .card-floating-play,
+  .card-artwork .circle-play {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+  }
 }
 .card-title {
   font-weight: 700;
