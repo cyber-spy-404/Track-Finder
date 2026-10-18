@@ -1240,7 +1240,7 @@ async function resolveTrackLyrics(title, artist, duration = 0, signal = null) {
 }
 
 // User Session Extraction Helper
-function getSessionUser(req) {
+function getSessionToken(req) {
   let token = null;
   const authHeader = req.headers["authorization"];
   if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -1255,6 +1255,11 @@ function getSessionUser(req) {
       token = pUrl.searchParams.get("token");
     } catch (e) {}
   }
+  return token;
+}
+
+function getSessionUser(req) {
+  const token = getSessionToken(req);
   return token ? userStore.getUserByToken(token) : null;
 }
 
@@ -1841,7 +1846,9 @@ const server = http.createServer(async (req, res) => {
       }
     } catch (e) {}
 
-    const sessionUser = getSessionUser(req);
+    const sessionToken = getSessionToken(req);
+    const sessionUser = sessionToken ? userStore.getUserByToken(sessionToken) : null;
+    const sessionRevoked = Boolean(sessionToken && !sessionUser);
     const botChannelState = botData?.channels?.bot || {
       id: "bot",
       name: "Discord Bot",
@@ -1863,6 +1870,7 @@ const server = http.createServer(async (req, res) => {
     const payload = {
       connected: true,
       authenticated: Boolean(sessionUser),
+      sessionRevoked: sessionRevoked,
       user: sessionUser ? {
         id: sessionUser.id,
         username: sessionUser.username,
@@ -2087,7 +2095,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === "/api/user/me") {
-    const user = getSessionUser(req);
+    const sessionToken = getSessionToken(req);
+    const user = sessionToken ? userStore.getUserByToken(sessionToken) : null;
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     if (user) {
       return res.end(JSON.stringify({
@@ -2107,7 +2116,11 @@ const server = http.createServer(async (req, res) => {
         }
       }));
     } else {
-      return res.end(JSON.stringify({ authenticated: false, user: null }));
+      return res.end(JSON.stringify({
+        authenticated: false,
+        sessionRevoked: Boolean(sessionToken),
+        user: null
+      }));
     }
   }
 

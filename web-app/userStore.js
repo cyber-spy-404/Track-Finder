@@ -204,6 +204,14 @@ function rehydrateUser(vault) {
     users[id].lastActive = Date.now();
   }
 
+  // Single active sign-in enforcement ("one sign in must be in one app"):
+  // Invalidate any other active sessions for this user across all apps/devices
+  for (const [existingToken, sess] of sessions.entries()) {
+    if (sess && sess.userId === id) {
+      sessions.delete(existingToken);
+    }
+  }
+
   // Restore session token with 60-day longevity
   const token = vault.sessionToken || vault.token || generateToken();
   sessions.set(token, {
@@ -294,9 +302,18 @@ function getOrCreateUser(profileData) {
  * Creates an active session for a user (persisted to disk for 60 days)
  */
 function createSession(user) {
+  if (!user || !user.id) return null;
+  // Single active sign-in enforcement ("one sign in must be in one app"):
+  // Invalidate any other active sessions for this user across all apps/devices
+  for (const [existingToken, sess] of sessions.entries()) {
+    if (sess && sess.userId === user.id) {
+      sessions.delete(existingToken);
+    }
+  }
   const token = generateToken();
   sessions.set(token, {
     userId: user.id,
+    createdAt: Date.now(),
     expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000 // 60 days
   });
   saveSessions();

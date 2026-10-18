@@ -414,20 +414,17 @@ const BrowserPlayer = {
 
   prime() {
     this.init();
-    if (this.audio) {
-      // Synchronously unlock audio element inside the caller's tap gesture
-      if (!this.audio.src || this.audio.src.startsWith("data:")) {
-        this.audio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
-        const p = this.audio.play();
-        if (p !== undefined) p.catch(() => {});
+    // Warm up Web Audio context if available without altering HTML5 audio element
+    try {
+      if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.audioCtx && EqualizerEngine.audioCtx.state === "suspended") {
+        EqualizerEngine.audioCtx.resume().catch(() => {});
       }
-    }
+    } catch (e) {}
   },
 
   async playTrack(track) {
     if (!track) return;
     this.init();
-    this.prime(); // Unlock audio immediately within caller's synchronous tap/click gesture!
     window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
 
     // Dynamically resolve audio stream if track was enqueued without direct URL
@@ -478,7 +475,8 @@ const BrowserPlayer = {
 
     this.audio.src = src;
     this.audio.currentTime = 0;
-    this.audio.volume = this.volume;
+    this.audio.muted = false;
+    this.audio.volume = typeof this.volume === "number" ? Math.max(Math.min(this.volume, 1.0), 0) : 1.0;
 
     const playPromise = this.audio.play();
     if (playPromise !== undefined) {
@@ -508,9 +506,9 @@ const BrowserPlayer = {
     if (typeof savePlaybackState === "function") savePlaybackState();
     if (typeof recordTrackTaste === "function") recordTrackTaste(track, "play");
 
-    // Spotify Features: Synced Lyrics, 6-Band Equalizer, and Reactive Visualizer
+    // Spotify Features: Synced Lyrics, 6-Band Equalizer (only when explicitly enabled), and Reactive Visualizer
     if (typeof LyricsManager !== "undefined") LyricsManager.loadLyricsForTrack(track);
-    if (typeof EqualizerEngine !== "undefined") EqualizerEngine.init(this.audio);
+    if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) EqualizerEngine.init(this.audio);
     if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.start();
 
     // Seamlessly pre-resolve next track so queue transitions have zero latency
@@ -769,6 +767,7 @@ const BrowserPlayer = {
       const data = await res.json();
       const fetchedTracks = (data && data.success && Array.isArray(data.tracks)) ? data.tracks : (Array.isArray(data?.results) ? data.results : []);
       if (fetchedTracks.length > 0) {
+        this.isFetchingRadio = false;
         return fetchedTracks.map(t => ({
           ...t,
           isRadio: true,
@@ -777,8 +776,6 @@ const BrowserPlayer = {
       }
     } catch (err) {
       console.warn("fetchRadioTracks API warning, using client fallback:", err);
-    } finally {
-      this.isFetchingRadio = false;
     }
 
     // Client-side fallback via search
@@ -790,7 +787,7 @@ const BrowserPlayer = {
       const rawTracks = (data && Array.isArray(data.results)) ? data.results : (Array.isArray(data?.tracks) ? data.tracks : []);
       if (rawTracks.length > 0) {
         const normSeed = title.toLowerCase().replace(/[^a-z0-9]/g, "");
-        return rawTracks
+        const fallbackList = rawTracks
           .filter(t => {
             const tNorm = (t.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
             return !tNorm.includes(normSeed) && !normSeed.includes(tNorm);
@@ -800,9 +797,12 @@ const BrowserPlayer = {
             isRadio: true,
             radioSeedTitle: title
           }));
+        this.isFetchingRadio = false;
+        return fallbackList;
       }
     } catch (e) {}
 
+    this.isFetchingRadio = false;
     return [];
   },
 
@@ -833,17 +833,16 @@ const BrowserPlayer = {
 
   async startRadioForTrack(track) {
     if (!track) return;
-    this.prime();
     showToast(`📻 Tuning in to ${track.title} Radio...`);
     this.activeRadioSeed = track;
     this.isRadioActive = true;
     if (typeof updateRadioUI === "function") updateRadioUI();
-    if (this.currentTrack) {
-      this.history.push(this.currentTrack);
-      this.currentTrack = null;
-    }
+
     const radioTracks = await this.fetchRadioTracks(track, 15);
     if (radioTracks && radioTracks.length > 0) {
+      if (this.currentTrack) {
+        this.history.push(this.currentTrack);
+      }
       const first = radioTracks[0];
       this.queue = radioTracks.slice(1);
       await this.playTrack(first);
@@ -1002,12 +1001,33 @@ const BrowserPlayer = {
   },
 
   onEnded() {
-    const cur = this.audio?.currentTime || 0;
-    const dur = this.audio?.duration || (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
+    if (!this.audio || !this.currentTrack) return;
+    const cur = this.audio.currentTime || 0;
 
-    // Guard against premature 'ended' events triggered by demuxer hiccups or chunk boundaries (finite duration only)
-    if (Number.isFinite(dur) && dur > 8 && cur < (dur - 4)) {
-      console.warn(`Browser audio ended event fired prematurely at ${cur.toFixed(1)}s / ${dur.toFixed(1)}s. Ignoring false end.`);
+    // Ignore ended events for dummy data URLs or empty audio
+    if (!this.audio.src || this.audio.src.startsWith("data:") || this.audio.src.endsWith("#")) {
+      return;
+    }
+
+    // Determine expected track duration: check finite audio.duration first, else currentTrack.duration in seconds
+    let expectedDur = 0;
+    if (Number.isFinite(this.audio.duration) && this.audio.duration > 0) {
+      expectedDur = this.audio.duration;
+    } else if (this.currentTrack && typeof this.currentTrack.duration === "number" && this.currentTrack.duration > 0) {
+      expectedDur = this.currentTrack.duration / 1000;
+    }
+
+    // Guard 1: Never trigger track end if playback just started (< 3 seconds)
+    if (cur < 3) {
+      console.warn(`[Audio Engine] False ended event ignored at ${cur.toFixed(1)}s.`);
+      return;
+    }
+
+    // Guard 2: If expected duration is known and significant (> 8s), guard against premature ends
+    // caused by mobile network stalls, chunk boundaries, or buffer underruns
+    if (expectedDur > 8 && cur < (expectedDur - 5)) {
+      console.warn(`[Audio Engine] False premature ended event caught at ${cur.toFixed(1)}s / ${expectedDur.toFixed(1)}s. Resuming playback...`);
+      this.audio.play().catch(() => {});
       return;
     }
 
@@ -1403,11 +1423,12 @@ const EqualizerEngine = {
     pop: [-1, 2, 3, 3.5, 2, 1]
   },
   currentPreset: localStorage.getItem("ahm_eq_preset") || "flat",
-  isEnabled: localStorage.getItem("ahm_eq_enabled") !== "false",
+  isEnabled: localStorage.getItem("ahm_eq_enabled") === "true", // Default false to prevent Web Audio cross-origin CORS mute
   gains: JSON.parse(localStorage.getItem("ahm_eq_gains") || "[0,0,0,0,0,0]"),
   isInitialized: false,
 
   init(audioElement) {
+    if (!this.isEnabled) return;
     if (this.isInitialized || !audioElement) return;
     try {
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
@@ -1491,6 +1512,12 @@ const EqualizerEngine = {
   toggle(enable) {
     this.isEnabled = Boolean(enable);
     localStorage.setItem("ahm_eq_enabled", this.isEnabled ? "true" : "false");
+    if (this.isEnabled && !this.isInitialized && BrowserPlayer.audio) {
+      this.init(BrowserPlayer.audio);
+    }
+    if (this.audioCtx && this.audioCtx.state === "suspended") {
+      this.audioCtx.resume().catch(() => {});
+    }
     this.filters.forEach((f, idx) => {
       const g = this.isEnabled ? this.gains[idx] : 0;
       if (this.audioCtx) f.gain.setTargetAtTime(g, this.audioCtx.currentTime, 0.05);
@@ -1697,25 +1724,36 @@ const ReactiveVisualizerEngine = {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (!EqualizerEngine.analyser || !BrowserPlayer.isPlaying()) {
+    if (!BrowserPlayer.isPlaying()) {
       return;
     }
 
-    const bufferLength = EqualizerEngine.analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    EqualizerEngine.analyser.getByteFrequencyData(dataArray);
+    let dataArray = null;
+    let bufferLength = 48;
+    if (EqualizerEngine.analyser && EqualizerEngine.isEnabled) {
+      bufferLength = EqualizerEngine.analyser.frequencyBinCount;
+      dataArray = new Uint8Array(bufferLength);
+      EqualizerEngine.analyser.getByteFrequencyData(dataArray);
+    }
 
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const radius = 105;
     const numBars = 48;
     const step = (Math.PI * 2) / numBars;
+    const time = Date.now() / 250;
 
     ctx.save();
     for (let i = 0; i < numBars; i++) {
-      const dataIdx = Math.floor((i / numBars) * (bufferLength / 2));
-      const val = dataArray[dataIdx] || 0;
-      const barHeight = (val / 255) * 42;
+      let val = 0;
+      if (dataArray) {
+        const dataIdx = Math.floor((i / numBars) * (bufferLength / 2));
+        val = dataArray[dataIdx] || 0;
+      } else {
+        // Procedural smooth reactive visualizer if Equalizer is off
+        val = 70 + Math.sin(time + i * 0.45) * 45 + Math.cos(time * 0.8 + i * 0.3) * 35;
+      }
+      const barHeight = Math.max((val / 255) * 42, 4);
 
       const angle = i * step;
       const x1 = centerX + Math.cos(angle) * radius;
@@ -3649,6 +3687,16 @@ async function initUserAuth() {
         currentUser = data.user;
         localStorage.setItem("ahm_cached_user", JSON.stringify(data.user));
         saveUserVault();
+      } else if (data.sessionRevoked) {
+        // Enforce: One sign in must be in one app!
+        // Another app/device signed in with this account; close this session cleanly
+        console.warn("Session revoked because user signed in on another device.");
+        currentUser = null;
+        localStorage.removeItem("ahm_session_token");
+        localStorage.removeItem("ahm_cached_user");
+        localStorage.removeItem("ahm_user_vault");
+        updateUserProfileUI();
+        showToast("Signed in on another device. This session has ended.");
       } else {
         // Server was redeployed or memory restarted: auto-rehydrate from local vault!
         const vaultRaw = localStorage.getItem("ahm_user_vault");
@@ -5210,9 +5258,7 @@ function updateUI(state) {
 
   // If Browser channel is currently active, delegate main UI to BrowserPlayer
   if (activeSystemChannel === "browser") {
-    if (BrowserPlayer.currentTrack) {
-      updateUIWithTrack(BrowserPlayer.currentTrack, BrowserPlayer.isPlaying());
-    }
+    updateUIWithTrack(BrowserPlayer.currentTrack, BrowserPlayer.isPlaying());
     return;
   }
 
@@ -5233,7 +5279,6 @@ function updateUI(state) {
 // Interactive API Dispatcher
 async function sendAction(action, value = null, extra = {}) {
   try {
-    BrowserPlayer.prime();
     const targetChannel = extra.targetChannel || activeSystemChannel;
     const token = localStorage.getItem("ahm_session_token") || "";
     const headers = { "Content-Type": "application/json" };
@@ -5266,6 +5311,20 @@ async function fetchState() {
     if (!res.ok) return;
     const state = await res.json();
     currentState = state;
+
+    // Enforce: One sign in must be in one app!
+    // Check if session was revoked because user signed in on another device
+    if (token && state.sessionRevoked) {
+      console.warn("Session revoked because user signed in on another device.");
+      currentUser = null;
+      localStorage.removeItem("ahm_session_token");
+      localStorage.removeItem("ahm_cached_user");
+      localStorage.removeItem("ahm_user_vault");
+      updateUserProfileUI();
+      showToast("Signed in on another device. This session has ended.");
+      return;
+    }
+
     if (state.currentUser) {
       currentUser = state.currentUser;
       updateUserProfileUI();
