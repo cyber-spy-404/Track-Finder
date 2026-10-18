@@ -631,14 +631,34 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
   }
 
   // Case 1: JioSaavn Playlist
-  if (clean.startsWith("saavn_pl_") || clean.includes("jiosaavn.com/featured/")) {
-    const listId = clean.replace("saavn_pl_", "").split("/").pop();
+  if (clean.startsWith("saavn_pl_") || clean.includes("jiosaavn.com/featured/") || clean.includes("jiosaavn.com/s/playlist/") || clean.includes("jiosaavn.com/playlist/") || /^\d{6,15}$/.test(clean)) {
+    const rawParam = clean.replace("saavn_pl_", "").split("/").filter(Boolean).pop();
     try {
-      const url = `https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=${encodeURIComponent(listId)}`;
-      const timeoutSignal = AbortSignal.timeout(4000);
-      const res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
-      const d = await res.json();
-      const list = d.list || [];
+      let d = null;
+      if (/^\d+$/.test(rawParam)) {
+        const url = `https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=${encodeURIComponent(rawParam)}`;
+        const timeoutSignal = AbortSignal.timeout(4500);
+        const res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
+        d = await res.json();
+      } else {
+        // Alpha-numeric token fallback: resolve via webapi.get and extract listid
+        const tokenUrl = `https://www.jiosaavn.com/api.php?__call=webapi.get&_format=json&_marker=0&api_version=4&ctx=web6dot0&type=playlist&token=${encodeURIComponent(rawParam)}`;
+        const timeoutSignal = AbortSignal.timeout(4500);
+        const res = await fetch(tokenUrl, { signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
+        d = await res.json();
+        if (d && d.id && /^\d+$/.test(String(d.id))) {
+          try {
+            const fullUrl = `https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=${encodeURIComponent(d.id)}`;
+            const fullRes = await fetch(fullUrl, { signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
+            const fullD = await fullRes.json();
+            if (fullD && Array.isArray(fullD.list) && fullD.list.length > 0) {
+              d = fullD;
+            }
+          } catch (_) {}
+        }
+      }
+
+      const list = (d && (d.list || d.songs)) || [];
       if (list.length > 0) {
         const tracks = list.slice(0, limit).map(s => {
           const encUrl = s.more_info?.encrypted_media_url;
@@ -659,7 +679,7 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
           };
         });
         const result = {
-          id: `saavn_pl_${d.id}`,
+          id: `saavn_pl_${d.id || rawParam}`,
           title: (d.title || "JioSaavn Playlist").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'"),
           description: d.header_desc || d.subtitle || "Featured Playlist",
           author: d.more_info?.firstname || d.subtitle || "JioSaavn",
@@ -674,13 +694,32 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
 
   // Case 2: JioSaavn Album
   if (clean.startsWith("saavn_alb_") || clean.includes("jiosaavn.com/album/")) {
-    const albId = clean.replace("saavn_alb_", "").split("/").pop();
+    const albParam = clean.replace("saavn_alb_", "").split("/").filter(Boolean).pop();
     try {
-      const url = `https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=${encodeURIComponent(albId)}`;
-      const timeoutSignal = AbortSignal.timeout(4000);
-      const res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
-      const d = await res.json();
-      const list = d.list || d.songs || [];
+      let d = null;
+      if (/^\d+$/.test(albParam)) {
+        const url = `https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=${encodeURIComponent(albParam)}`;
+        const timeoutSignal = AbortSignal.timeout(4500);
+        const res = await fetch(url, { signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
+        d = await res.json();
+      } else {
+        const tokenUrl = `https://www.jiosaavn.com/api.php?__call=webapi.get&_format=json&_marker=0&api_version=4&ctx=web6dot0&type=album&token=${encodeURIComponent(albParam)}`;
+        const timeoutSignal = AbortSignal.timeout(4500);
+        const res = await fetch(tokenUrl, { signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
+        d = await res.json();
+        if (d && d.id && /^\d+$/.test(String(d.id))) {
+          try {
+            const fullUrl = `https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=${encodeURIComponent(d.id)}`;
+            const fullRes = await fetch(fullUrl, { signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal });
+            const fullD = await fullRes.json();
+            if (fullD && (Array.isArray(fullD.list) || Array.isArray(fullD.songs))) {
+              d = fullD;
+            }
+          } catch (_) {}
+        }
+      }
+
+      const list = (d && (d.list || d.songs)) || [];
       if (list.length > 0) {
         const tracks = list.slice(0, limit).map(s => {
           const encUrl = s.more_info?.encrypted_media_url;
@@ -701,7 +740,7 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
           };
         });
         const result = {
-          id: `saavn_alb_${d.id}`,
+          id: `saavn_alb_${d.id || albParam}`,
           title: (d.title || "Album").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'"),
           description: d.header_desc || d.subtitle || "Album",
           author: d.artist || d.more_info?.artist_name?.join(", ") || "Artist",
@@ -1831,14 +1870,19 @@ const server = http.createServer(async (req, res) => {
   // --------------------------------------------------------------------------
   if (pathname === "/api/playlist-details") {
     if (abortController?.signal?.aborted || res.headersSent) return;
-    const targetUrl = parsedUrl.searchParams.get("url") || parsedUrl.searchParams.get("id");
-    if (!targetUrl) {
+    const targetUrl = parsedUrl.searchParams.get("url");
+    const targetId = parsedUrl.searchParams.get("id");
+    const primaryTarget = targetUrl || targetId;
+    if (!primaryTarget) {
       res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ success: false, error: "Missing playlist url or id" }));
     }
 
     try {
-      const plData = await resolvePlaylistTracks(targetUrl, 50, abortController?.signal);
+      let plData = await resolvePlaylistTracks(primaryTarget, 50, abortController?.signal);
+      if ((!plData || !plData.tracks || plData.tracks.length === 0) && targetId && targetId !== primaryTarget) {
+        plData = await resolvePlaylistTracks(targetId, 50, abortController?.signal);
+      }
       if (abortController?.signal?.aborted || res.headersSent) return;
       if (plData && plData.tracks && plData.tracks.length > 0) {
         res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });

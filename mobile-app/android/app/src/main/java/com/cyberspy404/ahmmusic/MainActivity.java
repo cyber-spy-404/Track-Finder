@@ -106,6 +106,12 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void updateMediaState(String title, String artist, String album, String coverUrl, double durationSec, double positionSec, boolean isPlaying) {
+            MediaPlaybackService service = MediaPlaybackService.getInstance();
+            if (service != null) {
+                service.updateDirectState(title, artist, album, coverUrl, durationSec, positionSec, isPlaying);
+                return;
+            }
+
             Intent intent = new Intent(context, MediaPlaybackService.class);
             intent.setAction(MediaPlaybackService.ACTION_UPDATE_STATE);
             intent.putExtra(MediaPlaybackService.EXTRA_TITLE, title);

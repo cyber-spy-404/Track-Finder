@@ -419,8 +419,8 @@ const BrowserPlayer = {
   isInitialized: false,
   lastReportTime: 0,
   savedPosition: 0,
-  // Spotify Infinite Radio & Autoplay State
-  autoplayRadioEnabled: localStorage.getItem("ahm_autoplay_radio") !== "false",
+  // Spotify Infinite Radio & Autoplay State (Disabled by default to prevent unwanted station takeovers)
+  autoplayRadioEnabled: localStorage.getItem("ahm_autoplay_radio") === "true",
   isRadioActive: false,
   activeRadioSeed: null,
   isFetchingRadio: false,
@@ -646,6 +646,10 @@ const BrowserPlayer = {
     } else {
       try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
     }
+    this._isChangingTrack = true;
+    this._playRequestId = (this._playRequestId || 0) + 1;
+    const currentReqId = this._playRequestId;
+
     this.audio.src = src;
     this.audio.currentTime = 0;
     this.audio.muted = false;
@@ -657,6 +661,8 @@ const BrowserPlayer = {
     const playPromise = this.audio.play();
     if (playPromise !== undefined) {
       playPromise.then(() => {
+        if (this._playRequestId !== currentReqId) return;
+        this._isChangingTrack = false;
         if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
           EqualizerEngine.resume();
         }
@@ -664,6 +670,11 @@ const BrowserPlayer = {
         this.reportState();
         showToast(`▶ Playing: ${track.title}`);
       }).catch(err => {
+        if (this._playRequestId !== currentReqId) return;
+        this._isChangingTrack = false;
+        if (err.name === "AbortError") {
+          return; // Aborted by subsequent track skip
+        }
         console.warn("Direct browser audio play note:", err.message);
         showToast(`Tap anywhere to start audio: ${track.title}`);
         const resumeOnTap = () => {
@@ -1293,6 +1304,10 @@ const BrowserPlayer = {
   },
 
   onError(e) {
+    if (this._isChangingTrack || this.audio?.error?.code === 1) {
+      // MEDIA_ERR_ABORTED (code 1): Track was intentionally interrupted/aborted by a fast skip or new track load.
+      return;
+    }
     console.error("Browser audio error:", e);
     if (!this.currentTrack) return;
 
@@ -3577,7 +3592,9 @@ let searchDebounceTimer = null;
 async function playSearchPlaylist(pl, immediate = true) {
   showToast(`▶ Loading playlist: ${pl.title}...`);
   try {
-    const res = await fetch(`/api/playlist-details?url=${encodeURIComponent(pl.url || pl.id)}`);
+    const targetUrl = pl.url || "";
+    const targetId = pl.id || pl.rawId || "";
+    const res = await fetch(resolveApiUrl(`/api/playlist-details?url=${encodeURIComponent(targetUrl)}&id=${encodeURIComponent(targetId)}`));
     const data = await res.json();
     if (data.success && data.playlist && data.playlist.tracks?.length) {
       const fullPl = {
@@ -3617,7 +3634,9 @@ async function playSearchPlaylist(pl, immediate = true) {
 async function loadAndOpenSearchPlaylist(pl) {
   showToast(`Loading playlist: ${pl.title}...`);
   try {
-    const res = await fetch(`/api/playlist-details?url=${encodeURIComponent(pl.url || pl.id)}`);
+    const targetUrl = pl.url || "";
+    const targetId = pl.id || pl.rawId || "";
+    const res = await fetch(resolveApiUrl(`/api/playlist-details?url=${encodeURIComponent(targetUrl)}&id=${encodeURIComponent(targetId)}`));
     const data = await res.json();
     if (data.success && data.playlist) {
       const fullPl = {
@@ -3737,9 +3756,22 @@ function renderSearchResultsTracks(results, q) {
         <td class="song-time-cell">${formatTime(t.duration)}</td>
       `;
 
+      const playWithQueue = () => {
+        dispatchPlayNow(t);
+        const upcoming = results.slice(idx + 1);
+        if (upcoming.length > 0 && typeof BrowserPlayer !== "undefined") {
+          BrowserPlayer.queue = upcoming.map(item => ({
+            ...item,
+            isRadio: false
+          }));
+          if (typeof renderQueueView === "function") renderQueueView();
+          if (typeof saveUserQueue === "function") saveUserQueue();
+        }
+      };
+
       tr.querySelector(".btn-search-play-now")?.addEventListener("click", (e) => {
         e.stopPropagation();
-        dispatchPlayNow(t);
+        playWithQueue();
       });
 
       tr.querySelector(".btn-search-enqueue")?.addEventListener("click", (e) => {
@@ -3757,7 +3789,7 @@ function renderSearchResultsTracks(results, q) {
       });
 
       tr.addEventListener("click", () => {
-        dispatchPlayNow(t);
+        playWithQueue();
       });
 
       searchBody.appendChild(tr);
@@ -3825,7 +3857,7 @@ async function handleSearch(query) {
   }
 
   // 1. FAST STREAM: Fetch Tracks in Parallel (Resolves instantly in ~150ms)
-  fetch(`/api/search?type=tracks&q=${encodeURIComponent(q)}&filterMode=${encodeURIComponent(currentFilterMode)}`, {
+  fetch(resolveApiUrl(`/api/search?type=tracks&q=${encodeURIComponent(q)}&filterMode=${encodeURIComponent(currentFilterMode)}`), {
     signal: currentSignal
   })
     .then(r => r.json())
@@ -3843,7 +3875,7 @@ async function handleSearch(query) {
     });
 
   // 2. PARALLEL STREAM: Fetch Playlists in Parallel (Resolves in ~180-250ms)
-  fetch(`/api/search?type=playlists&q=${encodeURIComponent(q)}&filterMode=${encodeURIComponent(currentFilterMode)}`, {
+  fetch(resolveApiUrl(`/api/search?type=playlists&q=${encodeURIComponent(q)}&filterMode=${encodeURIComponent(currentFilterMode)}`), {
     signal: currentSignal
   })
     .then(r => r.json())

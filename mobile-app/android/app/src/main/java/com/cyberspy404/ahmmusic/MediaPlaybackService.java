@@ -16,7 +16,9 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
@@ -199,6 +201,38 @@ public class MediaPlaybackService extends Service {
         }
 
         return START_STICKY;
+    }
+
+    public void updateDirectState(String title, String artist, String album, String cover, double duration, double position, boolean isPlaying) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            currentTitle = title;
+            currentArtist = artist;
+            currentAlbum = album;
+            currentDuration = duration;
+            currentPosition = position;
+            isCurrentlyPlaying = isPlaying;
+
+            if (isCurrentlyPlaying) {
+                if (wakeLock != null && !wakeLock.isHeld()) {
+                    try { wakeLock.acquire(12 * 60 * 60 * 1000L); } catch (Exception ignored) {}
+                }
+            } else {
+                if (wakeLock != null && wakeLock.isHeld()) {
+                    try { wakeLock.release(); } catch (Exception ignored) {}
+                }
+            }
+
+            if (currentTitle == null || currentTitle.isEmpty()) currentTitle = "Spy Sec Music";
+            if (currentArtist == null || currentArtist.isEmpty()) currentArtist = "CyberSpy 404";
+            if (currentAlbum == null || currentAlbum.isEmpty()) currentAlbum = "Lossless Audio";
+
+            if (cover != null && !cover.equals(currentCover)) {
+                currentCover = cover;
+                loadCoverBitmap(cover);
+            } else {
+                publishPlaybackState();
+            }
+        });
     }
 
     private void handleUpdateState(Intent intent) {

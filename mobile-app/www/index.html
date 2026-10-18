@@ -713,23 +713,6 @@
             </div>
           </div>
 
-          <!-- Playlists Shelf Section (Approx 5 Playlists related to keyword) -->
-          <div id="searchPlaylistsSection" style="display: none; margin-bottom: 32px;">
-            <div class="shelf-header" style="margin-bottom: 14px;">
-              <h2 class="shelf-title" style="margin: 0;">Playlists</h2>
-              <div class="shelf-header-actions">
-                <span id="searchPlaylistsCountBadge" style="font-size: 0.8rem; color: var(--text-subdued);">Top 5 Playlists</span>
-                <div class="shelf-scroll-controls">
-                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridSearchPlaylists" title="Scroll left">‹</button>
-                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridSearchPlaylists" title="Scroll right">›</button>
-                </div>
-              </div>
-            </div>
-            <div class="spotify-card-grid" id="gridSearchPlaylists">
-              <!-- Populated dynamically via app.js -->
-            </div>
-          </div>
-
           <!-- Live search results section (Approx 20 Tracks) -->
           <div id="searchResultsSection" style="display: none; margin-bottom: 32px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
@@ -748,6 +731,23 @@
                 </thead>
                 <tbody id="searchResultsBody"></tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Playlists Shelf Section (Approx 5 Playlists related to keyword) -->
+          <div id="searchPlaylistsSection" class="shelf-section" style="display: none; margin-bottom: 32px;">
+            <div class="shelf-header" style="margin-bottom: 14px;">
+              <h2 class="shelf-title" style="margin: 0;">Playlists</h2>
+              <div class="shelf-header-actions">
+                <span id="searchPlaylistsCountBadge" style="font-size: 0.8rem; color: var(--text-subdued);">Top 5 Playlists</span>
+                <div class="shelf-scroll-controls">
+                  <button type="button" class="shelf-scroll-btn btn-shelf-prev" data-target="gridSearchPlaylists" title="Scroll left">‹</button>
+                  <button type="button" class="shelf-scroll-btn btn-shelf-next" data-target="gridSearchPlaylists" title="Scroll right">›</button>
+                </div>
+              </div>
+            </div>
+            <div class="spotify-card-grid" id="gridSearchPlaylists">
+              <!-- Populated dynamically via app.js -->
             </div>
           </div>
 
