@@ -3,9 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy — Spy Sec Music Discord Bot & Web Player</title>
-  <meta name="description" content="Privacy Policy for Spy Sec Music Discord Bot and Web Audio Player.">
-  <link rel="icon" type="image/png" href="logo.png">
+  <title>Privacy Policy | Spy Sec Music Player & Discord Bot</title>
+  <meta name="description" content="Official Privacy Policy for Spy Sec Music: minimal data collection, zero voice recording, encrypted sessions, and full privacy compliance.">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/logo.png">
+  <link rel="apple-touch-icon" href="/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -22,6 +24,11 @@
       --border: rgba(255, 255, 255, 0.08);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      overflow-x: hidden;
+      width: 100%;
+      max-width: 100%;
+    }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--bg-base);
@@ -32,6 +39,7 @@
     .container {
       max-width: 820px;
       margin: 0 auto;
+      width: 100%;
     }
     header {
       display: flex;
@@ -40,6 +48,15 @@
       margin-bottom: 36px;
       padding-bottom: 24px;
       border-bottom: 1px solid var(--border);
+    }
+    .logo-link {
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .logo-link:hover {
+      transform: scale(1.05);
     }
     .logo {
       width: 56px;
@@ -121,6 +138,7 @@
     }
     .nav-links {
       display: flex;
+      flex-wrap: wrap;
       gap: 16px;
       margin-top: 32px;
       padding-top: 24px;
@@ -163,7 +181,9 @@
 <body>
   <div class="container">
     <header>
-      <img src="logo.png" alt="Spy Sec Music Logo" class="logo">
+      <a href="/" class="logo-link" title="Return to Spy Sec Music Player">
+        <img src="logo.png" alt="Spy Sec Music Logo" class="logo">
+      </a>
       <div>
         <h1>Privacy Policy</h1>
         <div class="subtitle">Spy Sec Music Discord Bot & Web Audio Player</div>
@@ -229,8 +249,13 @@
 
       <h2>8. Contact Us</h2>
       <p>
-        If you have any questions or requests regarding your data and privacy, please reach out to our team via our Discord community server or administrative contact channels.
+        If you have any questions or requests regarding your data and privacy, please reach out to our team:
       </p>
+      <ul style="list-style: none; padding-left: 0; margin: 12px 0 16px; display: flex; flex-direction: column; gap: 8px;">
+        <li>📧 <strong>Direct Email:</strong> <a href="mailto:cyber_spy.404@outlook.com">cyber_spy.404@outlook.com</a></li>
+        <li>📞 <strong>Support Helpline:</strong> <a href="tel:+15557797324">+1 (555) 779-7324</a></li>
+        <li>🤖 <strong>Discord Server:</strong> <a href="https://discord.gg/cyberspy" target="_blank" rel="noopener">Official CyberSpy Discord</a></li>
+      </ul>
 
       <div class="nav-links">
         <a href="/terms-of-service" class="btn">📜 View Terms of Service</a>
@@ -240,8 +265,14 @@
     </div>
 
     <footer>
-      © 2026 Spy Sec Music • CyberSpy 404 Core. All rights reserved.
+      © <span id="copyrightYear">2026</span> Spy Sec Music • CyberSpy 404 Core. All rights reserved.
     </footer>
   </div>
+  <script>
+    (function() {
+      const yearEl = document.getElementById('copyrightYear');
+      if (yearEl) yearEl.textContent = new Date().getFullYear();
+    })();
+  </script>
 </body>
 </html>

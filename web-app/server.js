@@ -2423,9 +2423,20 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --------------------------------------------------------------------------
-  // STATIC ASSET SERVER (Aggressive In-Memory / File Streaming)
+  // STATIC ASSET SERVER (Aggressive In-Memory / File Streaming & Custom 404)
   // --------------------------------------------------------------------------
-  let filePath = path.join(PUBLIC_DIR, pathname === "/" ? "index.html" : pathname);
+  let resolvedPathname = pathname;
+  if (resolvedPathname === "/privacy" || resolvedPathname === "/privacy-policy") {
+    resolvedPathname = "/privacy.html";
+  } else if (resolvedPathname === "/terms" || resolvedPathname === "/terms-of-service") {
+    resolvedPathname = "/terms.html";
+  } else if (resolvedPathname === "/discord" || resolvedPathname === "/discord-bot") {
+    resolvedPathname = "/discord.html";
+  } else if (resolvedPathname === "/404") {
+    resolvedPathname = "/404.html";
+  }
+
+  let filePath = path.join(PUBLIC_DIR, resolvedPathname === "/" ? "index.html" : resolvedPathname);
 
   // If path doesn't have an extension, try .html
   if (!path.extname(filePath)) {
@@ -2442,6 +2453,26 @@ const server = http.createServer(async (req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
+      // If client is asking for an API route that reached here, return JSON 404
+      if (pathname.startsWith("/api/")) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ success: false, error: "API endpoint not found" }));
+      }
+
+      // If it looks like a missing static asset (has dot extension like .png, .mp3, .js, .css)
+      const ext = path.extname(pathname);
+      if (ext && ext !== ".html") {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        return res.end("Asset Not Found");
+      }
+
+      // Serve custom 404.html page for unknown pages
+      const notFoundPath = path.join(PUBLIC_DIR, "404.html");
+      if (fs.existsSync(notFoundPath)) {
+        res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+        return fs.createReadStream(notFoundPath).pipe(res);
+      }
+
       // Fallback for SPA routing to index.html
       const indexPath = path.join(PUBLIC_DIR, "index.html");
       fs.readFile(indexPath, (err2, indexData) => {

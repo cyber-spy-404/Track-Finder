@@ -2,13 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Spy Sec Music — Dedicated Administrative Web Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Spy Sec Music — Dedicated Discord Voice Bot Dashboard & Controller</title>
   <meta name="description" content="Dedicated Administrative Web Dashboard for Spy Sec Music Discord Bot. Manage voice channel audio, announcement channels, volume, equalizer presets, and queue remotely.">
   <meta name="theme-color" content="#090A0D">
+  <meta property="og:title" content="Spy Sec Music — Dedicated Discord Voice Bot Dashboard">
+  <meta property="og:description" content="Manage voice channel audio, volume, equalizer presets, and server queue remotely.">
+  <meta property="og:image" content="/logo.png">
+  <meta property="og:type" content="website">
 
-  <link rel="icon" type="image/png" href="logo.png">
-  <link rel="stylesheet" href="discord.css?v=2.0">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="logo.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="logo.png">
+  <link rel="stylesheet" href="discord.css?v=2.1">
   <script>
     (function(){
       const t = localStorage.getItem('spysec_theme') || 'dark';
@@ -27,7 +33,7 @@
          TOP HEADER BAR
          ====================================================================== -->
     <header class="dash-header">
-      <div class="dash-brand">
+      <a href="/" class="dash-brand" style="text-decoration: none;" title="Return to Spy Sec Web Music Player">
         <div class="bot-avatar-wrap">
           <img src="logo.png" alt="Spy Sec Music Bot" class="bot-avatar" id="headerBotAvatar">
           <span class="status-dot-online" title="Bot Online & Lavalink Connected"></span>
@@ -40,7 +46,7 @@
           </div>
           <span class="dash-subtext">LiquidGlass Discord Voice Audio Core • 24/7 E2EE</span>
         </div>
-      </div>
+      </a>
 
       <div class="header-badges-row">
         <div class="badge-item" id="badgeVoiceChannel">
@@ -395,6 +401,39 @@
         </div>
       </div>
     </section>
+
+    <!-- ======================================================================
+         DASHBOARD FOOTER
+         ====================================================================== -->
+    <footer class="dash-footer" style="margin-top: 36px; padding: 24px 0 16px; border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <a href="/" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff;">
+          <img src="logo.png" alt="Spy Sec Music Logo" style="width: 32px; height: 32px; border-radius: 8px;">
+          <span style="font-weight: 800; font-size: 0.95rem;">Spy Sec Music • Discord Controller</span>
+        </a>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <a href="tel:+15557797324" class="btn-chip" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            <span>+1 (555) 779-7324</span>
+          </a>
+          <a href="mailto:cyber_spy.404@outlook.com" class="btn-chip" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+            <span>cyber_spy.404@outlook.com</span>
+          </a>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-size: 0.82rem; color: var(--text-muted);">
+        <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+          <a href="/" style="color: var(--text-muted); text-decoration: none;">🌐 Web Music Player</a>
+          <a href="/privacy" style="color: var(--text-muted); text-decoration: none;">🔒 Privacy Policy</a>
+          <a href="/terms" style="color: var(--text-muted); text-decoration: none;">📜 Terms of Service</a>
+          <a href="https://github.com/cyber-spy-404/Track-Finder" target="_blank" rel="noopener noreferrer" style="color: var(--text-muted); text-decoration: none;">🐙 GitHub ↗</a>
+        </div>
+        <div>
+          © <span id="dashFooterYear">2026</span> Spy Sec Music • All rights reserved.
+        </div>
+      </div>
+    </footer>
 
   </div>
 

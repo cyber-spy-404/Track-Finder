@@ -101,16 +101,36 @@
     return `${m}:${s < 10 ? "0" : ""}${s}`;
   }
 
-  // Toast Notification
-  function showToast(msg) {
+  // Toast Notification (Success, Error & Info with Icons)
+  function showToast(msg, type = null) {
     if (!toastNotice) return;
-    toastNotice.textContent = msg;
+    if (!type) {
+      const lower = String(msg).toLowerCase();
+      if (lower.includes("error") || lower.includes("failed") || lower.includes("could not") || lower.includes("invalid") || lower.includes("denied")) {
+        type = "error";
+      } else if (lower.includes("success") || lower.includes("connected") || lower.includes("verified") || lower.includes("cleared") || lower.includes("queued") || lower.includes("applied") || lower.includes("started")) {
+        type = "success";
+      } else {
+        type = "info";
+      }
+    }
+
+    toastNotice.className = `toast-notice toast-${type}`;
+    let icon = "ℹ";
+    if (type === "success") icon = "✓";
+    if (type === "error") icon = "⚠";
+    
+    toastNotice.innerHTML = `<span style="font-weight:900;margin-right:6px;">${icon}</span><span>${msg}</span>`;
     toastNotice.classList.remove("hidden");
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       toastNotice.classList.add("hidden");
-    }, 3200);
+    }, type === "error" ? 3800 : 2800);
   }
+
+  // Update dynamic copyright year
+  const copyYear = document.getElementById("dashFooterYear");
+  if (copyYear) copyYear.textContent = new Date().getFullYear();
 
   // Auth state & verification
   let currentAuthUser = null;

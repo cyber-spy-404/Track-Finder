@@ -5018,6 +5018,13 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (vivoCapsule && !window._vivoCapsuleDismissed) {
       vivoCapsule.classList.add("visible");
     }
+
+    // Dynamic browser tab title
+    try {
+      const cleanTitle = (title || "").replace(/\s+/g, " ").trim();
+      const cleanAuthor = (author || "").replace(/\s+/g, " ").trim();
+      document.title = `${isPlaying ? "▶ " : "⏸ "}${cleanTitle} • ${cleanAuthor} | Spy Sec Music`;
+    } catch (_) {}
   } else {
     if (playerTitle) playerTitle.textContent = "Web Browser Ready";
     if (playerArtist) playerArtist.textContent = "Select a song or playlist";
@@ -5043,6 +5050,10 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (vivoCapsule) {
       vivoCapsule.classList.remove("visible");
     }
+
+    try {
+      document.title = "Spy Sec Music — Free Sovereign Lossless Audio Player & Web Music Hub";
+    } catch (_) {}
   }
 
   if (typeof updateRadioUI === "function") updateRadioUI();
@@ -5381,16 +5392,40 @@ function formatTime(ms) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-// Toast Notifier
-function showToast(msg) {
+// Toast Notifier (Success, Error & Info with Emil Kowalski Micro-Motion)
+function showToast(msg, type = null) {
   const toast = document.getElementById("toastNotification");
   if (!toast) return;
-  toast.textContent = msg;
+
+  // Auto-detect type if not explicitly supplied
+  if (!type) {
+    const lower = String(msg).toLowerCase();
+    if (lower.includes("error") || lower.includes("failed") || lower.includes("could not") || lower.includes("invalid") || lower.includes("unavailable") || lower.includes("network error") || lower.includes("ended")) {
+      type = "error";
+    } else if (lower.includes("success") || lower.includes("loaded") || lower.includes("saved") || lower.includes("connected") || lower.includes("cleared") || lower.includes("added") || lower.includes("restored") || lower.includes("created") || lower.includes("playing")) {
+      type = "success";
+    } else {
+      type = "info";
+    }
+  }
+
+  toast.className = `toast-notification toast-${type}`;
+  
+  let iconHtml = "";
+  if (type === "success") {
+    iconHtml = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(16,185,129,0.22);color:#10B981;font-size:11px;font-weight:900;flex-shrink:0;">✓</span>`;
+  } else if (type === "error") {
+    iconHtml = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(239,68,68,0.22);color:#EF4444;font-size:11px;font-weight:900;flex-shrink:0;">⚠</span>`;
+  } else {
+    iconHtml = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.12);color:#FFFFFF;font-size:11px;font-weight:700;flex-shrink:0;">ℹ</span>`;
+  }
+
+  toast.innerHTML = `${iconHtml}<span>${typeof escapeHtml === "function" ? escapeHtml(msg) : msg}</span>`;
   toast.classList.remove("hidden");
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => {
     toast.classList.add("hidden");
-  }, 2400);
+  }, type === "error" ? 3400 : 2600);
 }
 
 // Theme Manager (Dedicated Separate Dark & Light Mode Support)
@@ -6507,7 +6542,7 @@ function initEventListeners() {
     });
   }
 
-  // Escape key collapses expanded player
+  // Escape key collapses expanded player or mobile drawer
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       const exp = document.getElementById("expandedNowPlayingOverlay");
@@ -6515,8 +6550,142 @@ function initEventListeners() {
         closeExpandedPlayer();
         e.preventDefault();
       }
+      const mobileDrawer = document.getElementById("mobileMenuDrawer");
+      if (mobileDrawer && mobileDrawer.style.display !== "none") {
+        mobileDrawer.style.display = "none";
+        document.body.style.overflow = "";
+        e.preventDefault();
+      }
     }
   });
+
+  // Mobile Navigation Drawer open & close handlers
+  const mobileDrawer = document.getElementById("mobileMenuDrawer");
+  const openMobileDrawer = () => {
+    if (!mobileDrawer) return;
+    mobileDrawer.style.display = "flex";
+    mobileDrawer.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  };
+  const closeMobileDrawer = () => {
+    if (!mobileDrawer) return;
+    mobileDrawer.style.display = "none";
+    mobileDrawer.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  };
+
+  document.getElementById("btnMobileMenuToggle")?.addEventListener("click", openMobileDrawer);
+  document.getElementById("mobileNavMenu")?.addEventListener("click", openMobileDrawer);
+  document.getElementById("btnCloseMobileDrawer")?.addEventListener("click", closeMobileDrawer);
+  document.getElementById("mobileDrawerScrim")?.addEventListener("click", closeMobileDrawer);
+
+  // Drawer Navigation Links
+  document.querySelectorAll("[data-drawer-view]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const view = btn.getAttribute("data-drawer-view");
+      if (view) {
+        switchView(view);
+        closeMobileDrawer();
+        document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+  });
+
+  // Drawer Tool Buttons
+  document.getElementById("btnDrawerOpenEq")?.addEventListener("click", () => {
+    closeMobileDrawer();
+    openEqualizerModal();
+  });
+  document.getElementById("btnDrawerOpenSleep")?.addEventListener("click", () => {
+    closeMobileDrawer();
+    openSleepTimerModal();
+  });
+  document.getElementById("btnDrawerOpenQuality")?.addEventListener("click", () => {
+    closeMobileDrawer();
+    openAudioQualityModal();
+  });
+  document.getElementById("btnDrawerOpenTaste")?.addEventListener("click", () => {
+    closeMobileDrawer();
+    openTuneTasteModal();
+  });
+  document.getElementById("btnDrawerAuthAction")?.addEventListener("click", () => {
+    closeMobileDrawer();
+    openUserProfileModal();
+  });
+
+  // Brand Logo Clicks -> Smooth Navigate to Home & Scroll to Top
+  const routeHomeAndScrollTop = () => {
+    switchView("home");
+    const stage = document.getElementById("spotifyMainStage");
+    if (stage) stage.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  document.getElementById("brandLogoHome")?.addEventListener("click", routeHomeAndScrollTop);
+  document.getElementById("footerBrandLogo")?.addEventListener("click", routeHomeAndScrollTop);
+  document.getElementById("drawerBrandLogo")?.addEventListener("click", () => {
+    closeMobileDrawer();
+    routeHomeAndScrollTop();
+  });
+
+  // Footer Navigation Links
+  document.getElementById("footerNavHome")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    routeHomeAndScrollTop();
+  });
+  document.getElementById("footerNavSearch")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchView("search");
+    document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  document.getElementById("footerNavQueue")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchView("queue");
+    document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  document.getElementById("footerNavLiked")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchView("liked");
+    document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  document.getElementById("footerNavQuran")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    switchView("quran");
+    document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // Footer Audio Engine Modals
+  document.getElementById("footerBtnEq")?.addEventListener("click", openEqualizerModal);
+  document.getElementById("footerBtnSleep")?.addEventListener("click", openSleepTimerModal);
+  document.getElementById("footerBtnQuality")?.addEventListener("click", openAudioQualityModal);
+  document.getElementById("footerBtnTaste")?.addEventListener("click", openTuneTasteModal);
+  document.getElementById("footerBtnInstallApk")?.addEventListener("click", () => {
+    document.getElementById("btnInstallPwa")?.click();
+  });
+
+  // Wire previously unreferenced buttons
+  document.getElementById("btnToggleLibrary")?.addEventListener("click", () => {
+    if (window.innerWidth <= 900) {
+      openMobileDrawer();
+    } else {
+      switchView("liked");
+    }
+  });
+  document.getElementById("btnLibSearch")?.addEventListener("click", () => {
+    const sInput = document.getElementById("masterSearchInput");
+    if (sInput) {
+      sInput.focus();
+      sInput.select();
+    }
+    switchView("search");
+  });
+  document.getElementById("btnLibAdd")?.addEventListener("click", () => {
+    openSpotifyModal();
+  });
+
+  // Dynamic Copyright Year
+  const currentYear = new Date().getFullYear();
+  const footerYear = document.getElementById("appCopyrightYear");
+  if (footerYear) footerYear.textContent = currentYear;
+  document.querySelectorAll(".dyn-year").forEach(el => el.textContent = currentYear);
 }
 
 // Greeting calculation
