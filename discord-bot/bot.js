@@ -123,9 +123,27 @@ async function searchYouTubeMulti(query, limit = 20) {
   });
 }
 
+let desModule = null;
+try {
+  desModule = require("des.js");
+} catch (e) {}
+
 // In-memory cache for fast playlist searches
 function decryptSaavnMediaUrl(encUrl) {
   if (!encUrl || typeof encUrl !== "string") return null;
+  if (desModule) {
+    try {
+      const key = Buffer.from("38346591", "utf8");
+      const d = desModule.DES.create({ type: "decrypt", key });
+      const b = Buffer.from(encUrl, "base64");
+      const out1 = Buffer.from(d.update(b));
+      const out2 = Buffer.from(d.final());
+      const raw = Buffer.concat([out1, out2]).toString("utf8");
+      if (raw.startsWith("http")) {
+        return raw.replace(/_96\.mp4|_160\.mp4/, "_320.mp4");
+      }
+    } catch (e) {}
+  }
   try {
     const crypto = require("crypto");
     const key = Buffer.from("38346591", "utf8");

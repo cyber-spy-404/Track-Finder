@@ -77,6 +77,31 @@ window.isMobileAppEnvironment = isMobileAppEnvironment;
 let activeSystemChannel = isMobileAppEnvironment ? "app" : "browser";
 window.activeSystemChannel = activeSystemChannel;
 
+function isLocalChannel(channel) {
+  const c = channel || activeSystemChannel;
+  return c === "browser" || c === "app" || c === "all";
+}
+window.isLocalChannel = isLocalChannel;
+
+function isDirectPlayableAudioUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  const u = url.trim();
+  if (u.includes("youtube.com/watch") || u.includes("youtu.be/") || u.includes("open.spotify.com/")) {
+    return false;
+  }
+  if (u.includes("/api/stream-audio")) {
+    try {
+      const parsed = new URL(u, (typeof window !== "undefined" && window.location?.origin) || "http://localhost");
+      const target = parsed.searchParams.get("url");
+      return Boolean(target && isDirectPlayableAudioUrl(target));
+    } catch (_) {
+      return false;
+    }
+  }
+  return u.startsWith("http://") || u.startsWith("https://") || u.startsWith("blob:");
+}
+window.isDirectPlayableAudioUrl = isDirectPlayableAudioUrl;
+
 // Transparently wrap window.fetch so all relative API requests hit the server and carry platform identity
 const _nativeFetch = window.fetch;
 window.fetch = function(input, init) {
@@ -525,12 +550,19 @@ const BrowserPlayer = {
     this.init();
     window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
 
-    // Dynamically resolve audio stream if track was enqueued without direct URL
-    if (!track.streamUrl && !track.proxyStreamUrl) {
+    const hasPlayableStream = Boolean(
+      (track.streamUrl && isDirectPlayableAudioUrl(track.streamUrl)) ||
+      (track.proxyStreamUrl && isDirectPlayableAudioUrl(track.proxyStreamUrl)) ||
+      (track.rawStreamUrl && isDirectPlayableAudioUrl(track.rawStreamUrl))
+    );
+
+    // Dynamically resolve audio stream if track was enqueued without a verified playable direct URL
+    if (!hasPlayableStream) {
       showToast(`Resolving audio: ${track.title}...`);
       try {
-        const query = track.url || `${track.title} ${track.author || track.artist || ""}`.trim();
-        const res = await fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=browser&set=true`);
+        const query = (track.query || track.url || `${track.title} ${track.author || track.artist || ""}`).trim();
+        const resolveUrl = resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=true`);
+        const res = await fetch(resolveUrl);
         const data = await res.json();
         if (data.dropped) return;
         if (data.success && data.track) {
@@ -546,20 +578,42 @@ const BrowserPlayer = {
       } catch (err) {
         console.error("Auto stream resolve error:", err);
       }
+
+      // Secondary client-side fallback if server resolution yielded no playable stream
+      if (!track.streamUrl || !isDirectPlayableAudioUrl(track.streamUrl)) {
+        try {
+          const cleanTitle = (track.title || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+          const cleanArtist = (track.author || track.artist || "").split(/[,&x/]|feat\.|ft\./i)[0].trim();
+          const fallbackQuery = cleanArtist ? `${cleanTitle} ${cleanArtist}` : cleanTitle;
+          const searchRes = await fetch(resolveApiUrl(`/api/search?q=${encodeURIComponent(fallbackQuery)}&type=tracks&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}`));
+          const searchData = await searchRes.json();
+          const match = (searchData.results || []).find(r => r && isDirectPlayableAudioUrl(r.streamUrl));
+          if (match) {
+            track.streamUrl = match.streamUrl;
+            track.proxyStreamUrl = match.proxyStreamUrl || `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(match.streamUrl)}`;
+            if (!track.duration && match.duration) track.duration = match.duration;
+            if ((!track.artworkUrl || track.artworkUrl === "logo.png") && match.artworkUrl) track.artworkUrl = match.artworkUrl;
+          }
+        } catch (e) {
+          console.warn("Client fallback resolve error:", e);
+        }
+      }
     }
 
     this.currentTrack = track;
 
     // High-Fidelity Audio Stream Pipeline:
-    // Prefer proxyStreamUrl (or wrap through /api/stream-audio) to ensure same-origin CORS compliance
-    // and prevent Web Audio API silent muting on cross-origin streams.
+    // Direct CDN streams (Saavn CDN / Quranic Audio) are loaded directly with zero proxy overhead for blazing fast playback.
+    // If direct CDN is unavailable or proxyStreamUrl is direct, fall back to same-origin /api/stream-audio.
     let src = null;
-    if (track.proxyStreamUrl) {
+    if (track.streamUrl && isDirectPlayableAudioUrl(track.streamUrl)) {
+      src = track.streamUrl;
+    } else if (track.proxyStreamUrl && isDirectPlayableAudioUrl(track.proxyStreamUrl)) {
       src = resolveApiUrl(track.proxyStreamUrl);
+    } else if (track.rawStreamUrl && isDirectPlayableAudioUrl(track.rawStreamUrl)) {
+      src = track.rawStreamUrl;
     } else if (track.streamUrl) {
-      src = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(track.streamUrl)}`);
-    } else if (track.rawStreamUrl) {
-      src = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(track.rawStreamUrl)}`);
+      src = resolveApiUrl(`/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(track.streamUrl)}`);
     }
 
     if (!src) {
@@ -630,12 +684,16 @@ const BrowserPlayer = {
   prefetchNextTrack() {
     if (!this.queue || this.queue.length === 0) return;
     const nextItem = this.queue[0];
-    if (nextItem && !nextItem.streamUrl && !nextItem.proxyStreamUrl) {
-      const query = nextItem.url || `${nextItem.title} ${nextItem.author || nextItem.artist || ""}`.trim();
-      fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(nextItem.filterMode || currentFilterMode)}&channel=browser&set=false`)
+    const hasStream = Boolean(
+      (nextItem.streamUrl && isDirectPlayableAudioUrl(nextItem.streamUrl)) ||
+      (nextItem.proxyStreamUrl && isDirectPlayableAudioUrl(nextItem.proxyStreamUrl))
+    );
+    if (nextItem && !hasStream) {
+      const query = (nextItem.query || nextItem.url || `${nextItem.title} ${nextItem.author || nextItem.artist || ""}`).trim();
+      fetch(resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(nextItem.filterMode || currentFilterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=false`))
         .then(r => r.json())
         .then(d => {
-          if (d.success && d.track) {
+          if (d.success && d.track && (d.track.streamUrl || d.track.proxyStreamUrl)) {
             Object.assign(nextItem, d.track);
           }
         })
@@ -683,7 +741,7 @@ const BrowserPlayer = {
 
     try {
       const shouldSet = immediate ? "true" : "false";
-      const res = await fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(filterMode)}&channel=browser&set=${shouldSet}`);
+      const res = await fetch(resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(filterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=${shouldSet}`));
       const data = await res.json();
       if (data.dropped) return;
       if (data.success && data.track) {
@@ -719,7 +777,7 @@ const BrowserPlayer = {
       rawStreamUrl: `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`,
       artworkUrl: "logo.png",
       filterMode: "strict",
-      proxyStreamUrl: `/api/stream-audio?channel=browser`
+      proxyStreamUrl: `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}`
     };
     if (immediate || !this.isPlaying()) {
       if (this.currentTrack) this.history.push(this.currentTrack);
@@ -882,7 +940,7 @@ const BrowserPlayer = {
     const filterMode = seedTrack.filterMode || currentFilterMode || "filterless";
 
     try {
-      const url = `/api/radio?seedTitle=${encodeURIComponent(title)}&seedArtist=${encodeURIComponent(author)}&filterMode=${encodeURIComponent(filterMode)}&limit=${limit}`;
+      const url = resolveApiUrl(`/api/radio?seedTitle=${encodeURIComponent(title)}&seedArtist=${encodeURIComponent(author)}&filterMode=${encodeURIComponent(filterMode)}&limit=${limit}&channel=${encodeURIComponent(activeSystemChannel)}`);
       const res = await fetch(url);
       const data = await res.json();
       const fetchedTracks = (data && data.success && Array.isArray(data.tracks)) ? data.tracks : (Array.isArray(data?.results) ? data.results : []);
@@ -898,11 +956,11 @@ const BrowserPlayer = {
       console.warn("fetchRadioTracks API warning, using client fallback:", err);
     }
 
-    // Client-side fallback via search
+    // Client-side fallback via search API
     try {
       const cleanArtist = author.split(/[,&x/]|feat\.|ft\./i)[0].trim();
       const query = cleanArtist ? `${cleanArtist} hits` : `${title} similar`;
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(currentFilterMode)}`);
+      const res = await fetch(resolveApiUrl(`/api/search?q=${encodeURIComponent(query)}&type=tracks&filterMode=${encodeURIComponent(currentFilterMode)}`));
       const data = await res.json();
       const rawTracks = (data && Array.isArray(data.results)) ? data.results : (Array.isArray(data?.tracks) ? data.tracks : []);
       if (rawTracks.length > 0) {
@@ -1206,7 +1264,7 @@ const BrowserPlayer = {
     } else if (this.audio?.src && !this.audio.src.includes("/api/stream-audio") && this.currentTrack.streamUrl) {
       console.log("Direct stream failed, falling back to server audio proxy with fresh timestamp...");
       try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
-      this.audio.src = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(this.currentTrack.streamUrl)}&t=${Date.now()}`);
+      this.audio.src = resolveApiUrl(`/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(this.currentTrack.streamUrl)}&t=${Date.now()}`);
       this.audio.currentTime = 0;
       this.audio.play().catch(() => {});
       return;
@@ -1215,17 +1273,19 @@ const BrowserPlayer = {
     // Retry Strategy 2: If primary failed, re-resolve via JioSaavn CDN
     if (!this.currentTrack._fallbackAttempted) {
       this.currentTrack._fallbackAttempted = true;
-      const query = `${this.currentTrack.title} ${this.currentTrack.author || ""}`.trim();
+      const cleanTitle = (this.currentTrack.title || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+      const cleanArtist = (this.currentTrack.author || this.currentTrack.artist || "").split(/[,&x/]|feat\.|ft\./i)[0].trim();
+      const query = cleanArtist ? `${cleanTitle} ${cleanArtist}` : cleanTitle;
       console.log(`Re-resolving fallback audio for: ${query}`);
-      fetch(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=filterless&channel=browser&forceSaavn=true`)
+      fetch(resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=filterless&channel=${encodeURIComponent(activeSystemChannel)}&forceSaavn=true`))
         .then(r => r.json())
         .then(d => {
           if (d.success && d.track?.streamUrl) {
             this.currentTrack.streamUrl = d.track.streamUrl;
             this.currentTrack.proxyStreamUrl = d.track.proxyStreamUrl;
-            const fallbackSrc = resolveApiUrl(`/api/stream-audio?channel=browser&url=${encodeURIComponent(d.track.streamUrl)}`);
+            const chosenSrc = d.track.streamUrl || resolveApiUrl(d.track.proxyStreamUrl);
             try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
-            this.audio.src = fallbackSrc;
+            this.audio.src = chosenSrc;
             this.audio.currentTime = 0;
             this.audio.play().catch(() => {});
           } else if (this.queue.length > 0) {
@@ -2047,7 +2107,7 @@ function switchView(viewName, addToHistory = true, isForward = false) {
     const el = document.getElementById("viewLyrics");
     if (el) el.style.display = "block";
     if (typeof LyricsManager !== "undefined") {
-      const cur = activeSystemChannel === "browser"
+      const cur = isLocalChannel(activeSystemChannel)
         ? BrowserPlayer.currentTrack
         : (currentState?.channels?.[activeSystemChannel]?.current || currentState?.current);
       if (cur) LyricsManager.loadLyricsForTrack(cur);
@@ -2571,8 +2631,8 @@ function renderBecauseYouLove() {
     `;
 
     card.addEventListener("click", (e) => {
-      const isBrowser = activeSystemChannel === "browser" || activeSystemChannel === "all";
-      if (isBrowser) {
+      const isLocal = isLocalChannel(activeSystemChannel);
+      if (isLocal) {
         BrowserPlayer.playTrack(track);
       }
       if (activeSystemChannel === "bot" || activeSystemChannel === "all") {
@@ -3103,8 +3163,8 @@ function renderSidebarLibrary(filter = "all") {
 
 // Universal Queue Badges Synchronizer
 function updateAllQueueBadges() {
-  const isBrowser = activeSystemChannel === "browser";
-  const queue = isBrowser ? BrowserPlayer.queue : (currentState?.channels?.bot?.queue || currentState?.queue || []);
+  const isLocal = isLocalChannel(activeSystemChannel);
+  const queue = isLocal ? BrowserPlayer.queue : (currentState?.channels?.bot?.queue || currentState?.queue || []);
   const count = Array.isArray(queue) ? queue.length : 0;
 
   const bHome = document.getElementById("homeQueueBadge");
@@ -3132,12 +3192,12 @@ function renderQueueView() {
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  const isBrowser = activeSystemChannel === "browser";
-  const queue = isBrowser ? BrowserPlayer.queue : (currentState?.channels?.bot?.queue || currentState?.queue || []);
-  const history = isBrowser ? BrowserPlayer.history : (currentState?.channels?.bot?.history || currentState?.history || []);
+  const isLocal = isLocalChannel(activeSystemChannel);
+  const queue = isLocal ? BrowserPlayer.queue : (currentState?.channels?.bot?.queue || currentState?.queue || []);
+  const history = isLocal ? BrowserPlayer.history : (currentState?.channels?.bot?.history || currentState?.history || []);
 
   // Update Now Playing card in Queue view
-  const currentTrack = isBrowser ? BrowserPlayer.currentTrack : (currentState?.channels?.bot?.current || currentState?.current);
+  const currentTrack = isLocal ? BrowserPlayer.currentTrack : (currentState?.channels?.bot?.current || currentState?.current);
   const nowCard = document.getElementById("queueNowPlayingCard");
   const nowArt = document.getElementById("queueNowPlayingArt");
   const nowTitle = document.getElementById("queueNowPlayingTitle");
@@ -4086,8 +4146,8 @@ async function toggleTrackFavorite(track) {
 }
 
 async function saveUserQueue() {
-  const isBrowser = activeSystemChannel === "browser";
-  const q = isBrowser ? BrowserPlayer.queue : [];
+  const isLocal = isLocalChannel(activeSystemChannel);
+  const q = isLocal ? BrowserPlayer.queue : [];
   try {
     localStorage.setItem("ahm_browser_queue", JSON.stringify(q));
   } catch (e) {}
@@ -4212,7 +4272,7 @@ function playAllLikedSongs() {
     return;
   }
   showToast(`Playing all ${userFavorites.length} Liked Songs...`);
-  if (activeSystemChannel === "browser" || activeSystemChannel === "all") {
+  if (isLocalChannel(activeSystemChannel)) {
     BrowserPlayer.prime();
     const first = userFavorites[0];
     BrowserPlayer.playNow(first);
@@ -4231,7 +4291,7 @@ function playAllLikedSongs() {
 }
 
 function updateHeartButtonStatus() {
-  const cur = activeSystemChannel === "browser"
+  const cur = isLocalChannel(activeSystemChannel)
     ? BrowserPlayer.currentTrack
     : (currentState?.channels?.[activeSystemChannel]?.current || currentState?.current);
   const isLiked = isTrackFavorited(cur);
@@ -5702,12 +5762,12 @@ function openExpandedPlayer() {
   if (!overlay) return;
 
   // Sync current track metadata & art immediately
-  const cur = activeSystemChannel === "browser"
+  const cur = isLocalChannel(activeSystemChannel)
     ? BrowserPlayer.currentTrack
     : (currentState?.channels?.[activeSystemChannel]?.current || currentState?.current);
 
   if (cur) {
-    updateUIWithTrack(cur, activeSystemChannel === "browser" ? BrowserPlayer.isPlaying() : currentState?.playing);
+    updateUIWithTrack(cur, isLocalChannel(activeSystemChannel) ? BrowserPlayer.isPlaying() : currentState?.playing);
   } else {
     updateUIWithTrack(null, false);
   }
@@ -5716,8 +5776,8 @@ function openExpandedPlayer() {
   // Update repeat / shuffle / heart indicators on expanded controls
   if (typeof updateHeartButtonStatus === "function") updateHeartButtonStatus();
 
-  const isShuffle = activeSystemChannel === "browser" ? BrowserPlayer.shuffle : false;
-  const repeatMode = activeSystemChannel === "browser" ? BrowserPlayer.repeat : "off";
+  const isShuffle = isLocalChannel(activeSystemChannel) ? BrowserPlayer.shuffle : false;
+  const repeatMode = isLocalChannel(activeSystemChannel) ? BrowserPlayer.repeat : "off";
   document.getElementById("btnExpandedShuffle")?.classList.toggle("active", Boolean(isShuffle));
   document.getElementById("btnExpandedRepeat")?.classList.toggle("active", repeatMode !== "off");
 
@@ -5775,7 +5835,7 @@ function savePlaybackState() {
     const isEnabled = localStorage.getItem("ahm_resume_last_played") !== "false";
     if (!isEnabled) return;
 
-    const cur = activeSystemChannel === "browser"
+    const cur = isLocalChannel(activeSystemChannel)
       ? BrowserPlayer.currentTrack
       : (currentState?.channels?.[activeSystemChannel]?.current || currentState?.current);
 
@@ -5783,7 +5843,7 @@ function savePlaybackState() {
 
     let pos = 0;
     let dur = 0;
-    if (activeSystemChannel === "browser") {
+    if (isLocalChannel(activeSystemChannel)) {
       pos = BrowserPlayer.audio?.currentTime || (BrowserPlayer.savedPosition || 0);
       dur = BrowserPlayer.audio?.duration || (cur.duration ? cur.duration / 1000 : 0);
     } else {
@@ -6335,7 +6395,7 @@ function initEventListeners() {
     const handleSeek = (e) => {
       const rect = progressTrack.getBoundingClientRect();
       const frac = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-      if (activeSystemChannel === "browser") {
+      if (isLocalChannel(activeSystemChannel)) {
         const dur = BrowserPlayer.audio?.duration || 0;
         BrowserPlayer.seek(frac * dur);
       } else {
@@ -6368,7 +6428,7 @@ function initEventListeners() {
 
   // Heart / Like Buttons (Toggles Liked Songs for currently playing track)
   const toggleCurrentSongLike = () => {
-    const cur = activeSystemChannel === "browser"
+    const cur = isLocalChannel(activeSystemChannel)
       ? BrowserPlayer.currentTrack
       : (currentState?.channels?.[activeSystemChannel]?.current || currentState?.current);
     if (cur) {
@@ -6659,15 +6719,15 @@ function initEventListeners() {
   // Expanded Player Controls
   document.getElementById("btnExpandedPlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnExpandedPrev")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") BrowserPlayer.prev();
+    if (isLocalChannel(activeSystemChannel)) BrowserPlayer.prev();
     else sendAction("prev");
   });
   document.getElementById("btnExpandedNext")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") BrowserPlayer.next();
+    if (isLocalChannel(activeSystemChannel)) BrowserPlayer.next();
     else sendAction("next");
   });
   document.getElementById("btnExpandedShuffle")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") {
+    if (isLocalChannel(activeSystemChannel)) {
       BrowserPlayer.toggleShuffle();
       document.getElementById("btnExpandedShuffle")?.classList.toggle("active", BrowserPlayer.shuffle);
     } else {
@@ -6675,7 +6735,7 @@ function initEventListeners() {
     }
   });
   document.getElementById("btnExpandedRepeat")?.addEventListener("click", () => {
-    if (activeSystemChannel === "browser") {
+    if (isLocalChannel(activeSystemChannel)) {
       BrowserPlayer.toggleRepeat();
       document.getElementById("btnExpandedRepeat")?.classList.toggle("active", BrowserPlayer.repeat !== "off");
     } else {
@@ -6724,7 +6784,7 @@ function initEventListeners() {
     const handleExpSeek = (e) => {
       const rect = expProgressTrack.getBoundingClientRect();
       const frac = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-      if (activeSystemChannel === "browser") {
+      if (isLocalChannel(activeSystemChannel)) {
         const dur = BrowserPlayer.audio?.duration || 0;
         BrowserPlayer.seek(frac * dur);
       } else {

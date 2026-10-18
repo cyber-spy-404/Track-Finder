@@ -832,7 +832,42 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
     return data;
   }
 
-  // Fast Path 2: If query is plain text, check JioSaavn first (~150ms instant CD-quality 320kbps stream!)
+  // Fast Path 2: Instant YouTube oEmbed metadata extraction + JioSaavn direct CDN stream (~150ms, zero bot detection)
+  if (isUrl && (target.includes("youtube.com") || target.includes("youtu.be"))) {
+    try {
+      const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(target)}&format=json`;
+      const oeRes = await fetch(oembedUrl, { signal: AbortSignal.timeout(3000) });
+      if (oeRes.ok) {
+        const oeData = await oeRes.json();
+        if (oeData && oeData.title) {
+          const ytTitle = (oeData.title || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+          const ytAuthor = (oeData.author_name || "").replace(/ - Topic$/i, "").trim();
+          const q = ytAuthor ? `${ytTitle} ${ytAuthor}` : ytTitle;
+          const saavnMatch = await searchJioSaavn(q, 3, signal);
+          if (saavnMatch.length > 0 && saavnMatch[0].streamUrl) {
+            const top = saavnMatch[0];
+            const data = {
+              title: oeData.title || top.title,
+              author: ytAuthor || top.author,
+              duration: top.duration || 0,
+              streamUrl: top.streamUrl,
+              artworkUrl: oeData.thumbnail_url || top.artworkUrl || "logo.png"
+            };
+            directStreamCache.set(cleanKey, { time: Date.now(), data });
+            return data;
+          }
+          streamMeta = {
+            title: oeData.title,
+            author: ytAuthor,
+            duration: 0,
+            artworkUrl: oeData.thumbnail_url
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Fast Path 3: If query is plain text, check JioSaavn first (~150ms instant CD-quality 320kbps stream!)
   if (!isUrl) {
     try {
       if (signal?.aborted) return null;
@@ -855,7 +890,7 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
 
   if (signal?.aborted) return null;
 
-  // Fast Path 3: Single-step yt-dlp android extraction
+  // Fast Path 4: Single-step yt-dlp android extraction
   if (!isUrl) {
     const cachedSearch = searchCache.get(cleanKey);
     if (cachedSearch && Array.isArray(cachedSearch.results) && cachedSearch.results.length > 0) {
@@ -1056,7 +1091,7 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
 // ==========================================================================
 // SPOTIFY INFINITE RADIO & AUTOPLAY GENERATION ENGINE
 // ==========================================================================
-async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterless", limit = 15, signal = null) {
+async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterless", limit = 15, signal = null, channel = "browser") {
   if (signal?.aborted) return [];
   const normTitle = (seedTitle || "").trim().toLowerCase();
   const normArtist = (seedArtist || "").trim();
@@ -1079,7 +1114,7 @@ async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterl
         artworkUrl: "logo.png",
         streamUrl: quranUrl,
         rawStreamUrl: quranUrl,
-        proxyStreamUrl: `/api/stream-audio?channel=browser&url=${encodeURIComponent(quranUrl)}`,
+        proxyStreamUrl: `/api/stream-audio?channel=${encodeURIComponent(channel)}&url=${encodeURIComponent(quranUrl)}`,
         source: "quran",
         isRadio: true,
         radioSeed: seedTitle
@@ -1088,27 +1123,36 @@ async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterl
     return radio;
   }
 
-  // 2. Music Radio via JioSaavn & YouTube Multi-Source Search
-  const primaryArtist = (normArtist || "").split(/[,&x/]|feat\.|ft\./i)[0].trim();
-  const cleanTitle = (seedTitle || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+  // 2. Music Radio via Multi-Query JioSaavn Engine (Guaranteed 320kbps CD-Quality Streams)
+  const isGenericArtist = !normArtist || /^(youtube music|trending music|music artist|artist|unknown|various artists|cyberspy 404)$/i.test(normArtist);
+  const primaryArtist = isGenericArtist ? "" : normArtist.split(/[,&x/]|feat\.|ft\./i)[0].trim();
+  const cleanTitle = (seedTitle || "").replace(/\(.*?\)|\[.*?\]/g, "").replace(/^track\s*\d+/i, "").trim();
   const normalizedSeed = cleanTitle.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  const queryA = primaryArtist ? `${primaryArtist} top songs` : `${cleanTitle} hits`;
-  const queryB = primaryArtist ? `${cleanTitle} ${primaryArtist}` : `${cleanTitle} similar`;
+  const searchQueries = [];
+  if (primaryArtist) {
+    searchQueries.push(primaryArtist); // Artist top catalog
+    if (cleanTitle) searchQueries.push(`${cleanTitle} ${primaryArtist}`);
+    searchQueries.push(`${primaryArtist} hits`);
+  } else if (cleanTitle) {
+    searchQueries.push(cleanTitle);
+    searchQueries.push(`${cleanTitle} song`);
+    searchQueries.push(`${cleanTitle} hits`);
+  } else {
+    searchQueries.push("Top Trending Songs");
+  }
 
-  const [resA, resB] = await Promise.all([
-    searchJioSaavn(queryA, Math.min(limit, 12), signal).catch(() => []),
-    searchJioSaavn(queryB, Math.min(limit, 12), signal).catch(() => [])
-  ]);
+  const searchPromises = searchQueries.map(q => searchJioSaavn(q, Math.min(limit, 12), signal).catch(() => []));
+  const queryResults = await Promise.all(searchPromises);
 
   if (signal?.aborted) return [];
 
-  const rawList = [...resA, ...resB];
+  const rawList = queryResults.flat();
   const seen = new Set();
   const tracks = [];
 
   for (const t of rawList) {
-    if (!t || !t.title) continue;
+    if (!t || !t.title || !t.streamUrl) continue;
     const tNorm = t.title.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (normalizedSeed && (tNorm.includes(normalizedSeed) || normalizedSeed.includes(tNorm))) continue;
     if (seen.has(tNorm)) continue;
@@ -1121,32 +1165,29 @@ async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterl
       ...t,
       isRadio: true,
       radioSeed: seedTitle,
-      proxyStreamUrl: t.streamUrl ? `/api/stream-audio?channel=browser&url=${encodeURIComponent(t.streamUrl)}` : null
+      proxyStreamUrl: `/api/stream-audio?channel=${encodeURIComponent(channel)}&url=${encodeURIComponent(t.streamUrl)}`
     });
 
     if (tracks.length >= limit) break;
   }
 
-  // If fewer than 5 tracks found from JioSaavn, augment with searchYouTubeMulti
-  if (tracks.length < 5 && !signal?.aborted) {
+  // If still fewer than limit tracks found, broaden search
+  if (tracks.length < limit && !signal?.aborted) {
     try {
-      const ytQuery = primaryArtist ? `${primaryArtist} mix playlist` : `${cleanTitle} radio`;
-      const ytResults = await searchYouTubeMulti(ytQuery, limit - tracks.length, signal);
-      for (const yt of ytResults) {
-        if (!yt || !yt.title) continue;
-        const ytNorm = yt.title.toLowerCase().replace(/[^a-z0-9]/g, "");
-        if (normalizedSeed && (ytNorm.includes(normalizedSeed) || normalizedSeed.includes(ytNorm))) continue;
-        if (seen.has(ytNorm)) continue;
-        seen.add(ytNorm);
-
-        const validation = validateByFilterMode(filterMode, yt);
+      const fallbackQuery = primaryArtist ? `${primaryArtist} best` : "Trending Hindi Songs";
+      const extraTracks = await searchJioSaavn(fallbackQuery, limit - tracks.length + 5, signal);
+      for (const t of extraTracks) {
+        if (!t || !t.title || !t.streamUrl) continue;
+        const tNorm = t.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (seen.has(tNorm)) continue;
+        seen.add(tNorm);
+        const validation = validateByFilterMode(filterMode, t);
         if (!validation.allowed) continue;
-
         tracks.push({
-          ...yt,
+          ...t,
           isRadio: true,
           radioSeed: seedTitle,
-          proxyStreamUrl: `/api/stream-audio?channel=browser&url=${encodeURIComponent(yt.url || yt.title)}`
+          proxyStreamUrl: `/api/stream-audio?channel=${encodeURIComponent(channel)}&url=${encodeURIComponent(t.streamUrl)}`
         });
         if (tracks.length >= limit) break;
       }
@@ -2391,9 +2432,11 @@ const server = http.createServer(async (req, res) => {
     const seedTitle = (parsedUrl.searchParams.get("seedTitle") || "").trim();
     const seedArtist = (parsedUrl.searchParams.get("seedArtist") || "").trim();
     const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
+    const defaultPlatform = getClientPlatform(req, parsedUrl);
+    const targetChannel = parsedUrl.searchParams.get("channel") || defaultPlatform;
     const limit = Math.min(Math.max(parseInt(parsedUrl.searchParams.get("limit") || "15", 10), 5), 30);
 
-    const radioTracks = await generateRadioStation(seedTitle, seedArtist, filterMode, limit, abortController?.signal);
+    const radioTracks = await generateRadioStation(seedTitle, seedArtist, filterMode, limit, abortController?.signal, targetChannel);
     res.writeHead(200, {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
@@ -2401,6 +2444,7 @@ const server = http.createServer(async (req, res) => {
     });
     return res.end(JSON.stringify({
       success: true,
+      channel: targetChannel,
       seed: { title: seedTitle, artist: seedArtist },
       station: `${seedTitle || seedArtist || "Spotify"} Radio`,
       tracks: radioTracks

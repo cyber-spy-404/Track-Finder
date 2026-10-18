@@ -75,7 +75,7 @@
     "favorites": [],
     "queue": [],
     "createdAt": 1791997060165,
-    "lastActive": 1792279459322,
+    "lastActive": 1792279898627,
     "_id": "6ad3c313090b90edc7cc0578",
     "tasteProfile": {
       "listenedTracks": [],
@@ -4594,25 +4594,18 @@
         "bollywood",
         "romantic"
       ],
-      "lastUpdatedDate": "2026-10-17",
+      "lastUpdatedDate": "2026-10-18",
       "dailyMixes": [
         {
-          "id": "daily-mix-1-2026-10-17",
+          "id": "daily-mix-1-2026-10-18",
           "name": "Daily Mix 1 • Bollywood Melodies",
-          "desc": "Curated today for Md Aswif Sarkar Sarkar • Featuring Crew - Diljit Dosanjh and more",
+          "desc": "Curated today for Md Aswif Sarkar Sarkar • Featuring Bollywood Chartbusters and more",
           "badge": "Updated Today",
           "genre": "bollywood",
           "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)",
-          "coverUrl": "covers/hot_hits_hindi.jpg",
+          "coverUrl": "covers/bollywood_butter.jpg",
           "tracksCount": 8,
           "tracks": [
-            {
-              "title": "Satranga",
-              "artist": "Arijit Singh (Animal)",
-              "duration": "04:31",
-              "artworkUrl": "covers/hot_hits_hindi.jpg",
-              "query": "Satranga Animal Arijit Singh"
-            },
             {
               "title": "Pee Loon",
               "artist": "Mohit Chauhan & Pritam",
@@ -4661,162 +4654,26 @@
               "duration": "03:20",
               "artworkUrl": "covers/hot_hits_hindi.jpg",
               "query": "Chaleya Jawan Arijit Singh"
+            },
+            {
+              "title": "Shayad",
+              "artist": "Arijit Singh & Pritam",
+              "duration": "04:07",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Shayad Love Aaj Kal Arijit Singh"
             }
           ]
         },
         {
-          "id": "daily-mix-2-2026-10-17",
+          "id": "daily-mix-2-2026-10-18",
           "name": "Daily Mix 2 • Heartfelt Romance",
           "desc": "Curated today for Md Aswif Sarkar Sarkar • Heartfelt Romance favorites",
           "badge": "Updated Today",
           "genre": "romantic",
           "gradient": "linear-gradient(145deg, #331A26 0%, #170C12 100%)",
-          "coverUrl": "covers/top50_india.jpg",
+          "coverUrl": "covers/atif_aslam.jpg",
           "tracksCount": 8,
           "tracks": [
-            {
-              "title": "Apna Bana Le",
-              "artist": "Arijit Singh & Sachin-Jigar",
-              "duration": "04:21",
-              "artworkUrl": "covers/top50_india.jpg",
-              "query": "Apna Bana Le Arijit Singh"
-            },
-            {
-              "title": "Mast Magan",
-              "artist": "Arijit Singh & Chinmayi",
-              "duration": "04:40",
-              "artworkUrl": "covers/arijit_singh.jpg",
-              "query": "Mast Magan 2 States Arijit Singh"
-            },
-            {
-              "title": "Tum Hi Ho",
-              "artist": "Arijit Singh",
-              "duration": "04:22",
-              "artworkUrl": "covers/arijit_singh.jpg",
-              "query": "Tum Hi Ho Arijit Singh"
-            },
-            {
-              "title": "Pehli Nazar Mein",
-              "artist": "Atif Aslam",
-              "duration": "05:14",
-              "artworkUrl": "covers/atif_aslam.jpg",
-              "query": "Pehli Nazar Mein Atif Aslam"
-            },
-            {
-              "title": "Jeena Jeena",
-              "artist": "Atif Aslam",
-              "duration": "03:49",
-              "artworkUrl": "covers/atif_aslam.jpg",
-              "query": "Jeena Jeena Badlapur Atif Aslam"
-            },
-            {
-              "title": "Tera Hone Laga Hoon",
-              "artist": "Atif Aslam & Alisha Chinai",
-              "duration": "04:59",
-              "artworkUrl": "covers/atif_aslam.jpg",
-              "query": "Tera Hone Laga Hoon Atif Aslam"
-            },
-            {
-              "title": "Ve Kamleya",
-              "artist": "Arijit Singh & Shreya Ghoshal",
-              "duration": "04:06",
-              "artworkUrl": "covers/top50_india.jpg",
-              "query": "Ve Kamleya Arijit Singh"
-            },
-            {
-              "title": "O Sajni Re",
-              "artist": "Arijit Singh",
-              "duration": "03:25",
-              "artworkUrl": "covers/top50_india.jpg",
-              "query": "O Sajni Re Arijit Singh"
-            }
-          ]
-        },
-        {
-          "id": "daily-discovery-2026-10-17",
-          "name": "Daily Discovery • Fresh Picks",
-          "desc": "Fresh acoustic & discovery gems matching your mood for 17 Oct",
-          "badge": "Daily Discovery",
-          "genre": "indie",
-          "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
-          "coverUrl": "covers/top50_india.jpg",
-          "tracksCount": 8,
-          "tracks": [
-            {
-              "title": "Alag Aasmaan",
-              "artist": "Anuv Jain",
-              "duration": "03:52",
-              "artworkUrl": "covers/top50_india.jpg",
-              "query": "Alag Aasmaan Anuv Jain"
-            },
-            {
-              "title": "Cold/Mess",
-              "artist": "Prateek Kuhad",
-              "duration": "04:45",
-              "artworkUrl": "covers/bollywood_butter.jpg",
-              "query": "Cold Mess Prateek Kuhad"
-            },
-            {
-              "title": "Kasoor",
-              "artist": "Prateek Kuhad",
-              "duration": "03:16",
-              "artworkUrl": "covers/bollywood_butter.jpg",
-              "query": "Kasoor Prateek Kuhad"
-            },
-            {
-              "title": "Mishri",
-              "artist": "Anuv Jain",
-              "duration": "03:18",
-              "artworkUrl": "covers/top50_india.jpg",
-              "query": "Mishri Anuv Jain"
-            },
-            {
-              "title": "Baarishein",
-              "artist": "Anuv Jain",
-              "duration": "03:27",
-              "artworkUrl": "covers/top50_india.jpg",
-              "query": "Baarishein Anuv Jain"
-            },
-            {
-              "title": "Husn",
-              "artist": "Anuv Jain",
-              "duration": "03:38",
-              "artworkUrl": "covers/top50_india.jpg",
-              "query": "Husn Anuv Jain"
-            },
-            {
-              "title": "Alag Aasmaan",
-              "artist": "Anuv Jain",
-              "duration": "03:52",
-              "artworkUrl": "covers/top50_india.jpg",
-              "query": "Alag Aasmaan Anuv Jain"
-            },
-            {
-              "title": "Cold/Mess",
-              "artist": "Prateek Kuhad",
-              "duration": "04:45",
-              "artworkUrl": "covers/bollywood_butter.jpg",
-              "query": "Cold Mess Prateek Kuhad"
-            }
-          ]
-        },
-        {
-          "id": "repeat-rewind-2026-10-17",
-          "name": "Repeat Rewind • On Repeat",
-          "desc": "Your most replayed classics and personal favorites kept on deck",
-          "badge": "On Repeat",
-          "genre": "favorites",
-          "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
-          "coverUrl": "covers/arijit_singh.jpg",
-          "tracksCount": 8,
-          "tracks": [
-            {
-              "title": "Tum Hi Ho",
-              "artist": "Arijit Singh",
-              "duration": "04:22",
-              "artworkUrl": "covers/arijit_singh.jpg",
-              "query": "Tum Hi Ho Arijit Singh"
-            },
             {
               "title": "Pehli Nazar Mein",
               "artist": "Atif Aslam",
@@ -4865,36 +4722,172 @@
               "duration": "05:41",
               "artworkUrl": "covers/atif_aslam.jpg",
               "query": "Tu Jaane Na Atif Aslam"
+            },
+            {
+              "title": "Apna Bana Le",
+              "artist": "Arijit Singh & Sachin-Jigar",
+              "duration": "04:21",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Apna Bana Le Arijit Singh"
+            }
+          ]
+        },
+        {
+          "id": "daily-discovery-2026-10-18",
+          "name": "Daily Discovery • Fresh Picks",
+          "desc": "Fresh acoustic & discovery gems matching your mood for Oct 18",
+          "badge": "Daily Discovery",
+          "genre": "indie",
+          "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
+          "coverUrl": "covers/bollywood_butter.jpg",
+          "tracksCount": 8,
+          "tracks": [
+            {
+              "title": "Cold/Mess",
+              "artist": "Prateek Kuhad",
+              "duration": "04:45",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Cold Mess Prateek Kuhad"
+            },
+            {
+              "title": "Kasoor",
+              "artist": "Prateek Kuhad",
+              "duration": "03:16",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Kasoor Prateek Kuhad"
+            },
+            {
+              "title": "Mishri",
+              "artist": "Anuv Jain",
+              "duration": "03:18",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Mishri Anuv Jain"
+            },
+            {
+              "title": "Baarishein",
+              "artist": "Anuv Jain",
+              "duration": "03:27",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Baarishein Anuv Jain"
+            },
+            {
+              "title": "Husn",
+              "artist": "Anuv Jain",
+              "duration": "03:38",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Husn Anuv Jain"
+            },
+            {
+              "title": "Alag Aasmaan",
+              "artist": "Anuv Jain",
+              "duration": "03:52",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Alag Aasmaan Anuv Jain"
+            },
+            {
+              "title": "Cold/Mess",
+              "artist": "Prateek Kuhad",
+              "duration": "04:45",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Cold Mess Prateek Kuhad"
+            },
+            {
+              "title": "Kasoor",
+              "artist": "Prateek Kuhad",
+              "duration": "03:16",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Kasoor Prateek Kuhad"
+            }
+          ]
+        },
+        {
+          "id": "repeat-rewind-2026-10-18",
+          "name": "Repeat Rewind • On Repeat",
+          "desc": "Your most replayed classics and personal favorites kept on deck",
+          "badge": "On Repeat",
+          "genre": "favorites",
+          "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
+          "coverUrl": "covers/top50_india.jpg",
+          "tracksCount": 8,
+          "tracks": [
+            {
+              "title": "O Sajni Re",
+              "artist": "Arijit Singh",
+              "duration": "03:25",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "O Sajni Re Arijit Singh"
+            },
+            {
+              "title": "Heeriye",
+              "artist": "Jasleen Royal & Arijit Singh",
+              "duration": "03:15",
+              "artworkUrl": "covers/hot_hits_hindi.jpg",
+              "query": "Heeriye Jasleen Royal Arijit Singh"
+            },
+            {
+              "title": "Tu Jaane Na",
+              "artist": "Atif Aslam",
+              "duration": "05:41",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Tu Jaane Na Atif Aslam"
+            },
+            {
+              "title": "Apna Bana Le",
+              "artist": "Arijit Singh & Sachin-Jigar",
+              "duration": "04:21",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Apna Bana Le Arijit Singh"
+            },
+            {
+              "title": "Mast Magan",
+              "artist": "Arijit Singh & Chinmayi",
+              "duration": "04:40",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Mast Magan 2 States Arijit Singh"
+            },
+            {
+              "title": "Tum Hi Ho",
+              "artist": "Arijit Singh",
+              "duration": "04:22",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Tum Hi Ho Arijit Singh"
+            },
+            {
+              "title": "Pehli Nazar Mein",
+              "artist": "Atif Aslam",
+              "duration": "05:14",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Pehli Nazar Mein Atif Aslam"
+            },
+            {
+              "title": "Jeena Jeena",
+              "artist": "Atif Aslam",
+              "duration": "03:49",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Jeena Jeena Badlapur Atif Aslam"
             }
           ]
         }
       ],
       "historyCount": 9,
       "dailyMixesPackage": {
-        "todayDate": "2026-10-17",
-        "daySeed": 2149315526,
+        "todayDate": "2026-10-18",
+        "daySeed": 2149315527,
         "userDisplayName": "Md Aswif Sarkar Sarkar",
         "topGenre": "bollywood",
         "topGenreName": "Bollywood Melodies",
-        "topArtist": "Crew - Diljit Dosanjh",
+        "topArtist": "Bollywood Chartbusters",
         "dailyMixes": [
           {
-            "id": "daily-mix-1-2026-10-17",
+            "id": "daily-mix-1-2026-10-18",
             "name": "Daily Mix 1 • Bollywood Melodies",
-            "desc": "Curated today for Md Aswif Sarkar Sarkar • Featuring Crew - Diljit Dosanjh and more",
+            "desc": "Curated today for Md Aswif Sarkar Sarkar • Featuring Bollywood Chartbusters and more",
             "badge": "Updated Today",
             "genre": "bollywood",
             "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)",
-            "coverUrl": "covers/hot_hits_hindi.jpg",
+            "coverUrl": "covers/bollywood_butter.jpg",
             "tracksCount": 8,
             "tracks": [
-              {
-                "title": "Satranga",
-                "artist": "Arijit Singh (Animal)",
-                "duration": "04:31",
-                "artworkUrl": "covers/hot_hits_hindi.jpg",
-                "query": "Satranga Animal Arijit Singh"
-              },
               {
                 "title": "Pee Loon",
                 "artist": "Mohit Chauhan & Pritam",
@@ -4943,162 +4936,26 @@
                 "duration": "03:20",
                 "artworkUrl": "covers/hot_hits_hindi.jpg",
                 "query": "Chaleya Jawan Arijit Singh"
+              },
+              {
+                "title": "Shayad",
+                "artist": "Arijit Singh & Pritam",
+                "duration": "04:07",
+                "artworkUrl": "covers/bollywood_butter.jpg",
+                "query": "Shayad Love Aaj Kal Arijit Singh"
               }
             ]
           },
           {
-            "id": "daily-mix-2-2026-10-17",
+            "id": "daily-mix-2-2026-10-18",
             "name": "Daily Mix 2 • Heartfelt Romance",
             "desc": "Curated today for Md Aswif Sarkar Sarkar • Heartfelt Romance favorites",
             "badge": "Updated Today",
             "genre": "romantic",
             "gradient": "linear-gradient(145deg, #331A26 0%, #170C12 100%)",
-            "coverUrl": "covers/top50_india.jpg",
+            "coverUrl": "covers/atif_aslam.jpg",
             "tracksCount": 8,
             "tracks": [
-              {
-                "title": "Apna Bana Le",
-                "artist": "Arijit Singh & Sachin-Jigar",
-                "duration": "04:21",
-                "artworkUrl": "covers/top50_india.jpg",
-                "query": "Apna Bana Le Arijit Singh"
-              },
-              {
-                "title": "Mast Magan",
-                "artist": "Arijit Singh & Chinmayi",
-                "duration": "04:40",
-                "artworkUrl": "covers/arijit_singh.jpg",
-                "query": "Mast Magan 2 States Arijit Singh"
-              },
-              {
-                "title": "Tum Hi Ho",
-                "artist": "Arijit Singh",
-                "duration": "04:22",
-                "artworkUrl": "covers/arijit_singh.jpg",
-                "query": "Tum Hi Ho Arijit Singh"
-              },
-              {
-                "title": "Pehli Nazar Mein",
-                "artist": "Atif Aslam",
-                "duration": "05:14",
-                "artworkUrl": "covers/atif_aslam.jpg",
-                "query": "Pehli Nazar Mein Atif Aslam"
-              },
-              {
-                "title": "Jeena Jeena",
-                "artist": "Atif Aslam",
-                "duration": "03:49",
-                "artworkUrl": "covers/atif_aslam.jpg",
-                "query": "Jeena Jeena Badlapur Atif Aslam"
-              },
-              {
-                "title": "Tera Hone Laga Hoon",
-                "artist": "Atif Aslam & Alisha Chinai",
-                "duration": "04:59",
-                "artworkUrl": "covers/atif_aslam.jpg",
-                "query": "Tera Hone Laga Hoon Atif Aslam"
-              },
-              {
-                "title": "Ve Kamleya",
-                "artist": "Arijit Singh & Shreya Ghoshal",
-                "duration": "04:06",
-                "artworkUrl": "covers/top50_india.jpg",
-                "query": "Ve Kamleya Arijit Singh"
-              },
-              {
-                "title": "O Sajni Re",
-                "artist": "Arijit Singh",
-                "duration": "03:25",
-                "artworkUrl": "covers/top50_india.jpg",
-                "query": "O Sajni Re Arijit Singh"
-              }
-            ]
-          },
-          {
-            "id": "daily-discovery-2026-10-17",
-            "name": "Daily Discovery • Fresh Picks",
-            "desc": "Fresh acoustic & discovery gems matching your mood for 17 Oct",
-            "badge": "Daily Discovery",
-            "genre": "indie",
-            "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
-            "coverUrl": "covers/top50_india.jpg",
-            "tracksCount": 8,
-            "tracks": [
-              {
-                "title": "Alag Aasmaan",
-                "artist": "Anuv Jain",
-                "duration": "03:52",
-                "artworkUrl": "covers/top50_india.jpg",
-                "query": "Alag Aasmaan Anuv Jain"
-              },
-              {
-                "title": "Cold/Mess",
-                "artist": "Prateek Kuhad",
-                "duration": "04:45",
-                "artworkUrl": "covers/bollywood_butter.jpg",
-                "query": "Cold Mess Prateek Kuhad"
-              },
-              {
-                "title": "Kasoor",
-                "artist": "Prateek Kuhad",
-                "duration": "03:16",
-                "artworkUrl": "covers/bollywood_butter.jpg",
-                "query": "Kasoor Prateek Kuhad"
-              },
-              {
-                "title": "Mishri",
-                "artist": "Anuv Jain",
-                "duration": "03:18",
-                "artworkUrl": "covers/top50_india.jpg",
-                "query": "Mishri Anuv Jain"
-              },
-              {
-                "title": "Baarishein",
-                "artist": "Anuv Jain",
-                "duration": "03:27",
-                "artworkUrl": "covers/top50_india.jpg",
-                "query": "Baarishein Anuv Jain"
-              },
-              {
-                "title": "Husn",
-                "artist": "Anuv Jain",
-                "duration": "03:38",
-                "artworkUrl": "covers/top50_india.jpg",
-                "query": "Husn Anuv Jain"
-              },
-              {
-                "title": "Alag Aasmaan",
-                "artist": "Anuv Jain",
-                "duration": "03:52",
-                "artworkUrl": "covers/top50_india.jpg",
-                "query": "Alag Aasmaan Anuv Jain"
-              },
-              {
-                "title": "Cold/Mess",
-                "artist": "Prateek Kuhad",
-                "duration": "04:45",
-                "artworkUrl": "covers/bollywood_butter.jpg",
-                "query": "Cold Mess Prateek Kuhad"
-              }
-            ]
-          },
-          {
-            "id": "repeat-rewind-2026-10-17",
-            "name": "Repeat Rewind • On Repeat",
-            "desc": "Your most replayed classics and personal favorites kept on deck",
-            "badge": "On Repeat",
-            "genre": "favorites",
-            "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
-            "coverUrl": "covers/arijit_singh.jpg",
-            "tracksCount": 8,
-            "tracks": [
-              {
-                "title": "Tum Hi Ho",
-                "artist": "Arijit Singh",
-                "duration": "04:22",
-                "artworkUrl": "covers/arijit_singh.jpg",
-                "query": "Tum Hi Ho Arijit Singh"
-              },
               {
                 "title": "Pehli Nazar Mein",
                 "artist": "Atif Aslam",
@@ -5147,33 +5004,169 @@
                 "duration": "05:41",
                 "artworkUrl": "covers/atif_aslam.jpg",
                 "query": "Tu Jaane Na Atif Aslam"
+              },
+              {
+                "title": "Apna Bana Le",
+                "artist": "Arijit Singh & Sachin-Jigar",
+                "duration": "04:21",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Apna Bana Le Arijit Singh"
+              }
+            ]
+          },
+          {
+            "id": "daily-discovery-2026-10-18",
+            "name": "Daily Discovery • Fresh Picks",
+            "desc": "Fresh acoustic & discovery gems matching your mood for Oct 18",
+            "badge": "Daily Discovery",
+            "genre": "indie",
+            "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
+            "coverUrl": "covers/bollywood_butter.jpg",
+            "tracksCount": 8,
+            "tracks": [
+              {
+                "title": "Cold/Mess",
+                "artist": "Prateek Kuhad",
+                "duration": "04:45",
+                "artworkUrl": "covers/bollywood_butter.jpg",
+                "query": "Cold Mess Prateek Kuhad"
+              },
+              {
+                "title": "Kasoor",
+                "artist": "Prateek Kuhad",
+                "duration": "03:16",
+                "artworkUrl": "covers/bollywood_butter.jpg",
+                "query": "Kasoor Prateek Kuhad"
+              },
+              {
+                "title": "Mishri",
+                "artist": "Anuv Jain",
+                "duration": "03:18",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Mishri Anuv Jain"
+              },
+              {
+                "title": "Baarishein",
+                "artist": "Anuv Jain",
+                "duration": "03:27",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Baarishein Anuv Jain"
+              },
+              {
+                "title": "Husn",
+                "artist": "Anuv Jain",
+                "duration": "03:38",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Husn Anuv Jain"
+              },
+              {
+                "title": "Alag Aasmaan",
+                "artist": "Anuv Jain",
+                "duration": "03:52",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Alag Aasmaan Anuv Jain"
+              },
+              {
+                "title": "Cold/Mess",
+                "artist": "Prateek Kuhad",
+                "duration": "04:45",
+                "artworkUrl": "covers/bollywood_butter.jpg",
+                "query": "Cold Mess Prateek Kuhad"
+              },
+              {
+                "title": "Kasoor",
+                "artist": "Prateek Kuhad",
+                "duration": "03:16",
+                "artworkUrl": "covers/bollywood_butter.jpg",
+                "query": "Kasoor Prateek Kuhad"
+              }
+            ]
+          },
+          {
+            "id": "repeat-rewind-2026-10-18",
+            "name": "Repeat Rewind • On Repeat",
+            "desc": "Your most replayed classics and personal favorites kept on deck",
+            "badge": "On Repeat",
+            "genre": "favorites",
+            "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
+            "coverUrl": "covers/top50_india.jpg",
+            "tracksCount": 8,
+            "tracks": [
+              {
+                "title": "O Sajni Re",
+                "artist": "Arijit Singh",
+                "duration": "03:25",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "O Sajni Re Arijit Singh"
+              },
+              {
+                "title": "Heeriye",
+                "artist": "Jasleen Royal & Arijit Singh",
+                "duration": "03:15",
+                "artworkUrl": "covers/hot_hits_hindi.jpg",
+                "query": "Heeriye Jasleen Royal Arijit Singh"
+              },
+              {
+                "title": "Tu Jaane Na",
+                "artist": "Atif Aslam",
+                "duration": "05:41",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Tu Jaane Na Atif Aslam"
+              },
+              {
+                "title": "Apna Bana Le",
+                "artist": "Arijit Singh & Sachin-Jigar",
+                "duration": "04:21",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Apna Bana Le Arijit Singh"
+              },
+              {
+                "title": "Mast Magan",
+                "artist": "Arijit Singh & Chinmayi",
+                "duration": "04:40",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Mast Magan 2 States Arijit Singh"
+              },
+              {
+                "title": "Tum Hi Ho",
+                "artist": "Arijit Singh",
+                "duration": "04:22",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Tum Hi Ho Arijit Singh"
+              },
+              {
+                "title": "Pehli Nazar Mein",
+                "artist": "Atif Aslam",
+                "duration": "05:14",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Pehli Nazar Mein Atif Aslam"
+              },
+              {
+                "title": "Jeena Jeena",
+                "artist": "Atif Aslam",
+                "duration": "03:49",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Jeena Jeena Badlapur Atif Aslam"
               }
             ]
           }
         ],
         "quickTiles": [
           {
-            "id": "daily-mix-1-2026-10-17",
+            "id": "daily-mix-1-2026-10-18",
             "name": "Bollywood Melodies",
-            "coverUrl": "covers/hot_hits_hindi.jpg",
+            "coverUrl": "covers/bollywood_butter.jpg",
             "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)",
             "playlistObj": {
-              "id": "daily-mix-1-2026-10-17",
+              "id": "daily-mix-1-2026-10-18",
               "name": "Daily Mix 1 • Bollywood Melodies",
-              "desc": "Curated today for Md Aswif Sarkar Sarkar • Featuring Crew - Diljit Dosanjh and more",
+              "desc": "Curated today for Md Aswif Sarkar Sarkar • Featuring Bollywood Chartbusters and more",
               "badge": "Updated Today",
               "genre": "bollywood",
               "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)",
-              "coverUrl": "covers/hot_hits_hindi.jpg",
+              "coverUrl": "covers/bollywood_butter.jpg",
               "tracksCount": 8,
               "tracks": [
-                {
-                  "title": "Satranga",
-                  "artist": "Arijit Singh (Animal)",
-                  "duration": "04:31",
-                  "artworkUrl": "covers/hot_hits_hindi.jpg",
-                  "query": "Satranga Animal Arijit Singh"
-                },
                 {
                   "title": "Pee Loon",
                   "artist": "Mohit Chauhan & Pritam",
@@ -5222,208 +5215,32 @@
                   "duration": "03:20",
                   "artworkUrl": "covers/hot_hits_hindi.jpg",
                   "query": "Chaleya Jawan Arijit Singh"
+                },
+                {
+                  "title": "Shayad",
+                  "artist": "Arijit Singh & Pritam",
+                  "duration": "04:07",
+                  "artworkUrl": "covers/bollywood_butter.jpg",
+                  "query": "Shayad Love Aaj Kal Arijit Singh"
                 }
               ]
             }
           },
           {
-            "id": "daily-mix-2-2026-10-17",
+            "id": "daily-mix-2-2026-10-18",
             "name": "Heartfelt Romance",
-            "coverUrl": "covers/top50_india.jpg",
+            "coverUrl": "covers/atif_aslam.jpg",
             "gradient": "linear-gradient(145deg, #331A26 0%, #170C12 100%)",
             "playlistObj": {
-              "id": "daily-mix-2-2026-10-17",
+              "id": "daily-mix-2-2026-10-18",
               "name": "Daily Mix 2 • Heartfelt Romance",
               "desc": "Curated today for Md Aswif Sarkar Sarkar • Heartfelt Romance favorites",
               "badge": "Updated Today",
               "genre": "romantic",
               "gradient": "linear-gradient(145deg, #331A26 0%, #170C12 100%)",
-              "coverUrl": "covers/top50_india.jpg",
+              "coverUrl": "covers/atif_aslam.jpg",
               "tracksCount": 8,
               "tracks": [
-                {
-                  "title": "Apna Bana Le",
-                  "artist": "Arijit Singh & Sachin-Jigar",
-                  "duration": "04:21",
-                  "artworkUrl": "covers/top50_india.jpg",
-                  "query": "Apna Bana Le Arijit Singh"
-                },
-                {
-                  "title": "Mast Magan",
-                  "artist": "Arijit Singh & Chinmayi",
-                  "duration": "04:40",
-                  "artworkUrl": "covers/arijit_singh.jpg",
-                  "query": "Mast Magan 2 States Arijit Singh"
-                },
-                {
-                  "title": "Tum Hi Ho",
-                  "artist": "Arijit Singh",
-                  "duration": "04:22",
-                  "artworkUrl": "covers/arijit_singh.jpg",
-                  "query": "Tum Hi Ho Arijit Singh"
-                },
-                {
-                  "title": "Pehli Nazar Mein",
-                  "artist": "Atif Aslam",
-                  "duration": "05:14",
-                  "artworkUrl": "covers/atif_aslam.jpg",
-                  "query": "Pehli Nazar Mein Atif Aslam"
-                },
-                {
-                  "title": "Jeena Jeena",
-                  "artist": "Atif Aslam",
-                  "duration": "03:49",
-                  "artworkUrl": "covers/atif_aslam.jpg",
-                  "query": "Jeena Jeena Badlapur Atif Aslam"
-                },
-                {
-                  "title": "Tera Hone Laga Hoon",
-                  "artist": "Atif Aslam & Alisha Chinai",
-                  "duration": "04:59",
-                  "artworkUrl": "covers/atif_aslam.jpg",
-                  "query": "Tera Hone Laga Hoon Atif Aslam"
-                },
-                {
-                  "title": "Ve Kamleya",
-                  "artist": "Arijit Singh & Shreya Ghoshal",
-                  "duration": "04:06",
-                  "artworkUrl": "covers/top50_india.jpg",
-                  "query": "Ve Kamleya Arijit Singh"
-                },
-                {
-                  "title": "O Sajni Re",
-                  "artist": "Arijit Singh",
-                  "duration": "03:25",
-                  "artworkUrl": "covers/top50_india.jpg",
-                  "query": "O Sajni Re Arijit Singh"
-                }
-              ]
-            }
-          },
-          {
-            "id": "liked-songs-quick",
-            "name": "Liked Songs",
-            "coverUrl": "covers/bollywood_butter.jpg",
-            "isLiked": true,
-            "gradient": "linear-gradient(135deg, #450af5, #c4efd9)"
-          },
-          {
-            "id": "top-artist-quick",
-            "name": "Crew - Diljit Dosanjh Essentials",
-            "coverUrl": "covers/hot_hits_hindi.jpg",
-            "query": "Crew - Diljit Dosanjh greatest hits",
-            "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)"
-          },
-          {
-            "id": "daily-discovery-2026-10-17",
-            "name": "Daily Discovery",
-            "coverUrl": "covers/top50_india.jpg",
-            "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
-            "playlistObj": {
-              "id": "daily-discovery-2026-10-17",
-              "name": "Daily Discovery • Fresh Picks",
-              "desc": "Fresh acoustic & discovery gems matching your mood for 17 Oct",
-              "badge": "Daily Discovery",
-              "genre": "indie",
-              "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
-              "coverUrl": "covers/top50_india.jpg",
-              "tracksCount": 8,
-              "tracks": [
-                {
-                  "title": "Alag Aasmaan",
-                  "artist": "Anuv Jain",
-                  "duration": "03:52",
-                  "artworkUrl": "covers/top50_india.jpg",
-                  "query": "Alag Aasmaan Anuv Jain"
-                },
-                {
-                  "title": "Cold/Mess",
-                  "artist": "Prateek Kuhad",
-                  "duration": "04:45",
-                  "artworkUrl": "covers/bollywood_butter.jpg",
-                  "query": "Cold Mess Prateek Kuhad"
-                },
-                {
-                  "title": "Kasoor",
-                  "artist": "Prateek Kuhad",
-                  "duration": "03:16",
-                  "artworkUrl": "covers/bollywood_butter.jpg",
-                  "query": "Kasoor Prateek Kuhad"
-                },
-                {
-                  "title": "Mishri",
-                  "artist": "Anuv Jain",
-                  "duration": "03:18",
-                  "artworkUrl": "covers/top50_india.jpg",
-                  "query": "Mishri Anuv Jain"
-                },
-                {
-                  "title": "Baarishein",
-                  "artist": "Anuv Jain",
-                  "duration": "03:27",
-                  "artworkUrl": "covers/top50_india.jpg",
-                  "query": "Baarishein Anuv Jain"
-                },
-                {
-                  "title": "Husn",
-                  "artist": "Anuv Jain",
-                  "duration": "03:38",
-                  "artworkUrl": "covers/top50_india.jpg",
-                  "query": "Husn Anuv Jain"
-                },
-                {
-                  "title": "Alag Aasmaan",
-                  "artist": "Anuv Jain",
-                  "duration": "03:52",
-                  "artworkUrl": "covers/top50_india.jpg",
-                  "query": "Alag Aasmaan Anuv Jain"
-                },
-                {
-                  "title": "Cold/Mess",
-                  "artist": "Prateek Kuhad",
-                  "duration": "04:45",
-                  "artworkUrl": "covers/bollywood_butter.jpg",
-                  "query": "Cold Mess Prateek Kuhad"
-                }
-              ]
-            }
-          },
-          {
-            "id": "surah-rahman-quick",
-            "name": "Surah Ar-Rahman",
-            "desc": "Mishary Alafasy",
-            "isSurah": 55,
-            "gradient": "linear-gradient(145deg, #1A2E26 0%, #0D1713 100%)",
-            "coverUrl": "logo.png"
-          },
-          {
-            "id": "top50-india-quick",
-            "name": "Top 50 India",
-            "coverUrl": "covers/top50_india.jpg",
-            "playlistId": "top50-india"
-          },
-          {
-            "id": "repeat-rewind-quick",
-            "name": "Repeat Rewind",
-            "coverUrl": "covers/arijit_singh.jpg",
-            "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
-            "playlistObj": {
-              "id": "repeat-rewind-2026-10-17",
-              "name": "Repeat Rewind • On Repeat",
-              "desc": "Your most replayed classics and personal favorites kept on deck",
-              "badge": "On Repeat",
-              "genre": "favorites",
-              "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
-              "coverUrl": "covers/arijit_singh.jpg",
-              "tracksCount": 8,
-              "tracks": [
-                {
-                  "title": "Tum Hi Ho",
-                  "artist": "Arijit Singh",
-                  "duration": "04:22",
-                  "artworkUrl": "covers/arijit_singh.jpg",
-                  "query": "Tum Hi Ho Arijit Singh"
-                },
                 {
                   "title": "Pehli Nazar Mein",
                   "artist": "Atif Aslam",
@@ -5472,29 +5289,198 @@
                   "duration": "05:41",
                   "artworkUrl": "covers/atif_aslam.jpg",
                   "query": "Tu Jaane Na Atif Aslam"
+                },
+                {
+                  "title": "Apna Bana Le",
+                  "artist": "Arijit Singh & Sachin-Jigar",
+                  "duration": "04:21",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Apna Bana Le Arijit Singh"
+                }
+              ]
+            }
+          },
+          {
+            "id": "liked-songs-quick",
+            "name": "Liked Songs",
+            "coverUrl": "covers/bollywood_butter.jpg",
+            "isLiked": true,
+            "gradient": "linear-gradient(135deg, #450af5, #c4efd9)"
+          },
+          {
+            "id": "top-artist-quick",
+            "name": "Bollywood Chartbusters Essentials",
+            "coverUrl": "covers/bollywood_butter.jpg",
+            "query": "Bollywood Chartbusters greatest hits",
+            "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)"
+          },
+          {
+            "id": "daily-discovery-2026-10-18",
+            "name": "Daily Discovery",
+            "coverUrl": "covers/bollywood_butter.jpg",
+            "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
+            "playlistObj": {
+              "id": "daily-discovery-2026-10-18",
+              "name": "Daily Discovery • Fresh Picks",
+              "desc": "Fresh acoustic & discovery gems matching your mood for Oct 18",
+              "badge": "Daily Discovery",
+              "genre": "indie",
+              "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
+              "coverUrl": "covers/bollywood_butter.jpg",
+              "tracksCount": 8,
+              "tracks": [
+                {
+                  "title": "Cold/Mess",
+                  "artist": "Prateek Kuhad",
+                  "duration": "04:45",
+                  "artworkUrl": "covers/bollywood_butter.jpg",
+                  "query": "Cold Mess Prateek Kuhad"
+                },
+                {
+                  "title": "Kasoor",
+                  "artist": "Prateek Kuhad",
+                  "duration": "03:16",
+                  "artworkUrl": "covers/bollywood_butter.jpg",
+                  "query": "Kasoor Prateek Kuhad"
+                },
+                {
+                  "title": "Mishri",
+                  "artist": "Anuv Jain",
+                  "duration": "03:18",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Mishri Anuv Jain"
+                },
+                {
+                  "title": "Baarishein",
+                  "artist": "Anuv Jain",
+                  "duration": "03:27",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Baarishein Anuv Jain"
+                },
+                {
+                  "title": "Husn",
+                  "artist": "Anuv Jain",
+                  "duration": "03:38",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Husn Anuv Jain"
+                },
+                {
+                  "title": "Alag Aasmaan",
+                  "artist": "Anuv Jain",
+                  "duration": "03:52",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Alag Aasmaan Anuv Jain"
+                },
+                {
+                  "title": "Cold/Mess",
+                  "artist": "Prateek Kuhad",
+                  "duration": "04:45",
+                  "artworkUrl": "covers/bollywood_butter.jpg",
+                  "query": "Cold Mess Prateek Kuhad"
+                },
+                {
+                  "title": "Kasoor",
+                  "artist": "Prateek Kuhad",
+                  "duration": "03:16",
+                  "artworkUrl": "covers/bollywood_butter.jpg",
+                  "query": "Kasoor Prateek Kuhad"
+                }
+              ]
+            }
+          },
+          {
+            "id": "surah-rahman-quick",
+            "name": "Surah Ar-Rahman",
+            "desc": "Mishary Alafasy",
+            "isSurah": 55,
+            "gradient": "linear-gradient(145deg, #1A2E26 0%, #0D1713 100%)",
+            "coverUrl": "logo.png"
+          },
+          {
+            "id": "top50-india-quick",
+            "name": "Top 50 India",
+            "coverUrl": "covers/top50_india.jpg",
+            "playlistId": "top50-india"
+          },
+          {
+            "id": "repeat-rewind-quick",
+            "name": "Repeat Rewind",
+            "coverUrl": "covers/top50_india.jpg",
+            "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
+            "playlistObj": {
+              "id": "repeat-rewind-2026-10-18",
+              "name": "Repeat Rewind • On Repeat",
+              "desc": "Your most replayed classics and personal favorites kept on deck",
+              "badge": "On Repeat",
+              "genre": "favorites",
+              "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
+              "coverUrl": "covers/top50_india.jpg",
+              "tracksCount": 8,
+              "tracks": [
+                {
+                  "title": "O Sajni Re",
+                  "artist": "Arijit Singh",
+                  "duration": "03:25",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "O Sajni Re Arijit Singh"
+                },
+                {
+                  "title": "Heeriye",
+                  "artist": "Jasleen Royal & Arijit Singh",
+                  "duration": "03:15",
+                  "artworkUrl": "covers/hot_hits_hindi.jpg",
+                  "query": "Heeriye Jasleen Royal Arijit Singh"
+                },
+                {
+                  "title": "Tu Jaane Na",
+                  "artist": "Atif Aslam",
+                  "duration": "05:41",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Tu Jaane Na Atif Aslam"
+                },
+                {
+                  "title": "Apna Bana Le",
+                  "artist": "Arijit Singh & Sachin-Jigar",
+                  "duration": "04:21",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Apna Bana Le Arijit Singh"
+                },
+                {
+                  "title": "Mast Magan",
+                  "artist": "Arijit Singh & Chinmayi",
+                  "duration": "04:40",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Mast Magan 2 States Arijit Singh"
+                },
+                {
+                  "title": "Tum Hi Ho",
+                  "artist": "Arijit Singh",
+                  "duration": "04:22",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Tum Hi Ho Arijit Singh"
+                },
+                {
+                  "title": "Pehli Nazar Mein",
+                  "artist": "Atif Aslam",
+                  "duration": "05:14",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Pehli Nazar Mein Atif Aslam"
+                },
+                {
+                  "title": "Jeena Jeena",
+                  "artist": "Atif Aslam",
+                  "duration": "03:49",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Jeena Jeena Badlapur Atif Aslam"
                 }
               ]
             }
           }
         ],
         "becauseYouLove": {
-          "title": "Because You Love Crew - Diljit Dosanjh",
-          "subtitle": "Recommendations based on your repeated listening to Crew - Diljit Dosanjh & Bollywood Melodies",
+          "title": "Because You Love Bollywood Chartbusters",
+          "subtitle": "Recommendations based on your repeated listening to Bollywood Chartbusters & Bollywood Melodies",
           "tracks": [
-            {
-              "title": "Channa Mereya",
-              "artist": "Arijit Singh",
-              "duration": "04:49",
-              "artworkUrl": "covers/arijit_singh.jpg",
-              "query": "Channa Mereya Ae Dil Hai Mushkil"
-            },
-            {
-              "title": "Chaleya",
-              "artist": "Arijit Singh & Shilpa Rao",
-              "duration": "03:20",
-              "artworkUrl": "covers/hot_hits_hindi.jpg",
-              "query": "Chaleya Jawan Arijit Singh"
-            },
             {
               "title": "Shayad",
               "artist": "Arijit Singh & Pritam",
@@ -5536,13 +5522,27 @@
               "duration": "04:50",
               "artworkUrl": "covers/arijit_singh.jpg",
               "query": "Hawayein Jab Harry Met Sejal"
+            },
+            {
+              "title": "Kesariya",
+              "artist": "Arijit Singh & Pritam",
+              "duration": "04:28",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Kesariya Arijit Singh Brahmastra"
+            },
+            {
+              "title": "Tum Hi Ho",
+              "artist": "Arijit Singh & Mithoon",
+              "duration": "04:22",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Tum Hi Ho Aashiqui 2"
             }
           ]
         }
       }
     },
     "createdAt": 1792224238977,
-    "lastActive": 1792279243542,
+    "lastActive": 1792312100406,
     "_id": "6ad3c313090b90edc7cc0582"
   },
   "customer_reloadtest_example_com": {
@@ -6520,5 +6520,983 @@
     "createdAt": 1792227177941,
     "lastActive": 1792227177941,
     "_id": "6ad3c313090b90edc7cc0583"
+  },
+  "customer_rmdaswif_gmail_com": {
+    "_id": "6ad48352090b90edc7cc8551",
+    "id": "customer_rmdaswif_gmail_com",
+    "email": "rmdaswif@gmail.com",
+    "username": "rmdaswif",
+    "displayName": "Aswif",
+    "avatar": "🌙",
+    "type": "customer",
+    "passwordHash": "90d3b6e5bf54dd0739d1e9171f7e751af75b53b0df70a45b12cfcff264074d66",
+    "passwordSalt": "e1b6365dffb1b564f685ed293c414b5f",
+    "discordId": null,
+    "isServerMember": false,
+    "roles": [],
+    "favorites": [],
+    "queue": [],
+    "tasteProfile": {
+      "listenedTracks": [],
+      "artistAffinity": {},
+      "genreAffinity": {
+        "bollywood": 5,
+        "romantic": 5,
+        "sufi": 5
+      },
+      "preferredGenres": [
+        "bollywood",
+        "romantic",
+        "sufi"
+      ],
+      "lastUpdatedDate": "2026-10-18",
+      "dailyMixes": [
+        {
+          "id": "daily-mix-1-2026-10-18",
+          "name": "Daily Mix 1 • Bollywood Melodies",
+          "desc": "Curated today for Aswif • Featuring Arijit Singh and more",
+          "badge": "Updated Today",
+          "genre": "bollywood",
+          "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)",
+          "coverUrl": "covers/arijit_singh.jpg",
+          "tracksCount": 8,
+          "tracks": [
+            {
+              "title": "Tum Hi Ho",
+              "artist": "Arijit Singh & Mithoon",
+              "duration": "04:22",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Tum Hi Ho Aashiqui 2"
+            },
+            {
+              "title": "Channa Mereya",
+              "artist": "Arijit Singh",
+              "duration": "04:49",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Channa Mereya Ae Dil Hai Mushkil"
+            },
+            {
+              "title": "Chaleya",
+              "artist": "Arijit Singh & Shilpa Rao",
+              "duration": "03:20",
+              "artworkUrl": "covers/hot_hits_hindi.jpg",
+              "query": "Chaleya Jawan Arijit Singh"
+            },
+            {
+              "title": "Shayad",
+              "artist": "Arijit Singh & Pritam",
+              "duration": "04:07",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Shayad Love Aaj Kal Arijit Singh"
+            },
+            {
+              "title": "Raataan Lambiyan",
+              "artist": "Jubin Nautiyal & Asees Kaur",
+              "duration": "03:50",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Raataan Lambiyan Shershaah"
+            },
+            {
+              "title": "Satranga",
+              "artist": "Arijit Singh (Animal)",
+              "duration": "04:31",
+              "artworkUrl": "covers/hot_hits_hindi.jpg",
+              "query": "Satranga Animal Arijit Singh"
+            },
+            {
+              "title": "Pee Loon",
+              "artist": "Mohit Chauhan & Pritam",
+              "duration": "04:47",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Pee Loon Mohit Chauhan"
+            },
+            {
+              "title": "Agar Tum Saath Ho",
+              "artist": "Arijit Singh & Alka Yagnik",
+              "duration": "05:41",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Agar Tum Saath Ho Tamasha"
+            }
+          ]
+        },
+        {
+          "id": "daily-mix-2-2026-10-18",
+          "name": "Daily Mix 2 • Heartfelt Romance",
+          "desc": "Curated today for Aswif • Heartfelt Romance favorites",
+          "badge": "Updated Today",
+          "genre": "romantic",
+          "gradient": "linear-gradient(145deg, #331A26 0%, #170C12 100%)",
+          "coverUrl": "covers/atif_aslam.jpg",
+          "tracksCount": 8,
+          "tracks": [
+            {
+              "title": "Tera Hone Laga Hoon",
+              "artist": "Atif Aslam & Alisha Chinai",
+              "duration": "04:59",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Tera Hone Laga Hoon Atif Aslam"
+            },
+            {
+              "title": "Ve Kamleya",
+              "artist": "Arijit Singh & Shreya Ghoshal",
+              "duration": "04:06",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Ve Kamleya Arijit Singh"
+            },
+            {
+              "title": "O Sajni Re",
+              "artist": "Arijit Singh",
+              "duration": "03:25",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "O Sajni Re Arijit Singh"
+            },
+            {
+              "title": "Heeriye",
+              "artist": "Jasleen Royal & Arijit Singh",
+              "duration": "03:15",
+              "artworkUrl": "covers/hot_hits_hindi.jpg",
+              "query": "Heeriye Jasleen Royal Arijit Singh"
+            },
+            {
+              "title": "Tu Jaane Na",
+              "artist": "Atif Aslam",
+              "duration": "05:41",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Tu Jaane Na Atif Aslam"
+            },
+            {
+              "title": "Apna Bana Le",
+              "artist": "Arijit Singh & Sachin-Jigar",
+              "duration": "04:21",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Apna Bana Le Arijit Singh"
+            },
+            {
+              "title": "Mast Magan",
+              "artist": "Arijit Singh & Chinmayi",
+              "duration": "04:40",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Mast Magan 2 States Arijit Singh"
+            },
+            {
+              "title": "Tum Hi Ho",
+              "artist": "Arijit Singh",
+              "duration": "04:22",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Tum Hi Ho Arijit Singh"
+            }
+          ]
+        },
+        {
+          "id": "daily-discovery-2026-10-18",
+          "name": "Daily Discovery • Fresh Picks",
+          "desc": "Fresh acoustic & discovery gems matching your mood for Oct 18",
+          "badge": "Daily Discovery",
+          "genre": "sufi",
+          "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
+          "coverUrl": "covers/sufi_mystics.jpg",
+          "tracksCount": 8,
+          "tracks": [
+            {
+              "title": "Dam Mast Qalandar",
+              "artist": "Nusrat Fateh Ali Khan",
+              "duration": "08:15",
+              "artworkUrl": "covers/sufi_mystics.jpg",
+              "query": "Dam Mast Qalandar Nusrat Fateh Ali Khan"
+            },
+            {
+              "title": "Afreen Afreen",
+              "artist": "Rahat Fateh Ali Khan & Momina",
+              "duration": "06:45",
+              "artworkUrl": "covers/sufi_mystics.jpg",
+              "query": "Afreen Afreen Rahat Fateh Ali Khan"
+            },
+            {
+              "title": "Kun Faya Kun",
+              "artist": "A.R. Rahman, Javed Ali & Mohit Chauhan",
+              "duration": "07:53",
+              "artworkUrl": "covers/sufi_mystics.jpg",
+              "query": "Kun Faya Kun Rockstar A.R. Rahman"
+            },
+            {
+              "title": "Khwaja Mere Khwaja",
+              "artist": "A.R. Rahman",
+              "duration": "06:56",
+              "artworkUrl": "covers/sufi_mystics.jpg",
+              "query": "Khwaja Mere Khwaja Jodhaa Akbar"
+            },
+            {
+              "title": "Chap Tilak Sab Cheen Li",
+              "artist": "Rahat Fateh Ali Khan",
+              "duration": "06:12",
+              "artworkUrl": "covers/sufi_mystics.jpg",
+              "query": "Chhaap Tilak Sab Cheen Li Rahat Fateh Ali Khan"
+            },
+            {
+              "title": "Bhar Do Jholi Meri",
+              "artist": "Adnan Sami",
+              "duration": "08:19",
+              "artworkUrl": "covers/sufi_mystics.jpg",
+              "query": "Bhar Do Jholi Meri Adnan Sami"
+            },
+            {
+              "title": "Mast Nazron Se Allah Bachaye",
+              "artist": "Nusrat Fateh Ali Khan",
+              "duration": "07:22",
+              "artworkUrl": "covers/sufi_mystics.jpg",
+              "query": "Mast Nazron Se Allah Bachaye Nusrat"
+            },
+            {
+              "title": "Tajdar-e-Haram",
+              "artist": "Atif Aslam (Coke Studio)",
+              "duration": "10:28",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Tajdar e Haram Atif Aslam Coke Studio"
+            }
+          ]
+        },
+        {
+          "id": "repeat-rewind-2026-10-18",
+          "name": "Repeat Rewind • On Repeat",
+          "desc": "Your most replayed classics and personal favorites kept on deck",
+          "badge": "On Repeat",
+          "genre": "favorites",
+          "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
+          "coverUrl": "covers/top50_india.jpg",
+          "tracksCount": 8,
+          "tracks": [
+            {
+              "title": "O Sajni Re",
+              "artist": "Arijit Singh",
+              "duration": "03:25",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "O Sajni Re Arijit Singh"
+            },
+            {
+              "title": "Heeriye",
+              "artist": "Jasleen Royal & Arijit Singh",
+              "duration": "03:15",
+              "artworkUrl": "covers/hot_hits_hindi.jpg",
+              "query": "Heeriye Jasleen Royal Arijit Singh"
+            },
+            {
+              "title": "Tu Jaane Na",
+              "artist": "Atif Aslam",
+              "duration": "05:41",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Tu Jaane Na Atif Aslam"
+            },
+            {
+              "title": "Apna Bana Le",
+              "artist": "Arijit Singh & Sachin-Jigar",
+              "duration": "04:21",
+              "artworkUrl": "covers/top50_india.jpg",
+              "query": "Apna Bana Le Arijit Singh"
+            },
+            {
+              "title": "Mast Magan",
+              "artist": "Arijit Singh & Chinmayi",
+              "duration": "04:40",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Mast Magan 2 States Arijit Singh"
+            },
+            {
+              "title": "Tum Hi Ho",
+              "artist": "Arijit Singh",
+              "duration": "04:22",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Tum Hi Ho Arijit Singh"
+            },
+            {
+              "title": "Pehli Nazar Mein",
+              "artist": "Atif Aslam",
+              "duration": "05:14",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Pehli Nazar Mein Atif Aslam"
+            },
+            {
+              "title": "Jeena Jeena",
+              "artist": "Atif Aslam",
+              "duration": "03:49",
+              "artworkUrl": "covers/atif_aslam.jpg",
+              "query": "Jeena Jeena Badlapur Atif Aslam"
+            }
+          ]
+        }
+      ],
+      "historyCount": 0,
+      "dailyMixesPackage": {
+        "todayDate": "2026-10-18",
+        "daySeed": 2751561711,
+        "userDisplayName": "Aswif",
+        "topGenre": "bollywood",
+        "topGenreName": "Bollywood Melodies",
+        "topArtist": "Arijit Singh",
+        "dailyMixes": [
+          {
+            "id": "daily-mix-1-2026-10-18",
+            "name": "Daily Mix 1 • Bollywood Melodies",
+            "desc": "Curated today for Aswif • Featuring Arijit Singh and more",
+            "badge": "Updated Today",
+            "genre": "bollywood",
+            "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)",
+            "coverUrl": "covers/arijit_singh.jpg",
+            "tracksCount": 8,
+            "tracks": [
+              {
+                "title": "Tum Hi Ho",
+                "artist": "Arijit Singh & Mithoon",
+                "duration": "04:22",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Tum Hi Ho Aashiqui 2"
+              },
+              {
+                "title": "Channa Mereya",
+                "artist": "Arijit Singh",
+                "duration": "04:49",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Channa Mereya Ae Dil Hai Mushkil"
+              },
+              {
+                "title": "Chaleya",
+                "artist": "Arijit Singh & Shilpa Rao",
+                "duration": "03:20",
+                "artworkUrl": "covers/hot_hits_hindi.jpg",
+                "query": "Chaleya Jawan Arijit Singh"
+              },
+              {
+                "title": "Shayad",
+                "artist": "Arijit Singh & Pritam",
+                "duration": "04:07",
+                "artworkUrl": "covers/bollywood_butter.jpg",
+                "query": "Shayad Love Aaj Kal Arijit Singh"
+              },
+              {
+                "title": "Raataan Lambiyan",
+                "artist": "Jubin Nautiyal & Asees Kaur",
+                "duration": "03:50",
+                "artworkUrl": "covers/bollywood_butter.jpg",
+                "query": "Raataan Lambiyan Shershaah"
+              },
+              {
+                "title": "Satranga",
+                "artist": "Arijit Singh (Animal)",
+                "duration": "04:31",
+                "artworkUrl": "covers/hot_hits_hindi.jpg",
+                "query": "Satranga Animal Arijit Singh"
+              },
+              {
+                "title": "Pee Loon",
+                "artist": "Mohit Chauhan & Pritam",
+                "duration": "04:47",
+                "artworkUrl": "covers/bollywood_butter.jpg",
+                "query": "Pee Loon Mohit Chauhan"
+              },
+              {
+                "title": "Agar Tum Saath Ho",
+                "artist": "Arijit Singh & Alka Yagnik",
+                "duration": "05:41",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Agar Tum Saath Ho Tamasha"
+              }
+            ]
+          },
+          {
+            "id": "daily-mix-2-2026-10-18",
+            "name": "Daily Mix 2 • Heartfelt Romance",
+            "desc": "Curated today for Aswif • Heartfelt Romance favorites",
+            "badge": "Updated Today",
+            "genre": "romantic",
+            "gradient": "linear-gradient(145deg, #331A26 0%, #170C12 100%)",
+            "coverUrl": "covers/atif_aslam.jpg",
+            "tracksCount": 8,
+            "tracks": [
+              {
+                "title": "Tera Hone Laga Hoon",
+                "artist": "Atif Aslam & Alisha Chinai",
+                "duration": "04:59",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Tera Hone Laga Hoon Atif Aslam"
+              },
+              {
+                "title": "Ve Kamleya",
+                "artist": "Arijit Singh & Shreya Ghoshal",
+                "duration": "04:06",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Ve Kamleya Arijit Singh"
+              },
+              {
+                "title": "O Sajni Re",
+                "artist": "Arijit Singh",
+                "duration": "03:25",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "O Sajni Re Arijit Singh"
+              },
+              {
+                "title": "Heeriye",
+                "artist": "Jasleen Royal & Arijit Singh",
+                "duration": "03:15",
+                "artworkUrl": "covers/hot_hits_hindi.jpg",
+                "query": "Heeriye Jasleen Royal Arijit Singh"
+              },
+              {
+                "title": "Tu Jaane Na",
+                "artist": "Atif Aslam",
+                "duration": "05:41",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Tu Jaane Na Atif Aslam"
+              },
+              {
+                "title": "Apna Bana Le",
+                "artist": "Arijit Singh & Sachin-Jigar",
+                "duration": "04:21",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Apna Bana Le Arijit Singh"
+              },
+              {
+                "title": "Mast Magan",
+                "artist": "Arijit Singh & Chinmayi",
+                "duration": "04:40",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Mast Magan 2 States Arijit Singh"
+              },
+              {
+                "title": "Tum Hi Ho",
+                "artist": "Arijit Singh",
+                "duration": "04:22",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Tum Hi Ho Arijit Singh"
+              }
+            ]
+          },
+          {
+            "id": "daily-discovery-2026-10-18",
+            "name": "Daily Discovery • Fresh Picks",
+            "desc": "Fresh acoustic & discovery gems matching your mood for Oct 18",
+            "badge": "Daily Discovery",
+            "genre": "sufi",
+            "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
+            "coverUrl": "covers/sufi_mystics.jpg",
+            "tracksCount": 8,
+            "tracks": [
+              {
+                "title": "Dam Mast Qalandar",
+                "artist": "Nusrat Fateh Ali Khan",
+                "duration": "08:15",
+                "artworkUrl": "covers/sufi_mystics.jpg",
+                "query": "Dam Mast Qalandar Nusrat Fateh Ali Khan"
+              },
+              {
+                "title": "Afreen Afreen",
+                "artist": "Rahat Fateh Ali Khan & Momina",
+                "duration": "06:45",
+                "artworkUrl": "covers/sufi_mystics.jpg",
+                "query": "Afreen Afreen Rahat Fateh Ali Khan"
+              },
+              {
+                "title": "Kun Faya Kun",
+                "artist": "A.R. Rahman, Javed Ali & Mohit Chauhan",
+                "duration": "07:53",
+                "artworkUrl": "covers/sufi_mystics.jpg",
+                "query": "Kun Faya Kun Rockstar A.R. Rahman"
+              },
+              {
+                "title": "Khwaja Mere Khwaja",
+                "artist": "A.R. Rahman",
+                "duration": "06:56",
+                "artworkUrl": "covers/sufi_mystics.jpg",
+                "query": "Khwaja Mere Khwaja Jodhaa Akbar"
+              },
+              {
+                "title": "Chap Tilak Sab Cheen Li",
+                "artist": "Rahat Fateh Ali Khan",
+                "duration": "06:12",
+                "artworkUrl": "covers/sufi_mystics.jpg",
+                "query": "Chhaap Tilak Sab Cheen Li Rahat Fateh Ali Khan"
+              },
+              {
+                "title": "Bhar Do Jholi Meri",
+                "artist": "Adnan Sami",
+                "duration": "08:19",
+                "artworkUrl": "covers/sufi_mystics.jpg",
+                "query": "Bhar Do Jholi Meri Adnan Sami"
+              },
+              {
+                "title": "Mast Nazron Se Allah Bachaye",
+                "artist": "Nusrat Fateh Ali Khan",
+                "duration": "07:22",
+                "artworkUrl": "covers/sufi_mystics.jpg",
+                "query": "Mast Nazron Se Allah Bachaye Nusrat"
+              },
+              {
+                "title": "Tajdar-e-Haram",
+                "artist": "Atif Aslam (Coke Studio)",
+                "duration": "10:28",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Tajdar e Haram Atif Aslam Coke Studio"
+              }
+            ]
+          },
+          {
+            "id": "repeat-rewind-2026-10-18",
+            "name": "Repeat Rewind • On Repeat",
+            "desc": "Your most replayed classics and personal favorites kept on deck",
+            "badge": "On Repeat",
+            "genre": "favorites",
+            "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
+            "coverUrl": "covers/top50_india.jpg",
+            "tracksCount": 8,
+            "tracks": [
+              {
+                "title": "O Sajni Re",
+                "artist": "Arijit Singh",
+                "duration": "03:25",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "O Sajni Re Arijit Singh"
+              },
+              {
+                "title": "Heeriye",
+                "artist": "Jasleen Royal & Arijit Singh",
+                "duration": "03:15",
+                "artworkUrl": "covers/hot_hits_hindi.jpg",
+                "query": "Heeriye Jasleen Royal Arijit Singh"
+              },
+              {
+                "title": "Tu Jaane Na",
+                "artist": "Atif Aslam",
+                "duration": "05:41",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Tu Jaane Na Atif Aslam"
+              },
+              {
+                "title": "Apna Bana Le",
+                "artist": "Arijit Singh & Sachin-Jigar",
+                "duration": "04:21",
+                "artworkUrl": "covers/top50_india.jpg",
+                "query": "Apna Bana Le Arijit Singh"
+              },
+              {
+                "title": "Mast Magan",
+                "artist": "Arijit Singh & Chinmayi",
+                "duration": "04:40",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Mast Magan 2 States Arijit Singh"
+              },
+              {
+                "title": "Tum Hi Ho",
+                "artist": "Arijit Singh",
+                "duration": "04:22",
+                "artworkUrl": "covers/arijit_singh.jpg",
+                "query": "Tum Hi Ho Arijit Singh"
+              },
+              {
+                "title": "Pehli Nazar Mein",
+                "artist": "Atif Aslam",
+                "duration": "05:14",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Pehli Nazar Mein Atif Aslam"
+              },
+              {
+                "title": "Jeena Jeena",
+                "artist": "Atif Aslam",
+                "duration": "03:49",
+                "artworkUrl": "covers/atif_aslam.jpg",
+                "query": "Jeena Jeena Badlapur Atif Aslam"
+              }
+            ]
+          }
+        ],
+        "quickTiles": [
+          {
+            "id": "daily-mix-1-2026-10-18",
+            "name": "Bollywood Melodies",
+            "coverUrl": "covers/arijit_singh.jpg",
+            "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)",
+            "playlistObj": {
+              "id": "daily-mix-1-2026-10-18",
+              "name": "Daily Mix 1 • Bollywood Melodies",
+              "desc": "Curated today for Aswif • Featuring Arijit Singh and more",
+              "badge": "Updated Today",
+              "genre": "bollywood",
+              "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)",
+              "coverUrl": "covers/arijit_singh.jpg",
+              "tracksCount": 8,
+              "tracks": [
+                {
+                  "title": "Tum Hi Ho",
+                  "artist": "Arijit Singh & Mithoon",
+                  "duration": "04:22",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Tum Hi Ho Aashiqui 2"
+                },
+                {
+                  "title": "Channa Mereya",
+                  "artist": "Arijit Singh",
+                  "duration": "04:49",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Channa Mereya Ae Dil Hai Mushkil"
+                },
+                {
+                  "title": "Chaleya",
+                  "artist": "Arijit Singh & Shilpa Rao",
+                  "duration": "03:20",
+                  "artworkUrl": "covers/hot_hits_hindi.jpg",
+                  "query": "Chaleya Jawan Arijit Singh"
+                },
+                {
+                  "title": "Shayad",
+                  "artist": "Arijit Singh & Pritam",
+                  "duration": "04:07",
+                  "artworkUrl": "covers/bollywood_butter.jpg",
+                  "query": "Shayad Love Aaj Kal Arijit Singh"
+                },
+                {
+                  "title": "Raataan Lambiyan",
+                  "artist": "Jubin Nautiyal & Asees Kaur",
+                  "duration": "03:50",
+                  "artworkUrl": "covers/bollywood_butter.jpg",
+                  "query": "Raataan Lambiyan Shershaah"
+                },
+                {
+                  "title": "Satranga",
+                  "artist": "Arijit Singh (Animal)",
+                  "duration": "04:31",
+                  "artworkUrl": "covers/hot_hits_hindi.jpg",
+                  "query": "Satranga Animal Arijit Singh"
+                },
+                {
+                  "title": "Pee Loon",
+                  "artist": "Mohit Chauhan & Pritam",
+                  "duration": "04:47",
+                  "artworkUrl": "covers/bollywood_butter.jpg",
+                  "query": "Pee Loon Mohit Chauhan"
+                },
+                {
+                  "title": "Agar Tum Saath Ho",
+                  "artist": "Arijit Singh & Alka Yagnik",
+                  "duration": "05:41",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Agar Tum Saath Ho Tamasha"
+                }
+              ]
+            }
+          },
+          {
+            "id": "daily-mix-2-2026-10-18",
+            "name": "Heartfelt Romance",
+            "coverUrl": "covers/atif_aslam.jpg",
+            "gradient": "linear-gradient(145deg, #331A26 0%, #170C12 100%)",
+            "playlistObj": {
+              "id": "daily-mix-2-2026-10-18",
+              "name": "Daily Mix 2 • Heartfelt Romance",
+              "desc": "Curated today for Aswif • Heartfelt Romance favorites",
+              "badge": "Updated Today",
+              "genre": "romantic",
+              "gradient": "linear-gradient(145deg, #331A26 0%, #170C12 100%)",
+              "coverUrl": "covers/atif_aslam.jpg",
+              "tracksCount": 8,
+              "tracks": [
+                {
+                  "title": "Tera Hone Laga Hoon",
+                  "artist": "Atif Aslam & Alisha Chinai",
+                  "duration": "04:59",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Tera Hone Laga Hoon Atif Aslam"
+                },
+                {
+                  "title": "Ve Kamleya",
+                  "artist": "Arijit Singh & Shreya Ghoshal",
+                  "duration": "04:06",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Ve Kamleya Arijit Singh"
+                },
+                {
+                  "title": "O Sajni Re",
+                  "artist": "Arijit Singh",
+                  "duration": "03:25",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "O Sajni Re Arijit Singh"
+                },
+                {
+                  "title": "Heeriye",
+                  "artist": "Jasleen Royal & Arijit Singh",
+                  "duration": "03:15",
+                  "artworkUrl": "covers/hot_hits_hindi.jpg",
+                  "query": "Heeriye Jasleen Royal Arijit Singh"
+                },
+                {
+                  "title": "Tu Jaane Na",
+                  "artist": "Atif Aslam",
+                  "duration": "05:41",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Tu Jaane Na Atif Aslam"
+                },
+                {
+                  "title": "Apna Bana Le",
+                  "artist": "Arijit Singh & Sachin-Jigar",
+                  "duration": "04:21",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Apna Bana Le Arijit Singh"
+                },
+                {
+                  "title": "Mast Magan",
+                  "artist": "Arijit Singh & Chinmayi",
+                  "duration": "04:40",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Mast Magan 2 States Arijit Singh"
+                },
+                {
+                  "title": "Tum Hi Ho",
+                  "artist": "Arijit Singh",
+                  "duration": "04:22",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Tum Hi Ho Arijit Singh"
+                }
+              ]
+            }
+          },
+          {
+            "id": "liked-songs-quick",
+            "name": "Liked Songs",
+            "coverUrl": "covers/bollywood_butter.jpg",
+            "isLiked": true,
+            "gradient": "linear-gradient(135deg, #450af5, #c4efd9)"
+          },
+          {
+            "id": "top-artist-quick",
+            "name": "Arijit Singh Essentials",
+            "coverUrl": "covers/arijit_singh.jpg",
+            "query": "Arijit Singh greatest hits",
+            "gradient": "linear-gradient(145deg, #2D1A36 0%, #150C1B 100%)"
+          },
+          {
+            "id": "daily-discovery-2026-10-18",
+            "name": "Daily Discovery",
+            "coverUrl": "covers/sufi_mystics.jpg",
+            "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
+            "playlistObj": {
+              "id": "daily-discovery-2026-10-18",
+              "name": "Daily Discovery • Fresh Picks",
+              "desc": "Fresh acoustic & discovery gems matching your mood for Oct 18",
+              "badge": "Daily Discovery",
+              "genre": "sufi",
+              "gradient": "linear-gradient(145deg, #1C332B 0%, #0C1A15 100%)",
+              "coverUrl": "covers/sufi_mystics.jpg",
+              "tracksCount": 8,
+              "tracks": [
+                {
+                  "title": "Dam Mast Qalandar",
+                  "artist": "Nusrat Fateh Ali Khan",
+                  "duration": "08:15",
+                  "artworkUrl": "covers/sufi_mystics.jpg",
+                  "query": "Dam Mast Qalandar Nusrat Fateh Ali Khan"
+                },
+                {
+                  "title": "Afreen Afreen",
+                  "artist": "Rahat Fateh Ali Khan & Momina",
+                  "duration": "06:45",
+                  "artworkUrl": "covers/sufi_mystics.jpg",
+                  "query": "Afreen Afreen Rahat Fateh Ali Khan"
+                },
+                {
+                  "title": "Kun Faya Kun",
+                  "artist": "A.R. Rahman, Javed Ali & Mohit Chauhan",
+                  "duration": "07:53",
+                  "artworkUrl": "covers/sufi_mystics.jpg",
+                  "query": "Kun Faya Kun Rockstar A.R. Rahman"
+                },
+                {
+                  "title": "Khwaja Mere Khwaja",
+                  "artist": "A.R. Rahman",
+                  "duration": "06:56",
+                  "artworkUrl": "covers/sufi_mystics.jpg",
+                  "query": "Khwaja Mere Khwaja Jodhaa Akbar"
+                },
+                {
+                  "title": "Chap Tilak Sab Cheen Li",
+                  "artist": "Rahat Fateh Ali Khan",
+                  "duration": "06:12",
+                  "artworkUrl": "covers/sufi_mystics.jpg",
+                  "query": "Chhaap Tilak Sab Cheen Li Rahat Fateh Ali Khan"
+                },
+                {
+                  "title": "Bhar Do Jholi Meri",
+                  "artist": "Adnan Sami",
+                  "duration": "08:19",
+                  "artworkUrl": "covers/sufi_mystics.jpg",
+                  "query": "Bhar Do Jholi Meri Adnan Sami"
+                },
+                {
+                  "title": "Mast Nazron Se Allah Bachaye",
+                  "artist": "Nusrat Fateh Ali Khan",
+                  "duration": "07:22",
+                  "artworkUrl": "covers/sufi_mystics.jpg",
+                  "query": "Mast Nazron Se Allah Bachaye Nusrat"
+                },
+                {
+                  "title": "Tajdar-e-Haram",
+                  "artist": "Atif Aslam (Coke Studio)",
+                  "duration": "10:28",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Tajdar e Haram Atif Aslam Coke Studio"
+                }
+              ]
+            }
+          },
+          {
+            "id": "surah-rahman-quick",
+            "name": "Surah Ar-Rahman",
+            "desc": "Mishary Alafasy",
+            "isSurah": 55,
+            "gradient": "linear-gradient(145deg, #1A2E26 0%, #0D1713 100%)",
+            "coverUrl": "logo.png"
+          },
+          {
+            "id": "top50-india-quick",
+            "name": "Top 50 India",
+            "coverUrl": "covers/top50_india.jpg",
+            "playlistId": "top50-india"
+          },
+          {
+            "id": "repeat-rewind-quick",
+            "name": "Repeat Rewind",
+            "coverUrl": "covers/top50_india.jpg",
+            "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
+            "playlistObj": {
+              "id": "repeat-rewind-2026-10-18",
+              "name": "Repeat Rewind • On Repeat",
+              "desc": "Your most replayed classics and personal favorites kept on deck",
+              "badge": "On Repeat",
+              "genre": "favorites",
+              "gradient": "linear-gradient(145deg, #332029 0%, #170E13 100%)",
+              "coverUrl": "covers/top50_india.jpg",
+              "tracksCount": 8,
+              "tracks": [
+                {
+                  "title": "O Sajni Re",
+                  "artist": "Arijit Singh",
+                  "duration": "03:25",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "O Sajni Re Arijit Singh"
+                },
+                {
+                  "title": "Heeriye",
+                  "artist": "Jasleen Royal & Arijit Singh",
+                  "duration": "03:15",
+                  "artworkUrl": "covers/hot_hits_hindi.jpg",
+                  "query": "Heeriye Jasleen Royal Arijit Singh"
+                },
+                {
+                  "title": "Tu Jaane Na",
+                  "artist": "Atif Aslam",
+                  "duration": "05:41",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Tu Jaane Na Atif Aslam"
+                },
+                {
+                  "title": "Apna Bana Le",
+                  "artist": "Arijit Singh & Sachin-Jigar",
+                  "duration": "04:21",
+                  "artworkUrl": "covers/top50_india.jpg",
+                  "query": "Apna Bana Le Arijit Singh"
+                },
+                {
+                  "title": "Mast Magan",
+                  "artist": "Arijit Singh & Chinmayi",
+                  "duration": "04:40",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Mast Magan 2 States Arijit Singh"
+                },
+                {
+                  "title": "Tum Hi Ho",
+                  "artist": "Arijit Singh",
+                  "duration": "04:22",
+                  "artworkUrl": "covers/arijit_singh.jpg",
+                  "query": "Tum Hi Ho Arijit Singh"
+                },
+                {
+                  "title": "Pehli Nazar Mein",
+                  "artist": "Atif Aslam",
+                  "duration": "05:14",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Pehli Nazar Mein Atif Aslam"
+                },
+                {
+                  "title": "Jeena Jeena",
+                  "artist": "Atif Aslam",
+                  "duration": "03:49",
+                  "artworkUrl": "covers/atif_aslam.jpg",
+                  "query": "Jeena Jeena Badlapur Atif Aslam"
+                }
+              ]
+            }
+          }
+        ],
+        "becauseYouLove": {
+          "title": "Because You Love Arijit Singh",
+          "subtitle": "Recommendations based on your repeated listening to Arijit Singh & Bollywood Melodies",
+          "tracks": [
+            {
+              "title": "Channa Mereya",
+              "artist": "Arijit Singh",
+              "duration": "04:49",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Channa Mereya Ae Dil Hai Mushkil"
+            },
+            {
+              "title": "Chaleya",
+              "artist": "Arijit Singh & Shilpa Rao",
+              "duration": "03:20",
+              "artworkUrl": "covers/hot_hits_hindi.jpg",
+              "query": "Chaleya Jawan Arijit Singh"
+            },
+            {
+              "title": "Shayad",
+              "artist": "Arijit Singh & Pritam",
+              "duration": "04:07",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Shayad Love Aaj Kal Arijit Singh"
+            },
+            {
+              "title": "Raataan Lambiyan",
+              "artist": "Jubin Nautiyal & Asees Kaur",
+              "duration": "03:50",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Raataan Lambiyan Shershaah"
+            },
+            {
+              "title": "Satranga",
+              "artist": "Arijit Singh (Animal)",
+              "duration": "04:31",
+              "artworkUrl": "covers/hot_hits_hindi.jpg",
+              "query": "Satranga Animal Arijit Singh"
+            },
+            {
+              "title": "Pee Loon",
+              "artist": "Mohit Chauhan & Pritam",
+              "duration": "04:47",
+              "artworkUrl": "covers/bollywood_butter.jpg",
+              "query": "Pee Loon Mohit Chauhan"
+            },
+            {
+              "title": "Agar Tum Saath Ho",
+              "artist": "Arijit Singh & Alka Yagnik",
+              "duration": "05:41",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Agar Tum Saath Ho Tamasha"
+            },
+            {
+              "title": "Hawayein",
+              "artist": "Arijit Singh & Pritam",
+              "duration": "04:50",
+              "artworkUrl": "covers/arijit_singh.jpg",
+              "query": "Hawayein Jab Harry Met Sejal"
+            }
+          ]
+        }
+      }
+    },
+    "createdAt": 1792312145425,
+    "lastActive": 1792312145425
   }
 }
