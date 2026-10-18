@@ -450,6 +450,63 @@ const BrowserPlayer = {
     } catch (e) {}
   },
 
+  updateMediaSession(track) {
+    track = track || this.currentTrack;
+    if (!track) return;
+    const title = track.title || track.info?.title || "Spy Sec Music";
+    const artist = track.author || track.artist || track.info?.author || "CyberSpy 404";
+    const album = track.album || "Lossless Sovereign Audio";
+    let art = track.artworkUrl || track.info?.artworkUrl || "logo.png";
+    if (art.startsWith("/")) art = art.substring(1);
+    const fullArtUrl = (art.startsWith("http://") || art.startsWith("https://")) ? art : new URL(art, window.location.href).href;
+
+    const cur = this.audio?.currentTime || 0;
+    let dur = this.audio?.duration;
+    if (!dur || !Number.isFinite(dur) || dur <= 0) {
+      dur = (track.duration && track.duration > 0) ? (track.duration > 1000 ? track.duration / 1000 : track.duration) : 0;
+    }
+    const isPlaying = Boolean(this.audio && !this.audio.paused);
+
+    // 1. Standard W3C navigator.mediaSession (for Chrome, Edge, WebView)
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: title,
+          artist: artist,
+          album: album,
+          artwork: [
+            { src: fullArtUrl, sizes: "96x96", type: "image/png" },
+            { src: fullArtUrl, sizes: "128x128", type: "image/png" },
+            { src: fullArtUrl, sizes: "192x192", type: "image/png" },
+            { src: fullArtUrl, sizes: "256x256", type: "image/png" },
+            { src: fullArtUrl, sizes: "384x384", type: "image/png" },
+            { src: fullArtUrl, sizes: "512x512", type: "image/png" }
+          ]
+        });
+        navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+
+        if (dur > 0 && Number.isFinite(dur)) {
+          navigator.mediaSession.setPositionState({
+            duration: dur,
+            playbackRate: this.audio?.playbackRate || 1.0,
+            position: Math.min(Math.max(cur, 0), dur)
+          });
+        }
+      } catch (err) {
+        console.warn("[MediaSession] Metadata error:", err);
+      }
+    }
+
+    // 2. Native Android Media Bridge (MediaSessionCompat & MediaStyle Notification on Android 10+)
+    if (window.AndroidAudioBridge && typeof window.AndroidAudioBridge.updateMediaState === "function") {
+      try {
+        window.AndroidAudioBridge.updateMediaState(title, artist, album, fullArtUrl, dur || 0, cur, isPlaying);
+      } catch (err) {
+        console.warn("[AndroidAudioBridge] Sync error:", err);
+      }
+    }
+  },
+
   async playTrack(track) {
     if (!track) return;
     this.init();
@@ -933,10 +990,14 @@ const BrowserPlayer = {
   },
 
   seek(seconds) {
-    if (this.audio && this.audio.duration) {
-      this.audio.currentTime = Math.min(Math.max(seconds, 0), this.audio.duration);
-      this.reportState();
-    }
+    if (!this.audio) return;
+    const dur = (Number.isFinite(this.audio.duration) && this.audio.duration > 0)
+      ? this.audio.duration
+      : (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
+    const target = dur > 0 ? Math.min(Math.max(seconds, 0), dur) : Math.max(seconds, 0);
+    this.audio.currentTime = target;
+    this.updateMediaSession(this.currentTrack);
+    this.reportState();
   },
 
   setVolume(volPercent) {
@@ -975,7 +1036,9 @@ const BrowserPlayer = {
   onTimeUpdate() {
     if (isScrubbing) return;
     const cur = this.audio?.currentTime || 0;
-    const dur = this.audio?.duration || (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
+    const dur = (Number.isFinite(this.audio?.duration) && this.audio.duration > 0)
+      ? this.audio.duration
+      : (this.currentTrack?.duration ? this.currentTrack.duration / 1000 : 0);
 
     const pct = dur > 0 ? (cur / dur) * 100 : 0;
     updateProgressUI(cur, dur, pct);
@@ -995,8 +1058,26 @@ const BrowserPlayer = {
     if (typeof LyricsManager !== "undefined") LyricsManager.sync(cur);
 
     const now = Date.now();
-    if (now - this.lastReportTime > 4000) {
+    if (now - this.lastReportTime > 2500) {
       this.lastReportTime = now;
+
+      // Sync Android 10+ system MediaSession seekbar & progress
+      if (window.AndroidAudioBridge && typeof window.AndroidAudioBridge.updateMediaState === "function") {
+        try {
+          const track = this.currentTrack;
+          if (track) {
+            const title = track.title || "Spy Sec Music";
+            const artist = track.author || track.artist || "CyberSpy 404";
+            const album = track.album || "Lossless Sovereign Audio";
+            let art = track.artworkUrl || "logo.png";
+            if (art.startsWith("/")) art = art.substring(1);
+            const fullArtUrl = (art.startsWith("http://") || art.startsWith("https://")) ? art : new URL(art, window.location.href).href;
+            const isPlaying = Boolean(this.audio && !this.audio.paused);
+            window.AndroidAudioBridge.updateMediaState(title, artist, album, fullArtUrl, dur, cur, isPlaying);
+          }
+        } catch (_) {}
+      }
+
       this.reportState();
       if (typeof savePlaybackState === "function") savePlaybackState();
     }
@@ -1006,11 +1087,16 @@ const BrowserPlayer = {
     const dur = this.audio?.duration || 0;
     const totalEl = document.getElementById("totalDurationLabel");
     if (totalEl && dur > 0) totalEl.textContent = formatTime(dur * 1000);
+    this.updateMediaSession(this.currentTrack);
   },
 
   onPlay() {
     if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
       try { navigator.mediaSession.playbackState = "playing"; } catch (e) {}
+    }
+    this.updateMediaSession(this.currentTrack);
+    if (window.AndroidAudioBridge && typeof window.AndroidAudioBridge.requestAudioFocus === "function") {
+      try { window.AndroidAudioBridge.requestAudioFocus(); } catch (_) {}
     }
     updatePlayPauseIcons(true);
     if (typeof EqualizerEngine !== "undefined") EqualizerEngine.resume();
@@ -1022,6 +1108,7 @@ const BrowserPlayer = {
     if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
       try { navigator.mediaSession.playbackState = "paused"; } catch (e) {}
     }
+    this.updateMediaSession(this.currentTrack);
     updatePlayPauseIcons(false);
     if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.stop();
     this.reportState();
@@ -4978,10 +5065,12 @@ function updateUIWithTrack(track, isPlaying = false) {
   const mobileTitle = document.getElementById("mobilePlayerTitle");
   const mobileArtist = document.getElementById("mobilePlayerArtist");
 
-  // Vivo OriginOS Live Notification Capsule
+  // Origin Island Live Notch Capsule Elements
   const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
   const capsuleImg = document.getElementById("vivoCapsuleImg");
+  const capsuleImgMini = document.getElementById("vivoCapsuleImgMini");
   const capsuleTitle = document.getElementById("vivoCapsuleTitle");
+  const notchTitle = document.getElementById("notchCompactTitle");
   const capsuleArtist = document.getElementById("vivoCapsuleArtist");
 
   const expImg = document.getElementById("expandedTrackImg");
@@ -5007,7 +5096,9 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (mobileArtist) mobileArtist.textContent = author;
 
     if (capsuleImg) capsuleImg.src = art;
+    if (capsuleImgMini) capsuleImgMini.src = art;
     if (capsuleTitle) capsuleTitle.textContent = title;
+    if (notchTitle) notchTitle.textContent = title;
     if (capsuleArtist) capsuleArtist.textContent = author;
 
     if (expImg) expImg.src = art;
@@ -5039,8 +5130,10 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (mobileImg) mobileImg.src = "logo.png";
 
     if (capsuleTitle) capsuleTitle.textContent = "Web Browser Ready";
+    if (notchTitle) notchTitle.textContent = "Spy Sec Music";
     if (capsuleArtist) capsuleArtist.textContent = "Select a song";
     if (capsuleImg) capsuleImg.src = "logo.png";
+    if (capsuleImgMini) capsuleImgMini.src = "logo.png";
 
     if (expTitle) expTitle.textContent = "Web Browser Ready";
     if (expArtist) expArtist.textContent = "Select a song or playlist";
@@ -5140,11 +5233,12 @@ function updatePlayPauseIcons(isPlaying) {
   const svg = document.getElementById("mainPlayPauseSvg");
   const mobileBtn = document.getElementById("btnMobilePlayPause");
   const capsuleSvg = document.getElementById("capsulePlayPauseSvg");
+  const notchQuickSvg = document.getElementById("notchQuickPlaySvg");
   const expSvg = document.getElementById("expandedPlayPauseSvg");
   const expOverlay = document.getElementById("expandedNowPlayingOverlay");
   const visualizer = document.getElementById("rightVisualizerBars");
 
-  // Vivo OriginOS Vinyl Turntable Discs & Soundwave Equalizers
+  // Origin Island Notch Vinyl Discs & Soundwave Equalizers
   const vinylDiscs = document.querySelectorAll(".vivo-vinyl-disc, .vivo-capsule-vinyl");
   const equalizers = document.querySelectorAll(".vivo-equalizer");
   const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
@@ -5153,6 +5247,7 @@ function updatePlayPauseIcons(isPlaying) {
     if (svg) svg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (mobileBtn) mobileBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/></svg>';
     if (capsuleSvg) capsuleSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
+    if (notchQuickSvg) notchQuickSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (expSvg) expSvg.innerHTML = '<path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>';
     if (expOverlay) expOverlay.classList.add("playing");
     if (visualizer) visualizer.classList.add("playing");
@@ -5172,6 +5267,7 @@ function updatePlayPauseIcons(isPlaying) {
     if (svg) svg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (mobileBtn) mobileBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>';
     if (capsuleSvg) capsuleSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
+    if (notchQuickSvg) notchQuickSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (expSvg) expSvg.innerHTML = '<path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>';
     if (expOverlay) expOverlay.classList.remove("playing");
     if (visualizer) visualizer.classList.remove("playing");
@@ -5197,15 +5293,38 @@ function updateProgressUI(curSec, durSec, pct) {
   const expTotLabel = document.getElementById("expandedTotalDuration");
   const expFill = document.getElementById("expandedProgressFill");
 
-  if (curLabel) curLabel.textContent = formatTime(curSec * 1000);
-  if (totLabel && durSec > 0) totLabel.textContent = formatTime(durSec * 1000);
+  // Origin Island Notch Elements
+  const notchTime = document.getElementById("notchCompactTime");
+  const ringCircle = document.getElementById("notchProgressRingCircle");
+  const islandTimeCur = document.getElementById("islandTimeCurrent");
+  const islandTimeTot = document.getElementById("islandTimeTotal");
+  const islandSeekThumb = document.getElementById("islandSeekThumb");
+
+  const timeStr = formatTime(curSec * 1000);
+  const durStr = durSec > 0 ? formatTime(durSec * 1000) : "0:00";
+
+  if (curLabel) curLabel.textContent = timeStr;
+  if (totLabel && durSec > 0) totLabel.textContent = durStr;
   if (fill) fill.style.width = `${pct}%`;
   if (microFill) microFill.style.width = `${pct}%`;
   if (capsuleFill) capsuleFill.style.width = `${pct}%`;
 
-  if (expCurLabel) expCurLabel.textContent = formatTime(curSec * 1000);
-  if (expTotLabel && durSec > 0) expTotLabel.textContent = formatTime(durSec * 1000);
+  if (expCurLabel) expCurLabel.textContent = timeStr;
+  if (expTotLabel && durSec > 0) expTotLabel.textContent = durStr;
   if (expFill) expFill.style.width = `${pct}%`;
+
+  // Origin Island Notch Progress & Seekbar Updates
+  if (notchTime) notchTime.textContent = timeStr;
+  if (islandTimeCur) islandTimeCur.textContent = timeStr;
+  if (islandTimeTot && durSec > 0) islandTimeTot.textContent = durStr;
+  if (islandSeekThumb) islandSeekThumb.style.left = `${pct}%`;
+
+  if (ringCircle) {
+    // Circumference = 2 * PI * 11 ≈ 69.115
+    const circumference = 69.115;
+    const offset = Math.max(0, Math.min(circumference - (circumference * pct / 100), circumference));
+    ringCircle.style.strokeDashoffset = offset.toFixed(2);
+  }
 }
 
 function updateVolumeUI(percent) {
@@ -6040,15 +6159,93 @@ function initEventListeners() {
   document.getElementById("btnMobilePrev")?.addEventListener("click", handlePrevTrack);
   document.getElementById("btnCapsulePrev")?.addEventListener("click", handlePrevTrack);
 
-  // Vivo OriginOS Live Notification Capsule Actions
+  // Origin Island Live Notification Capsule Actions
+  const vivoNotchBar = document.getElementById("vivoOriginNotificationBar");
+
+  // Tap compact notch pill to expand into Origin Island Hub
+  document.getElementById("originNotchCompactView")?.addEventListener("click", () => {
+    if (vivoNotchBar) {
+      vivoNotchBar.classList.remove("compact-mode");
+      vivoNotchBar.classList.add("expanded-mode");
+    }
+  });
+
+  // Tap minimize button to collapse back into compact notch pill
+  document.getElementById("btnIslandMinimize")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (vivoNotchBar) {
+      vivoNotchBar.classList.remove("expanded-mode");
+      vivoNotchBar.classList.add("compact-mode");
+    }
+  });
+
+  // Quick play/pause on compact notch
+  document.getElementById("btnNotchQuickPlay")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    handlePlayPause();
+  });
+
+  // Open full player from expanded island
+  document.getElementById("btnOpenFromIsland")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openExpandedPlayer();
+  });
+
+  // Close / hide island
   document.getElementById("btnCapsuleClose")?.addEventListener("click", (e) => {
     e.stopPropagation();
     window._vivoCapsuleDismissed = true;
-    document.getElementById("vivoOriginNotificationBar")?.classList.remove("visible");
+    vivoNotchBar?.classList.remove("visible");
   });
+
   document.getElementById("vivoCapsuleExpandClick")?.addEventListener("click", () => {
     openExpandedPlayer();
   });
+
+  // Live scrubbable seekbar in Origin Island Hub
+  const islandSeekTrack = document.getElementById("islandSeekTrack");
+  if (islandSeekTrack) {
+    const handleIslandSeek = (e) => {
+      const rect = islandSeekTrack.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const frac = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+      const dur = (Number.isFinite(BrowserPlayer.audio?.duration) && BrowserPlayer.audio.duration > 0)
+        ? BrowserPlayer.audio.duration
+        : (BrowserPlayer.currentTrack?.duration ? BrowserPlayer.currentTrack.duration / 1000 : 0);
+      if (dur > 0) {
+        BrowserPlayer.seek(frac * dur);
+      }
+    };
+    islandSeekTrack.addEventListener("click", handleIslandSeek);
+    islandSeekTrack.addEventListener("touchstart", (e) => {
+      handleIslandSeek(e);
+      const onMove = (ev) => handleIslandSeek(ev);
+      const onEnd = () => {
+        window.removeEventListener("touchmove", onMove);
+        window.removeEventListener("touchend", onEnd);
+      };
+      window.addEventListener("touchmove", onMove, { passive: true });
+      window.addEventListener("touchend", onEnd, { once: true });
+    }, { passive: true });
+  }
+
+  // Native Android Media Action Dispatcher (Headset, Bluetooth, Lockscreen & Quick Settings Notification)
+  window.handleAndroidMediaAction = function(action, value) {
+    console.log("[Android System Media Action]:", action, value);
+    if (action === "play") {
+      BrowserPlayer.play();
+    } else if (action === "pause") {
+      BrowserPlayer.pause();
+    } else if (action === "next") {
+      handleNextTrack();
+    } else if (action === "prev") {
+      handlePrevTrack();
+    } else if (action === "seek") {
+      BrowserPlayer.seek(Number(value) || 0);
+    } else if (action === "stop") {
+      BrowserPlayer.pause();
+    }
+  };
 
   // Shuffle & Repeat
   document.getElementById("btnShuffle")?.addEventListener("click", () => {

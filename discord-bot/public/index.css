@@ -4849,55 +4849,267 @@ button:active:not(:disabled),
    VIVO ORIGIN OS (OCEAN / 4 / 5) ATOMIC MUSIC BAR & NOTIFICATION CAPSULE
    ========================================================================== */
 
-/* 1. Dynamic Notification Bar & Live Capsule */
-.vivo-origin-capsule {
+/* 1. Dynamic Origin Island & Live Notch Capsule */
+.vivo-origin-capsule.origin-island-notch {
   position: fixed;
-  top: calc(10px + env(safe-area-inset-top, 0px));
+  top: max(env(safe-area-inset-top, 8px), 8px);
   left: 50%;
-  transform: translateX(-50%) translateY(-130px);
+  transform: translateX(-50%) translateY(-140px);
   z-index: 10000;
-  width: calc(100% - 24px);
-  max-width: 440px;
-  background: rgba(18, 18, 26, 0.85);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  border-radius: 26px;
-  padding: 8px 12px 8px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  background: rgba(13, 15, 20, 0.90);
+  backdrop-filter: blur(30px) saturate(200%);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.65), 0 0 20px rgba(16, 185, 129, 0.12);
   box-sizing: border-box;
   opacity: 0;
   pointer-events: none;
-  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, width 0.35s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.35s cubic-bezier(0.16, 1, 0.3, 1), padding 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
-.vivo-origin-capsule.visible {
+.vivo-origin-capsule.origin-island-notch.visible {
   transform: translateX(-50%) translateY(0);
   opacity: 1;
   pointer-events: auto;
 }
 
-.vivo-capsule-content {
+/* Compact Notch Mode (Default Pill Hugging Camera Notch) */
+.vivo-origin-capsule.origin-island-notch.compact-mode {
+  width: 220px;
+  max-width: 90vw;
+  height: 38px;
+  border-radius: 999px;
+  padding: 4px 6px 4px 6px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.vivo-origin-capsule.origin-island-notch.compact-mode .origin-island-expanded-hub {
+  display: none;
+}
+
+.vivo-origin-capsule.origin-island-notch.compact-mode .origin-notch-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  gap: 8px;
+}
+
+.origin-notch-compact {
+  display: none;
+}
+
+.notch-compact-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.vivo-capsule-vinyl.mini {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+  flex-shrink: 0;
+}
+
+.vivo-capsule-vinyl.mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.notch-compact-center {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   flex: 1;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.notch-compact-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.notch-compact-time {
+  font-size: 0.62rem;
+  color: var(--text-muted, #949BA4);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.notch-compact-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Dynamic Notch Circular Progress Ring */
+.notch-progress-ring-container {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notch-progress-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.notch-progress-ring .ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 2.2;
+}
+
+.notch-progress-ring .ring-fill {
+  fill: none;
+  stroke: var(--emerald, #10B981);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear;
+}
+
+.notch-quick-play-btn {
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 0.12s ease;
+}
+
+.notch-quick-play-btn:active {
+  transform: scale(0.85);
+}
+
+/* Expanded Island Mode */
+.vivo-origin-capsule.origin-island-notch.expanded-mode {
+  width: calc(100% - 24px);
+  max-width: 430px;
+  border-radius: 26px;
+  padding: 12px 14px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vivo-origin-capsule.origin-island-notch.expanded-mode .origin-notch-compact {
+  display: none;
+}
+
+.vivo-origin-capsule.origin-island-notch.expanded-mode .origin-island-expanded-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.origin-island-expanded-hub {
+  display: none;
+}
+
+/* Island Header */
+.island-hub-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.island-tag-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.island-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--emerald, #10B981);
+  box-shadow: 0 0 8px var(--emerald, #10B981);
+  animation: islandPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes islandPulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.island-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.island-action-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted, #949BA4);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.island-action-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.island-action-btn:active {
+  transform: scale(0.9);
+}
+
+/* Main Content: Turntable Disc & Metadata */
+.island-hub-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   cursor: pointer;
   user-select: none;
 }
 
 .vivo-capsule-vinyl {
   position: relative;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: radial-gradient(circle at center, #111 0%, #1c1c1c 45%, #0b0b0b 65%, #252525 85%, #0d0d0d 100%);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.18);
   flex-shrink: 0;
   overflow: hidden;
   display: flex;
@@ -4906,11 +5118,11 @@ button:active:not(:disabled),
 }
 
 .vivo-capsule-vinyl img {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   object-fit: cover;
-  box-shadow: 0 0 4px rgba(0,0,0,0.6);
+  box-shadow: 0 0 6px rgba(0,0,0,0.7);
 }
 
 .vivo-spindle-dot {
@@ -4921,8 +5133,8 @@ button:active:not(:disabled),
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #f0f0f0;
-  box-shadow: 0 0 2px rgba(0,0,0,0.8);
+  background: #FFFFFF;
+  box-shadow: 0 0 3px rgba(0,0,0,0.8);
   pointer-events: none;
 }
 
@@ -4934,55 +5146,98 @@ button:active:not(:disabled),
   overflow: hidden;
 }
 
-.vivo-capsule-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-
-.vivo-capsule-tag {
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--emerald, #1ed760);
-  background: rgba(30, 215, 96, 0.14);
-  padding: 1px 6px;
-  border-radius: 10px;
-}
-
 .vivo-capsule-title {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #FFFFFF;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .vivo-capsule-artist {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
+  font-size: 0.74rem;
+  color: var(--text-muted, #949BA4);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.vivo-capsule-controls {
+/* Scrubbable Progress Section */
+.island-progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.island-seek-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.vivo-capsule-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10B981, #34D399);
+  border-radius: 999px;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  pointer-events: none;
+}
+
+.island-seek-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.island-seek-track:hover .island-seek-thumb {
+  opacity: 1;
+}
+
+.island-time-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: var(--text-muted, #949BA4);
+  font-variant-numeric: tabular-nums;
+  padding: 0 2px;
+}
+
+/* Island Media Controls */
+.island-hub-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-top: 2px;
 }
 
 .vivo-capsule-btn {
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  width: 28px;
-  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -4992,14 +5247,33 @@ button:active:not(:disabled),
 }
 
 .vivo-capsule-btn:active {
-  transform: scale(0.9);
-  background: rgba(255, 255, 255, 0.18);
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .vivo-capsule-play {
-  background: var(--text-primary);
-  color: var(--bg-canvas, #000);
+  background: #FFFFFF;
+  color: #090A0D;
   border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease;
+}
+
+.vivo-capsule-play:active {
+  transform: scale(0.92);
+}
+
+.island-open-player-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-muted, #949BA4);
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -5007,51 +5281,16 @@ button:active:not(:disabled),
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  transition: transform 0.12s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
 }
 
-.vivo-capsule-play:active {
-  transform: scale(0.9);
+.island-open-player-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.18);
 }
 
-.vivo-capsule-close {
-  background: transparent;
-  border: none;
-  color: var(--text-subdued);
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  margin-left: 2px;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.vivo-capsule-close:hover {
-  opacity: 1;
-}
-
-.vivo-capsule-progress {
-  position: absolute;
-  bottom: 0;
-  left: 14px;
-  right: 14px;
-  height: 2.5px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.vivo-capsule-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--emerald, #1ed760), #10b981);
-  border-radius: 2px;
-  transition: width 0.1s linear;
+.island-open-player-btn:active {
+  transform: scale(0.92);
 }
 
 /* 2. Vivo OriginOS Vinyl Turntable Disc */

@@ -72,44 +72,99 @@
   <div class="spotify-app" id="spotifyAppRoot">
 
     <!-- ======================================================================
-         VIVO ORIGIN OS DYNAMIC LIVE MUSIC NOTIFICATION BAR & CAPSULE
+         ORIGIN ISLAND / DYNAMIC NOTCH LIVE AUDIO HUB & PROGRESS BAR
          ====================================================================== -->
-    <aside class="vivo-origin-capsule" id="vivoOriginNotificationBar" aria-label="Vivo OriginOS Live Music Notification Bar">
-      <div class="vivo-capsule-content" id="vivoCapsuleExpandClick" title="Tap to expand Now Playing">
-        <div class="vivo-capsule-vinyl" id="vivoCapsuleVinyl">
-          <div class="vivo-vinyl-grooves"></div>
-          <img id="vivoCapsuleImg" src="logo.png" alt="Cover" onerror="this.src='logo.png'">
-          <span class="vivo-spindle-dot"></span>
-        </div>
-        <div class="vivo-capsule-info">
-          <div class="vivo-capsule-header">
-            <span class="vivo-capsule-tag">OriginOS Live</span>
-            <div class="vivo-equalizer mini" id="vivoCapsuleEq">
-              <span class="vivo-bar b1"></span>
-              <span class="vivo-bar b2"></span>
-              <span class="vivo-bar b3"></span>
-            </div>
+    <aside class="vivo-origin-capsule origin-island-notch compact-mode" id="vivoOriginNotificationBar" aria-label="Origin Island Live Music Notch Bar">
+      <!-- 1. COMPACT NOTCH PILL VIEW (Default state docked at camera notch) -->
+      <div class="origin-notch-compact" id="originNotchCompactView" title="Tap to expand Origin Island">
+        <div class="notch-compact-left">
+          <div class="vivo-capsule-vinyl mini" id="vivoCapsuleVinylMini">
+            <img id="vivoCapsuleImgMini" src="logo.png" alt="Cover" onerror="this.src='logo.png'">
           </div>
-          <span class="vivo-capsule-title" id="vivoCapsuleTitle">Web Browser Ready</span>
-          <span class="vivo-capsule-artist" id="vivoCapsuleArtist">Select a song</span>
+          <div class="vivo-equalizer mini notch-eq" id="vivoNotchEq">
+            <span class="vivo-bar b1"></span>
+            <span class="vivo-bar b2"></span>
+            <span class="vivo-bar b3"></span>
+          </div>
+        </div>
+        <div class="notch-compact-center">
+          <span class="notch-compact-title" id="notchCompactTitle">Spy Sec Music</span>
+          <span class="notch-compact-time" id="notchCompactTime">0:00</span>
+        </div>
+        <div class="notch-compact-right">
+          <!-- Dynamic Notch Circular Progress Ring -->
+          <div class="notch-progress-ring-container" title="Live Track Progress">
+            <svg class="notch-progress-ring" width="28" height="28" viewBox="0 0 28 28">
+              <circle class="ring-bg" cx="14" cy="14" r="11" />
+              <circle class="ring-fill" id="notchProgressRingCircle" cx="14" cy="14" r="11" stroke-dasharray="69.1" stroke-dashoffset="69.1" />
+            </svg>
+            <button type="button" class="notch-quick-play-btn" id="btnNotchQuickPlay" title="Play / Pause">
+              <svg id="notchQuickPlaySvg" viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+                <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
-      <div class="vivo-capsule-controls">
-        <button type="button" class="vivo-capsule-btn" id="btnCapsulePrev" title="Previous Track (Alt+Left)">
-          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M13 2.5a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-.8.4L4.5 8.4a.5.5 0 0 1 0-.8L12.7 2.6a.5.5 0 0 1 .3-.1zm-9 0a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5z"/></svg>
-        </button>
-        <button type="button" class="vivo-capsule-play" id="btnCapsulePlayPause" title="Play / Pause">
-          <svg id="capsulePlayPauseSvg" viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
-        </button>
-        <button type="button" class="vivo-capsule-btn" id="btnCapsuleNext" title="Next Track (Alt+Right)">
-          <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M3 2.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .8.4L11.5 8.4a.5.5 0 0 0 0-.8L3.3 2.6a.5.5 0 0 0-.3-.1zm9 0a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 1 0V3a.5.5 0 0 0-.5-.5z"/></svg>
-        </button>
-        <button type="button" class="vivo-capsule-close" id="btnCapsuleClose" title="Hide Notification Bar">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      <div class="vivo-capsule-progress">
-        <div class="vivo-capsule-fill" id="vivoCapsuleFill"></div>
+
+      <!-- 2. EXPANDED ISLAND HUB (Appears smoothly when tapped or dragged) -->
+      <div class="origin-island-expanded-hub" id="originIslandExpandedHub">
+        <!-- Header row -->
+        <div class="island-hub-header">
+          <div class="island-tag-group">
+            <span class="island-pulse-dot"></span>
+            <span class="vivo-capsule-tag">Origin Island • Lossless</span>
+          </div>
+          <div class="island-header-actions">
+            <button type="button" class="island-action-btn" id="btnIslandMinimize" title="Collapse to Notch Pill">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 14 12 6 20 14"></polyline></svg>
+            </button>
+            <button type="button" class="island-action-btn close" id="btnCapsuleClose" title="Hide Island">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Content row: Turntable disc & track meta -->
+        <div class="island-hub-main" id="vivoCapsuleExpandClick" title="Tap for Full Player">
+          <div class="vivo-capsule-vinyl" id="vivoCapsuleVinyl">
+            <div class="vivo-vinyl-grooves"></div>
+            <img id="vivoCapsuleImg" src="logo.png" alt="Cover" onerror="this.src='logo.png'">
+            <span class="vivo-spindle-dot"></span>
+          </div>
+          <div class="vivo-capsule-info">
+            <span class="vivo-capsule-title" id="vivoCapsuleTitle">Web Browser Ready</span>
+            <span class="vivo-capsule-artist" id="vivoCapsuleArtist">Select a song</span>
+          </div>
+        </div>
+
+        <!-- Live Scrubbable Progress Bar in Notch Island -->
+        <div class="island-progress-section">
+          <div class="island-seek-track" id="islandSeekTrack" title="Tap or scrub to seek">
+            <div class="vivo-capsule-fill" id="vivoCapsuleFill"></div>
+            <div class="island-seek-thumb" id="islandSeekThumb"></div>
+          </div>
+          <div class="island-time-row">
+            <span id="islandTimeCurrent">0:00</span>
+            <span id="islandTimeTotal">0:00</span>
+          </div>
+        </div>
+
+        <!-- Media Controls row -->
+        <div class="island-hub-controls">
+          <button type="button" class="vivo-capsule-btn" id="btnCapsulePrev" title="Previous Track (Alt+Left)">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M13 2.5a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-.8.4L4.5 8.4a.5.5 0 0 1 0-.8L12.7 2.6a.5.5 0 0 1 .3-.1zm-9 0a.5.5 0 0 1 .5.5v10a.5.5 0 0 1-1 0V3a.5.5 0 0 1 .5-.5z"/></svg>
+          </button>
+          <button type="button" class="vivo-capsule-play" id="btnCapsulePlayPause" title="Play / Pause">
+            <svg id="capsulePlayPauseSvg" viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
+          </button>
+          <button type="button" class="vivo-capsule-btn" id="btnCapsuleNext" title="Next Track (Alt+Right)">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M3 2.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .8.4L11.5 8.4a.5.5 0 0 0 0-.8L3.3 2.6a.5.5 0 0 0-.3-.1zm9 0a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 1 0V3a.5.5 0 0 0-.5-.5z"/></svg>
+          </button>
+          <button type="button" class="island-open-player-btn" id="btnOpenFromIsland" title="Open Full Player">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+          </button>
+        </div>
       </div>
     </aside>
 
