@@ -1555,14 +1555,15 @@ const MIME_TYPES = {
 
 const server = http.createServer(async (req, res) => {
   // CORS & Streaming Headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const reqOrigin = req.headers.origin;
+  res.setHeader("Access-Control-Allow-Origin", reqOrigin || "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD, PUT, DELETE");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Range, Authorization, Accept, Origin, X-Requested-With, X-Client-Platform, X-Target-Channel, *");
   res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": reqOrigin || "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS, HEAD, PUT, DELETE",
       "Access-Control-Allow-Headers": "Content-Type, Range, Authorization, Accept, Origin, X-Requested-With, X-Client-Platform, X-Target-Channel, *",
       "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",

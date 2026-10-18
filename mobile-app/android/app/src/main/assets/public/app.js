@@ -102,33 +102,24 @@ function isDirectPlayableAudioUrl(url) {
 }
 window.isDirectPlayableAudioUrl = isDirectPlayableAudioUrl;
 
-// Transparently wrap window.fetch so all relative API requests hit the server and carry platform identity
+// Transparently wrap window.fetch so all relative API requests hit the server cleanly without CORS preflight failures
 const _nativeFetch = window.fetch;
 window.fetch = function(input, init) {
   init = init || {};
   const platform = isMobileAppEnvironment ? "mobile-app" : "web-app";
   const channel = activeSystemChannel || (isMobileAppEnvironment ? "app" : "browser");
 
-  let headers = init.headers;
-  if (!headers) {
-    headers = {};
-    init.headers = headers;
-  }
-  if (headers instanceof Headers) {
-    if (!headers.has("X-Client-Platform")) headers.set("X-Client-Platform", platform);
-    if (!headers.has("X-Target-Channel")) headers.set("X-Target-Channel", channel);
-  } else if (typeof headers === "object") {
-    if (!headers["X-Client-Platform"]) headers["X-Client-Platform"] = platform;
-    if (!headers["X-Target-Channel"]) headers["X-Target-Channel"] = channel;
-  }
-
   if (typeof input === "string") {
     if (input.startsWith("/api/") || input.startsWith("api/")) {
-      input = resolveApiUrl(input);
+      const resolved = resolveApiUrl(input);
+      const sep = resolved.includes("?") ? "&" : "?";
+      input = `${resolved}${sep}platform=${encodeURIComponent(platform)}&channel=${encodeURIComponent(channel)}`;
     }
   } else if (input instanceof Request && input.url) {
     if (input.url.startsWith("/api/") || input.url.startsWith("api/")) {
-      input = new Request(resolveApiUrl(input.url), input);
+      const resolved = resolveApiUrl(input.url);
+      const sep = resolved.includes("?") ? "&" : "?";
+      input = new Request(`${resolved}${sep}platform=${encodeURIComponent(platform)}&channel=${encodeURIComponent(channel)}`, input);
     }
   }
   return _nativeFetch.call(this, input, init);
@@ -3590,86 +3581,214 @@ let searchAbortController = null;
 let searchDebounceTimer = null;
 
 async function playSearchPlaylist(pl, immediate = true) {
-  showToast(`▶ Loading playlist: ${pl.title}...`);
+  showToast(`▶ Loading: ${pl.title}...`);
+  const targetUrl = pl.url || "";
+  const targetId = pl.id || pl.rawId || "";
+  let tracks = [];
+  let playlistData = null;
+
+  // 1. Primary: Remote API endpoint
   try {
-    const targetUrl = pl.url || "";
-    const targetId = pl.id || pl.rawId || "";
-    const res = await fetch(resolveApiUrl(`/api/playlist-details?url=${encodeURIComponent(targetUrl)}&id=${encodeURIComponent(targetId)}`));
+    const res = await fetch(`/api/playlist-details?url=${encodeURIComponent(targetUrl)}&id=${encodeURIComponent(targetId)}`);
     const data = await res.json();
     if (data.success && data.playlist && data.playlist.tracks?.length) {
-      const fullPl = {
-        id: data.playlist.id || `pl_${Date.now()}`,
-        name: data.playlist.title || pl.title,
-        desc: data.playlist.description || `Playlist by ${data.playlist.author || pl.author}`,
-        author: data.playlist.author || pl.author,
-        coverUrl: data.playlist.artworkUrl || pl.artworkUrl || "logo.png",
-        tracksCount: data.playlist.tracks.length,
-        badge: "Playlist",
-        tracks: data.playlist.tracks.map(t => ({
-          id: t.id,
-          title: t.title,
-          artist: t.artist,
-          duration: typeof t.duration === "number" ? formatTime(t.duration) : (t.duration || "03:30"),
-          query: `${t.title} ${t.artist}`,
-          artworkUrl: t.artworkUrl || data.playlist.artworkUrl || "logo.png",
-          streamUrl: t.streamUrl,
-          rawStreamUrl: t.rawStreamUrl,
-          source: t.source || "jiosaavn"
-        }))
-      };
-      if (!customPlaylists.some(p => p.id === fullPl.id)) {
-        customPlaylists.unshift(fullPl);
-        renderSidebarLibrary("playlists");
-      }
-      dispatchPlayPlaylist(fullPl, immediate);
-      showToast(`Now Playing: ${fullPl.name} (${fullPl.tracks.length} tracks)`);
-    } else {
-      showToast("Could not load playlist tracks");
+      playlistData = data.playlist;
+      tracks = data.playlist.tracks;
     }
   } catch (err) {
-    showToast("Network error loading playlist");
+    console.warn("[playSearchPlaylist] Primary resolver note:", err);
+  }
+
+  // 2. Secondary Fallback: Direct JioSaavn API query from client if remote API returned empty or errored
+  if (tracks.length === 0 && (pl.source === "jiosaavn" || targetId.includes("saavn_") || targetUrl.includes("jiosaavn.com"))) {
+    try {
+      const rawParam = targetId.replace("saavn_pl_", "").replace("saavn_alb_", "") || targetUrl.split("/").filter(Boolean).pop();
+      let d = null;
+      if (pl.isAlbum || targetId.startsWith("saavn_alb_") || targetUrl.includes("/album/")) {
+        const albUrl = `https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=${encodeURIComponent(rawParam)}`;
+        const r = await fetch(albUrl);
+        d = await r.json();
+      } else {
+        const plUrl = `https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=${encodeURIComponent(rawParam)}`;
+        const r = await fetch(plUrl);
+        d = await r.json();
+      }
+      const list = (d && (d.list || d.songs)) || [];
+      if (list.length > 0) {
+        tracks = list.map(s => {
+          const cleanTitle = (s.title || "").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+          const artistNames = s.more_info?.artistMap?.primary_artists?.map(a => a.name).join(", ") || s.subtitle || s.artist || pl.author || "Artist";
+          const artwork = (s.image || "").replace("150x150", "500x500") || pl.artworkUrl || "logo.png";
+          return {
+            id: `saavn_${s.id}`,
+            title: cleanTitle,
+            artist: artistNames,
+            duration: Math.round(parseFloat(s.more_info?.duration || 0) * 1000),
+            artworkUrl: artwork,
+            url: s.perma_url || `https://www.jiosaavn.com/song/${s.id}`,
+            source: "jiosaavn"
+          };
+        });
+        playlistData = {
+          id: d.id ? `saavn_${pl.isAlbum ? 'alb' : 'pl'}_${d.id}` : pl.id,
+          title: d.title || pl.title,
+          description: d.header_desc || d.subtitle || pl.desc,
+          author: d.artist || pl.author,
+          artworkUrl: (d.image || "").replace("150x150", "500x500") || pl.artworkUrl || "logo.png"
+        };
+      }
+    } catch (err2) {
+      console.warn("[playSearchPlaylist] Direct JioSaavn fallback note:", err2);
+    }
+  }
+
+  // 3. Tertiary Fallback: Search tracks by title
+  if (tracks.length === 0) {
+    try {
+      const searchRes = await fetch(`/api/search?type=tracks&q=${encodeURIComponent(pl.title)}&filterMode=${encodeURIComponent(currentFilterMode)}`);
+      const searchData = await searchRes.json();
+      if (searchData.success && searchData.results?.length) {
+        tracks = searchData.results;
+        playlistData = { ...pl, tracks };
+      }
+    } catch (_) {}
+  }
+
+  if (tracks.length > 0) {
+    const fullPl = {
+      id: playlistData?.id || pl.id || `pl_${Date.now()}`,
+      name: playlistData?.title || pl.title,
+      desc: playlistData?.description || pl.desc || `Playlist by ${playlistData?.author || pl.author || 'Artist'}`,
+      author: playlistData?.author || pl.author || "Artist",
+      coverUrl: playlistData?.artworkUrl || pl.artworkUrl || "logo.png",
+      tracksCount: tracks.length,
+      badge: pl.isAlbum ? "Official Album" : "Playlist",
+      tracks: tracks.map(t => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist || t.author || "Artist",
+        duration: typeof t.duration === "number" ? formatTime(t.duration) : (t.duration || "03:30"),
+        query: `${t.title} ${t.artist || t.author || ""}`.trim(),
+        artworkUrl: t.artworkUrl || pl.artworkUrl || "logo.png",
+        streamUrl: t.streamUrl,
+        rawStreamUrl: t.rawStreamUrl,
+        source: t.source || "jiosaavn"
+      }))
+    };
+    if (!customPlaylists.some(p => p.id === fullPl.id)) {
+      customPlaylists.unshift(fullPl);
+      renderSidebarLibrary("playlists");
+    }
+    dispatchPlayPlaylist(fullPl, immediate);
+    showToast(`▶ Now Playing: ${fullPl.name} (${fullPl.tracks.length} tracks)`);
+  } else {
+    showToast(`Could not load tracks for "${pl.title}"`);
   }
 }
 
 async function loadAndOpenSearchPlaylist(pl) {
-  showToast(`Loading playlist: ${pl.title}...`);
+  showToast(`Loading: ${pl.title}...`);
+  const targetUrl = pl.url || "";
+  const targetId = pl.id || pl.rawId || "";
+  let tracks = [];
+  let playlistData = null;
+
+  // 1. Primary: Remote API endpoint
   try {
-    const targetUrl = pl.url || "";
-    const targetId = pl.id || pl.rawId || "";
-    const res = await fetch(resolveApiUrl(`/api/playlist-details?url=${encodeURIComponent(targetUrl)}&id=${encodeURIComponent(targetId)}`));
+    const res = await fetch(`/api/playlist-details?url=${encodeURIComponent(targetUrl)}&id=${encodeURIComponent(targetId)}`);
     const data = await res.json();
-    if (data.success && data.playlist) {
-      const fullPl = {
-        id: data.playlist.id || `pl_${Date.now()}`,
-        name: data.playlist.title || pl.title,
-        desc: data.playlist.description || `Playlist by ${data.playlist.author || pl.author}`,
-        author: data.playlist.author || pl.author,
-        coverUrl: data.playlist.artworkUrl || pl.artworkUrl || "logo.png",
-        tracksCount: data.playlist.tracks.length,
-        badge: pl.isAlbum ? "Official Album" : "Featured Playlist",
-        gradient: "linear-gradient(135deg, #1db954 0%, #121212 100%)",
-        tracks: data.playlist.tracks.map(t => ({
-          id: t.id,
-          title: t.title,
-          artist: t.artist,
-          duration: typeof t.duration === "number" ? formatTime(t.duration) : (t.duration || "03:30"),
-          query: `${t.title} ${t.artist}`,
-          artworkUrl: t.artworkUrl || data.playlist.artworkUrl || "logo.png",
-          streamUrl: t.streamUrl,
-          rawStreamUrl: t.rawStreamUrl,
-          source: t.source || "jiosaavn"
-        }))
-      };
-      if (!customPlaylists.some(p => p.id === fullPl.id)) {
-        customPlaylists.unshift(fullPl);
-        renderSidebarLibrary("playlists");
-      }
-      openPlaylist(fullPl);
-    } else {
-      showToast("Could not load playlist details");
+    if (data.success && data.playlist && data.playlist.tracks?.length) {
+      playlistData = data.playlist;
+      tracks = data.playlist.tracks;
     }
   } catch (err) {
-    showToast("Network error opening playlist");
+    console.warn("[loadAndOpenSearchPlaylist] Primary resolver note:", err);
+  }
+
+  // 2. Secondary Fallback: Direct JioSaavn API query from client
+  if (tracks.length === 0 && (pl.source === "jiosaavn" || targetId.includes("saavn_") || targetUrl.includes("jiosaavn.com"))) {
+    try {
+      const rawParam = targetId.replace("saavn_pl_", "").replace("saavn_alb_", "") || targetUrl.split("/").filter(Boolean).pop();
+      let d = null;
+      if (pl.isAlbum || targetId.startsWith("saavn_alb_") || targetUrl.includes("/album/")) {
+        const albUrl = `https://www.jiosaavn.com/api.php?__call=content.getAlbumDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&albumid=${encodeURIComponent(rawParam)}`;
+        const r = await fetch(albUrl);
+        d = await r.json();
+      } else {
+        const plUrl = `https://www.jiosaavn.com/api.php?__call=playlist.getDetails&_format=json&_marker=0&api_version=4&ctx=web6dot0&listid=${encodeURIComponent(rawParam)}`;
+        const r = await fetch(plUrl);
+        d = await r.json();
+      }
+      const list = (d && (d.list || d.songs)) || [];
+      if (list.length > 0) {
+        tracks = list.map(s => {
+          const cleanTitle = (s.title || "").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'");
+          const artistNames = s.more_info?.artistMap?.primary_artists?.map(a => a.name).join(", ") || s.subtitle || s.artist || pl.author || "Artist";
+          const artwork = (s.image || "").replace("150x150", "500x500") || pl.artworkUrl || "logo.png";
+          return {
+            id: `saavn_${s.id}`,
+            title: cleanTitle,
+            artist: artistNames,
+            duration: Math.round(parseFloat(s.more_info?.duration || 0) * 1000),
+            artworkUrl: artwork,
+            url: s.perma_url || `https://www.jiosaavn.com/song/${s.id}`,
+            source: "jiosaavn"
+          };
+        });
+        playlistData = {
+          id: d.id ? `saavn_${pl.isAlbum ? 'alb' : 'pl'}_${d.id}` : pl.id,
+          title: d.title || pl.title,
+          description: d.header_desc || d.subtitle || pl.desc,
+          author: d.artist || pl.author,
+          artworkUrl: (d.image || "").replace("150x150", "500x500") || pl.artworkUrl || "logo.png"
+        };
+      }
+    } catch (err2) {
+      console.warn("[loadAndOpenSearchPlaylist] Direct JioSaavn fallback note:", err2);
+    }
+  }
+
+  // 3. Tertiary Fallback: Search tracks by title
+  if (tracks.length === 0) {
+    try {
+      const searchRes = await fetch(`/api/search?type=tracks&q=${encodeURIComponent(pl.title)}&filterMode=${encodeURIComponent(currentFilterMode)}`);
+      const searchData = await searchRes.json();
+      if (searchData.success && searchData.results?.length) {
+        tracks = searchData.results;
+        playlistData = { ...pl, tracks };
+      }
+    } catch (_) {}
+  }
+
+  if (tracks.length > 0) {
+    const fullPl = {
+      id: playlistData?.id || pl.id || `pl_${Date.now()}`,
+      name: playlistData?.title || pl.title,
+      desc: playlistData?.description || pl.desc || `Playlist by ${playlistData?.author || pl.author || 'Artist'}`,
+      author: playlistData?.author || pl.author || "Artist",
+      coverUrl: playlistData?.artworkUrl || pl.artworkUrl || "logo.png",
+      tracksCount: tracks.length,
+      badge: pl.isAlbum ? "Official Album" : "Featured Playlist",
+      gradient: "linear-gradient(135deg, #1db954 0%, #121212 100%)",
+      tracks: tracks.map(t => ({
+        id: t.id,
+        title: t.title,
+        artist: t.artist || t.author || "Artist",
+        duration: typeof t.duration === "number" ? formatTime(t.duration) : (t.duration || "03:30"),
+        query: `${t.title} ${t.artist || t.author || ""}`.trim(),
+        artworkUrl: t.artworkUrl || pl.artworkUrl || "logo.png",
+        streamUrl: t.streamUrl,
+        rawStreamUrl: t.rawStreamUrl,
+        source: t.source || "jiosaavn"
+      }))
+    };
+    if (!customPlaylists.some(p => p.id === fullPl.id)) {
+      customPlaylists.unshift(fullPl);
+      renderSidebarLibrary("playlists");
+    }
+    openPlaylist(fullPl);
+  } else {
+    showToast(`Could not load details for "${pl.title}"`);
   }
 }
 
