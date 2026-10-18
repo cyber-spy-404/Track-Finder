@@ -546,8 +546,7 @@ const BrowserPlayer = {
     window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
 
     // Spotify Infinite Radio state synchronization:
-    // When playing a normal track, explicitly turn off Radio mode and clear the seed
-    if (track.isRadio) {
+    if (track.isRadio || (this.isRadioActive && (this.queue.some(t => t.isRadio) || this.activeRadioSeed))) {
       this.isRadioActive = true;
       if (!this.activeRadioSeed) this.activeRadioSeed = track;
     } else {
@@ -826,28 +825,51 @@ const BrowserPlayer = {
     }
   },
 
-  playPlaylist(playlist) {
+  playPlaylistAtIndex(playlist, startIndex = 0) {
     if (!playlist || !playlist.tracks || playlist.tracks.length === 0) return;
     this.prime();
-    showToast(`Starting Playlist: ${playlist.name || playlist.title}...`);
+    const tracks = playlist.tracks;
+    const safeIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
+    showToast(`Starting ${playlist.name || playlist.title}...`);
 
+    this.isRadioActive = false;
+    this.activeRadioSeed = null;
     this.queue = [];
-    const first = playlist.tracks[0];
-    const firstTrack = {
-      title: first.title,
-      author: first.artist || first.author || playlist.name,
-      artist: first.artist || first.author || playlist.name,
-      duration: first.duration || 0,
-      artworkUrl: first.artworkUrl || playlist.coverUrl || "logo.png",
-      query: first.query || `${first.title} ${first.artist || ""}`.trim(),
-      url: first.url || null,
-      streamUrl: first.streamUrl || null,
-      rawStreamUrl: first.rawStreamUrl || null,
+
+    // Push preceding songs to history so user can navigate back
+    for (let i = 0; i < safeIndex; i++) {
+      const p = tracks[i];
+      this.history.push({
+        title: p.title,
+        author: p.artist || p.author || playlist.name,
+        artist: p.artist || p.author || playlist.name,
+        duration: p.duration || 0,
+        artworkUrl: p.artworkUrl || playlist.coverUrl || "logo.png",
+        query: p.query || `${p.title} ${p.artist || ""}`.trim(),
+        url: p.url || null,
+        streamUrl: p.streamUrl || null,
+        rawStreamUrl: p.rawStreamUrl || null,
+        filterMode: "filterless"
+      });
+    }
+
+    const cur = tracks[safeIndex];
+    const currentTrack = {
+      title: cur.title,
+      author: cur.artist || cur.author || playlist.name,
+      artist: cur.artist || cur.author || playlist.name,
+      duration: cur.duration || 0,
+      artworkUrl: cur.artworkUrl || playlist.coverUrl || "logo.png",
+      query: cur.query || `${cur.title} ${cur.artist || ""}`.trim(),
+      url: cur.url || null,
+      streamUrl: cur.streamUrl || null,
+      rawStreamUrl: cur.rawStreamUrl || null,
       filterMode: "filterless"
     };
 
-    for (let i = 1; i < playlist.tracks.length; i++) {
-      const t = playlist.tracks[i];
+    // Subsequent songs populate the Upcoming Queue
+    for (let i = safeIndex + 1; i < tracks.length; i++) {
+      const t = tracks[i];
       this.queue.push({
         title: t.title,
         author: t.artist || t.author || playlist.name,
@@ -865,7 +887,11 @@ const BrowserPlayer = {
     renderQueueView();
     renderSidebarLibrary("queue");
     if (typeof saveUserQueue === "function") saveUserQueue();
-    this.playTrack(firstTrack);
+    this.playTrack(currentTrack);
+  },
+
+  playPlaylist(playlist) {
+    this.playPlaylistAtIndex(playlist, 0);
   },
 
   playPause() {
@@ -979,6 +1005,7 @@ const BrowserPlayer = {
     const author = seedTrack.author || seedTrack.artist || seedTrack.info?.author || "";
     const filterMode = seedTrack.filterMode || currentFilterMode || "filterless";
 
+    // 1. Backend Spotify Radio Generator
     try {
       const url = resolveApiUrl(`/api/radio?seedTitle=${encodeURIComponent(title)}&seedArtist=${encodeURIComponent(author)}&filterMode=${encodeURIComponent(filterMode)}&limit=${limit}&channel=${encodeURIComponent(activeSystemChannel)}`);
       const res = await fetch(url);
@@ -996,7 +1023,7 @@ const BrowserPlayer = {
       console.warn("fetchRadioTracks API warning, using client fallback:", err);
     }
 
-    // Client-side fallback via search API
+    // 2. Client-side fallback via search API
     try {
       const cleanArtist = author.split(/[,&x/]|feat\.|ft\./i)[0].trim();
       const query = cleanArtist ? `${cleanArtist} hits` : `${title} similar`;
@@ -1019,6 +1046,50 @@ const BrowserPlayer = {
         return fallbackList;
       }
     } catch (e) {}
+
+    // 3. Client-side direct JioSaavn public API fallback (zero dependencies, works standalone)
+    try {
+      const cleanArtist = author.split(/[,&x/]|feat\.|ft\./i)[0].trim();
+      const q = cleanArtist || (title || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+      if (q) {
+        const jioRes = await fetch(`https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query=${encodeURIComponent(q)}`);
+        const jioData = await jioRes.json();
+        const songs = jioData?.songs?.data || [];
+        if (Array.isArray(songs) && songs.length > 0) {
+          const normSeed = title.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const directTracks = songs
+            .filter(s => {
+              const st = (s.title || s.song || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+              return !normSeed || (!st.includes(normSeed) && !normSeed.includes(st));
+            })
+            .slice(0, limit)
+            .map(s => {
+              const rawArt = s.image || s.artworkUrl || "logo.png";
+              const art500 = rawArt.replace(/150x150/g, "500x500").replace(/50x50/g, "500x500");
+              const songTitle = (s.title || s.song || "").replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&');
+              const songArtist = (s.more_info?.primary_artists || s.music || s.description || "Artist").replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, '&');
+              return {
+                id: s.id || `radio_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                title: songTitle,
+                author: songArtist,
+                artist: songArtist,
+                duration: parseInt(s.more_info?.duration || "210", 10),
+                artworkUrl: art500,
+                query: `${songTitle} ${songArtist}`.trim(),
+                streamUrl: s.more_info?.vlink || null,
+                rawStreamUrl: s.more_info?.vlink || null,
+                isRadio: true,
+                radioSeedTitle: title,
+                filterMode: "filterless"
+              };
+            });
+          if (directTracks.length > 0) {
+            this.isFetchingRadio = false;
+            return directTracks;
+          }
+        }
+      }
+    } catch (jioErr) {}
 
     this.isFetchingRadio = false;
     return [];
@@ -1052,6 +1123,7 @@ const BrowserPlayer = {
   async startRadioForTrack(track) {
     if (!track) return;
     showToast(`📻 Tuning in to ${track.title} Radio...`);
+    track.isRadio = true;
     this.activeRadioSeed = track;
     this.isRadioActive = true;
     if (typeof updateRadioUI === "function") updateRadioUI();
@@ -1062,6 +1134,7 @@ const BrowserPlayer = {
         this.history.push(this.currentTrack);
       }
       const first = radioTracks[0];
+      first.isRadio = true;
       this.queue = radioTracks.slice(1);
       await this.playTrack(first);
       showToast(`📻 Connected to ${track.title} Radio`);
@@ -2341,14 +2414,22 @@ function openPlaylist(playlistOrId) {
         const trackQuery = t.query || `${t.title} ${t.artist}`;
         tr.querySelector(".btn-row-play-now")?.addEventListener("click", (e) => {
           e.stopPropagation();
-          dispatchPlayNow(trackQuery, "filterless");
+          if (isLocalChannel(activeSystemChannel)) {
+            BrowserPlayer.playPlaylistAtIndex(pl, idx);
+          } else {
+            dispatchPlayNow(trackQuery, "filterless");
+          }
         });
         tr.querySelector(".btn-row-enqueue")?.addEventListener("click", (e) => {
           e.stopPropagation();
           dispatchEnqueue(trackQuery, "filterless");
         });
         tr.addEventListener("click", () => {
-          dispatchPlayNow(trackQuery, "filterless");
+          if (isLocalChannel(activeSystemChannel)) {
+            BrowserPlayer.playPlaylistAtIndex(pl, idx);
+          } else {
+            dispatchPlayNow(trackQuery, "filterless");
+          }
         });
 
         tableBody.appendChild(tr);
@@ -3313,7 +3394,7 @@ function renderQueueView() {
     countBadge.textContent = `${list.length} track${list.length === 1 ? "" : "s"}`;
   }
   if (clearBtn) {
-    clearBtn.style.display = (isBrowser && currentTab === "queue" && queue.length > 0) ? "inline-flex" : "none";
+    clearBtn.style.display = (isLocal && currentTab === "queue" && queue.length > 0) ? "inline-flex" : "none";
   }
 
   if (list.length === 0) {
@@ -3375,7 +3456,7 @@ function renderQueueView() {
         <div style="display: flex; gap: 8px; align-items: center;">
           ${currentTab === "queue" ? `
             <button class="btn-play-now-mini btn-queue-play" title="Play track now">▶ Play</button>
-            ${isBrowser ? `<button class="btn-queue-remove" title="Remove from queue" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; cursor:pointer; font-size:12px; border-radius:4px; padding:3px 8px;">✕</button>` : ""}
+            ${isLocal ? `<button class="btn-queue-remove" title="Remove from queue" style="background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; cursor:pointer; font-size:12px; border-radius:4px; padding:3px 8px;">✕</button>` : ""}
           ` : `
             <button class="btn-play-now-mini btn-queue-play" title="Play again">▶ Play</button>
             <button class="btn-play-now-mini btn-start-track-radio" title="Start continuous radio based on this track" style="background: rgba(30,215,96,0.14); border: 1px solid rgba(30,215,96,0.3); color: var(--emerald, #1ed760);">📻 Radio</button>
@@ -3392,9 +3473,9 @@ function renderQueueView() {
 
     tr.querySelector(".btn-queue-play")?.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (isBrowser && currentTab === "queue") {
+      if (isLocal && currentTab === "queue") {
         window.skipToBrowserQueueIndex(i);
-      } else if (!isBrowser && currentTab === "queue") {
+      } else if (!isLocal && currentTab === "queue") {
         sendAction("play_queue_index", i, { targetChannel: "bot" });
       } else {
         dispatchPlayNow(t);
@@ -3407,9 +3488,9 @@ function renderQueueView() {
     });
 
     tr.addEventListener("click", () => {
-      if (isBrowser && currentTab === "queue") {
+      if (isLocal && currentTab === "queue") {
         window.skipToBrowserQueueIndex(i);
-      } else if (!isBrowser && currentTab === "queue") {
+      } else if (!isLocal && currentTab === "queue") {
         sendAction("play_queue_index", i, { targetChannel: "bot" });
       } else {
         dispatchPlayNow(t);
@@ -5268,11 +5349,18 @@ function openTuneTasteModal() {
   const body = document.getElementById("tuneTasteModalBody");
   if (!modal || !body) return;
 
-  // Initialize selected genres from user taste profile or defaults
-  const userPrefs = (currentUser?.tasteProfile?.preferredGenres) || (userTasteProfile?.preferredGenres) || ["bollywood", "romantic", "sufi"];
+  // Initialize selected genres from cached storage, user taste profile or defaults
+  let cachedPrefs = null;
+  try {
+    const raw = localStorage.getItem("ahm_user_taste_preferences");
+    if (raw) cachedPrefs = JSON.parse(raw);
+  } catch(e) {}
+  const userPrefs = (Array.isArray(cachedPrefs?.preferredGenres) && cachedPrefs.preferredGenres.length > 0)
+    ? cachedPrefs.preferredGenres
+    : ((currentUser?.tasteProfile?.preferredGenres) || (userTasteProfile?.preferredGenres) || ["bollywood", "romantic", "sufi"]);
   tuneTasteSelectedGenres = new Set(userPrefs);
 
-  const curArtists = (currentUser?.tasteProfile?.topArtists || userTasteProfile?.topArtists || []).map(a => a.artist).join(", ");
+  const curArtists = cachedPrefs?.favoriteArtists?.join(", ") || (currentUser?.tasteProfile?.topArtists || userTasteProfile?.topArtists || []).map(a => a.artist || a.key || a).join(", ");
 
   body.innerHTML = `
     <div style="margin-bottom: 16px;">
@@ -5328,7 +5416,21 @@ function openTuneTasteModal() {
   document.getElementById("btnSaveTasteCalibration")?.addEventListener("click", async () => {
     const artistsVal = (document.getElementById("tuneInputArtists")?.value || "").trim();
     const artistsArr = artistsVal.split(",").map(a => a.trim()).filter(Boolean);
+    const genresArr = Array.from(tuneTasteSelectedGenres);
     const token = localStorage.getItem("ahm_session_token");
+
+    // Persist immediately in localStorage so client is always updated
+    try {
+      localStorage.setItem("ahm_user_taste_preferences", JSON.stringify({
+        preferredGenres: genresArr,
+        favoriteArtists: artistsArr
+      }));
+      if (userTasteProfile) {
+        userTasteProfile.preferredGenres = genresArr;
+      }
+    } catch(e) {}
+
+    closeTuneTasteModal();
 
     try {
       const res = await fetch("/api/user/taste/calibrate", {
@@ -5338,22 +5440,26 @@ function openTuneTasteModal() {
           ...(token ? { "Authorization": `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
-          preferredGenres: Array.from(tuneTasteSelectedGenres),
+          preferredGenres: genresArr,
           favoriteArtists: artistsArr
         })
       });
       const data = await res.json();
-      if (data.success) {
-        closeTuneTasteModal();
-        await loadDailyRecommendations(true);
-        showToast("Taste updated! Today's homepage mixes recalculated.");
+      if (data && data.success && data.recommendations) {
+        userDailyRecommendations = data.recommendations;
+        window.userDailyRecommendations = data.recommendations;
+        if (data.tasteProfile) {
+          userTasteProfile = data.tasteProfile;
+          window.userTasteProfile = data.tasteProfile;
+        }
+        renderPersonalizedHomepage();
       } else {
-        showToast("Error updating taste preferences");
+        await loadDailyRecommendations(true);
       }
+      showToast("Taste updated! Today's homepage mixes recalculated.");
     } catch (e) {
-      closeTuneTasteModal();
       await loadDailyRecommendations(true);
-      showToast("Taste saved locally! Refreshed today's mix.");
+      showToast("Taste saved! Homepage mixes refreshed.");
     }
   });
 

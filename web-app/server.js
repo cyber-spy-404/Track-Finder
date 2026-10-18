@@ -2464,13 +2464,66 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname === "/api/user/recommendations") {
+  if (pathname === "/api/user/daily-recommendations" || pathname === "/api/user/recommendations") {
     const user = getSessionUser(req);
-    const userId = user ? user.id : "local_default";
+    const userId = user ? user.id : "local_guest_default";
     const force = parsedUrl.searchParams.get("refresh") === "true";
     const recs = userStore.getDailyRecommendations(userId, force);
-    res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ success: true, recommendations: recs }));
+    const tasteProfile = userStore.getUserTasteProfile ? userStore.getUserTasteProfile(userId) : null;
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*"
+    });
+    return res.end(JSON.stringify({ success: true, recommendations: recs, tasteProfile }));
+  }
+
+  if (pathname === "/api/user/taste/calibrate" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const { preferredGenres, favoriteArtists } = JSON.parse(body || "{}");
+        const user = getSessionUser(req);
+        const userId = user ? user.id : "local_guest_default";
+        const refreshed = userStore.calibrateUserTaste(userId, { preferredGenres, favoriteArtists });
+        const tasteProfile = userStore.getUserTasteProfile ? userStore.getUserTasteProfile(userId) : null;
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        });
+        return res.end(JSON.stringify({
+          success: true,
+          recommendations: refreshed,
+          tasteProfile
+        }));
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (pathname === "/api/user/taste/record" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const { track, eventType } = JSON.parse(body || "{}");
+        const user = getSessionUser(req);
+        const userId = user ? user.id : "local_guest_default";
+        const result = userStore.recordTasteEvent(userId, { track, eventType });
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        });
+        return res.end(JSON.stringify({ success: true, taste: result }));
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
   }
 
   if (pathname === "/api/radio") {

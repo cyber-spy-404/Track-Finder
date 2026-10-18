@@ -578,8 +578,13 @@ function getDaySeed(dateStr) {
  * Records an individual listening or preference taste event
  */
 function recordTasteEvent(userId, event) {
-  if (!userId || !users[userId] || !event || !event.track) return null;
-  const user = users[userId];
+  if (!event || !event.track) return null;
+  const user = (userId && users[userId]) ? users[userId] : (users["local_guest_default"] || getOrCreateUser({
+    id: "local_guest_default",
+    username: "Guest Listener",
+    displayName: "Guest Listener",
+    type: "local"
+  }));
   if (!user.tasteProfile) {
     user.tasteProfile = {
       listenedTracks: [],
@@ -634,8 +639,12 @@ function recordTasteEvent(userId, event) {
  * Retrieves user's complete taste profile pattern
  */
 function getUserTasteProfile(userId) {
-  if (!userId || !users[userId]) return null;
-  const user = users[userId];
+  const user = (userId && users[userId]) ? users[userId] : (users["local_guest_default"] || getOrCreateUser({
+    id: "local_guest_default",
+    username: "Guest Listener",
+    displayName: "Guest Listener",
+    type: "local"
+  }));
   const profile = user.tasteProfile || {
     listenedTracks: [],
     artistAffinity: {},
@@ -999,8 +1008,12 @@ function loginCustomer({ email, username, password }) {
  * Calibrates customer taste preferences directly
  */
 function calibrateUserTaste(userId, { preferredGenres, favoriteArtists }) {
-  if (!userId || !users[userId]) return null;
-  const user = users[userId];
+  const user = (userId && users[userId]) ? users[userId] : (users["local_guest_default"] || getOrCreateUser({
+    id: "local_guest_default",
+    username: "Guest Listener",
+    displayName: "Guest Listener",
+    type: "local"
+  }));
   if (!user.tasteProfile) {
     user.tasteProfile = {
       listenedTracks: [],

@@ -52,6 +52,12 @@
   --emerald-glow: rgba(16, 185, 129, 0.12);
   --emerald-soft: rgba(16, 185, 129, 0.08);
 
+  /* Spotify Authentic Emerald Theme Tokens */
+  --spotify-green: #1ed760;
+  --spotify-green-hover: #1fdf64;
+  --spotify-green-active: #169c46;
+  --spotify-green-glow: rgba(30, 215, 96, 0.4);
+
   /* Subtle Monochromatic Secondary Elements */
   --blurple: rgba(255, 255, 255, 0.06);
   --blurple-hover: rgba(255, 255, 255, 0.1);
@@ -4610,27 +4616,34 @@ button:active:not(:disabled),
 }
 
 .genre-pick-chip {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-medium);
-  color: var(--text-secondary);
-  padding: 6px 12px;
-  border-radius: 50px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f3f4f6;
+  padding: 8px 16px;
+  border-radius: 500px;
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .genre-pick-chip:hover {
-  border-color: var(--spotify-green);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .genre-pick-chip.selected {
-  background: var(--spotify-green);
-  border-color: var(--spotify-green);
-  color: #000;
+  background: var(--spotify-green, #1ed760) !important;
+  border-color: var(--spotify-green, #1ed760) !important;
+  color: #000000 !important;
+  font-weight: 800;
+  box-shadow: 0 3px 12px rgba(30, 215, 96, 0.4);
 }
 
 /* Avatar Pick Grid */
@@ -4831,28 +4844,30 @@ button:active:not(:disabled),
 
 .btn-save-taste {
   width: 100%;
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: var(--spotify-green);
-  color: #000;
+  padding: 13px 20px;
+  border-radius: 500px;
+  background: var(--spotify-green, #1ed760) !important;
+  color: #000000 !important;
   font-weight: 800;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 16px rgba(30, 215, 96, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.15s ease;
 }
 
 .btn-save-taste:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(30, 215, 96, 0.35);
+  box-shadow: 0 6px 22px rgba(30, 215, 96, 0.6);
+  opacity: 0.96;
 }
 
 .btn-save-taste:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 /* ==========================================================================
