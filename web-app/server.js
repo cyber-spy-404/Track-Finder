@@ -61,6 +61,105 @@ try {
   console.warn("spotify-url-info optional module note:", e.message);
 }
 
+const spotifyLinkCache = new Map();
+
+function isSpotifyUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  return /open\.spotify\.com\/(playlist|album|track|artist)\/([a-zA-Z0-9]+)/i.test(url) ||
+         /spotify:(playlist|album|track|artist):([a-zA-Z0-9]+)/i.test(url);
+}
+
+function extractSpotifyUrl(text) {
+  if (!text || typeof text !== "string") return null;
+  const match = text.match(/https?:\/\/open\.spotify\.com\/(playlist|album|track|artist)\/[a-zA-Z0-9]+(\?[^\s]*)?/i) ||
+                text.match(/spotify:(playlist|album|track|artist):[a-zA-Z0-9]+/i);
+  return match ? match[0] : null;
+}
+
+/**
+ * Resolves full Spotify playlist/album/track metadata & tracklist without user credentials.
+ */
+async function resolveSpotifyLink(url) {
+  if (!spotifyUrlInfo) return null;
+  const cleanUrl = (url || "").trim();
+  if (!cleanUrl) return null;
+
+  const cacheKey = cleanUrl.toLowerCase();
+  if (spotifyLinkCache.has(cacheKey)) {
+    const cached = spotifyLinkCache.get(cacheKey);
+    if (Date.now() - cached.time < 7200000) { // 2 hour cache
+      return cached.data;
+    }
+  }
+
+  try {
+    let details = null;
+    try {
+      details = await spotifyUrlInfo.getDetails(cleanUrl);
+    } catch (e1) {
+      try {
+        const [preview, rawTracks] = await Promise.all([
+          spotifyUrlInfo.getPreview(cleanUrl).catch(() => null),
+          spotifyUrlInfo.getTracks(cleanUrl).catch(() => [])
+        ]);
+        if (preview || (rawTracks && rawTracks.length > 0)) {
+          details = { preview, tracks: rawTracks };
+        }
+      } catch (e2) {}
+    }
+
+    if (!details) return null;
+
+    const preview = details.preview || {};
+    const type = preview.type || (cleanUrl.includes("/track/") ? "track" : cleanUrl.includes("/album/") ? "album" : "playlist");
+    const rawTracks = (Array.isArray(details.tracks) && details.tracks.length > 0)
+      ? details.tracks
+      : (preview.title ? [{ name: preview.title, artist: preview.artist, duration: 180000, previewUrl: preview.audio }] : []);
+
+    const tracks = rawTracks.map((t, idx) => {
+      const name = (t.name || t.title || `Track ${idx + 1}`)
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&#039;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+      const artist = (t.artist || preview.artist || "Spotify Artist")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&#039;/g, "'");
+      return {
+        id: `sp_${Date.now()}_${idx + 1}`,
+        title: name,
+        artist: artist,
+        duration: t.duration || 180000,
+        artworkUrl: preview.image || "logo.png",
+        query: `${artist} - ${name}`,
+        url: t.uri || cleanUrl,
+        previewUrl: t.previewUrl || (idx === 0 ? preview.audio : null),
+        source: "spotify"
+      };
+    });
+
+    const result = {
+      id: `spotify_${cleanUrl.replace(/[^a-zA-Z0-9]/g, "_")}`,
+      type: type,
+      title: preview.title || (type === "track" ? tracks[0]?.title : "Spotify Playlist"),
+      description: preview.description || `Spotify ${type} • ${tracks.length} tracks`,
+      author: preview.artist || (tracks[0]?.artist || "Spotify Official"),
+      artworkUrl: preview.image || "logo.png",
+      image: preview.image || "logo.png",
+      tracks: tracks,
+      trackCount: tracks.length
+    };
+
+    spotifyLinkCache.set(cacheKey, { time: Date.now(), data: result });
+    return result;
+  } catch (err) {
+    console.error("Error resolving Spotify link:", err.message);
+    return null;
+  }
+}
+
 // Initialize trending data
 spotifyTrending.initSpotifyTrending();
 
@@ -615,9 +714,30 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
     } catch (e) {}
   }
 
-  // Case 3: Spotify Curated Playlist Match
-  if (clean.startsWith("spotify:playlist:") || clean.startsWith("spotify_")) {
-    const plId = clean.replace("spotify:playlist:", "").replace("spotify_", "");
+  // Case 3A: Direct Spotify Playlist / Album / Track Link
+  if (isSpotifyUrl(clean) || (clean.startsWith("http") && clean.includes("spotify.com"))) {
+    try {
+      if (signal?.aborted) return null;
+      const spData = await resolveSpotifyLink(clean);
+      if (spData && spData.tracks && spData.tracks.length > 0) {
+        const result = {
+          id: spData.id,
+          title: spData.title,
+          description: spData.description,
+          author: spData.author,
+          artworkUrl: spData.artworkUrl,
+          tracks: spData.tracks,
+          trackCount: spData.trackCount
+        };
+        playlistTracksCache.set(cacheKey, { time: Date.now(), data: result });
+        return result;
+      }
+    } catch (e) {}
+  }
+
+  // Case 3B: Spotify Curated Playlist Match
+  if (clean.startsWith("spotify:playlist:") || clean.startsWith("spotify_") || clean.startsWith("spotify-")) {
+    const plId = clean.replace("spotify:playlist:", "").replace("spotify_", "").replace("spotify-", "");
     const trending = spotifyTrending.getTrendingData();
     const found = (trending?.playlists || []).find(p => p.id === plId);
     if (found) {
@@ -633,7 +753,8 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
           duration: t.durationMs || 210000,
           url: `https://www.youtube.com/results?search_query=${encodeURIComponent(`${t.title} ${t.artist}`)}`,
           artworkUrl: t.artworkUrl || found.coverUrl || "logo.png"
-        }))
+        })),
+        trackCount: found.tracks ? found.tracks.length : 0
       };
       playlistTracksCache.set(cacheKey, { time: Date.now(), data: result });
       return result;
@@ -862,6 +983,54 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
     };
   }
 
+  // Spotify Link Resolution (Extract single track or first track of playlist/album)
+  const spotifyUrl = extractSpotifyUrl(query);
+  if (spotifyUrl) {
+    try {
+      const spData = await resolveSpotifyLink(spotifyUrl);
+      if (spData && spData.tracks && spData.tracks.length > 0) {
+        const topTrack = spData.tracks[0];
+        const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
+        const saavnMatch = await searchJioSaavn(searchQ, 3, signal);
+        if (saavnMatch.length > 0 && saavnMatch[0].streamUrl) {
+          const matched = saavnMatch[0];
+          return {
+            title: topTrack.title || matched.title,
+            author: topTrack.artist || matched.author,
+            duration: topTrack.duration || matched.duration,
+            streamUrl: matched.streamUrl,
+            rawStreamUrl: matched.streamUrl,
+            artworkUrl: topTrack.artworkUrl || matched.artworkUrl || "logo.png",
+            filterMode
+          };
+        }
+        query = searchQ;
+      }
+    } catch (e) {}
+  }
+
+  // Fast Path 1: Check JioSaavn first for instant (~100ms) 320kbps CD-quality audio stream!
+  if (!query.startsWith("http://") && !query.startsWith("https://")) {
+    try {
+      if (signal?.aborted) return null;
+      const saavnResults = await searchJioSaavn(query, 3, signal);
+      if (signal?.aborted) return null;
+      if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
+        const top = saavnResults[0];
+        return {
+          title: top.title,
+          author: top.author,
+          duration: top.duration,
+          streamUrl: top.streamUrl,
+          rawStreamUrl: top.streamUrl,
+          artworkUrl: top.artworkUrl,
+          filterMode
+        };
+      }
+    } catch (e) {}
+  }
+
+  // Fast Path 2: Resilient yt-dlp direct stream extractor
   try {
     if (signal?.aborted) return null;
     const streamInfo = await extractYouTubeStream(query, signal);
@@ -1424,34 +1593,58 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      if (forceSaavn) {
+      // 1. Direct Spotify link resolution (tracks or playlists)
+      const spotifyUrl = extractSpotifyUrl(q);
+      if (spotifyUrl) {
         try {
-          if (abortController?.signal?.aborted || res.headersSent) return;
-          const saavnResults = await searchJioSaavn(q, 3, abortController?.signal);
-          if (abortController?.signal?.aborted || res.headersSent) return;
-          if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
-            const top = saavnResults[0];
-            const track = {
-              title: top.title,
-              author: top.author,
-              duration: top.duration,
-              streamUrl: top.streamUrl,
-              rawStreamUrl: top.streamUrl,
-              artworkUrl: top.artworkUrl,
-              filterMode
-            };
-            res.writeHead(200, { "Content-Type": "application/json" });
-            return res.end(JSON.stringify({
-              success: true,
-              channel: targetChannel,
-              track: {
-                ...track,
-                proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(track.streamUrl)}`
-              }
-            }));
+          const spData = await resolveSpotifyLink(spotifyUrl);
+          if (spData && spData.tracks && spData.tracks.length > 0) {
+            const first = spData.tracks[0];
+            const resolvedFirst = await resolveMediaTrack(first.query || `${first.title} ${first.artist}`, filterMode, abortController?.signal);
+            if (resolvedFirst) {
+              res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+              return res.end(JSON.stringify({
+                success: true,
+                channel: targetChannel,
+                isPlaylist: spData.type !== "track",
+                playlist: spData,
+                track: {
+                  ...resolvedFirst,
+                  proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(resolvedFirst.streamUrl)}`
+                }
+              }));
+            }
           }
         } catch (e) {}
       }
+
+      // 2. Fast JioSaavn Check (<100ms instant 320kbps CD-quality audio)
+      try {
+        if (abortController?.signal?.aborted || res.headersSent) return;
+        const saavnResults = await searchJioSaavn(q, 3, abortController?.signal);
+        if (abortController?.signal?.aborted || res.headersSent) return;
+        if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
+          const top = saavnResults[0];
+          const track = {
+            title: top.title,
+            author: top.author,
+            duration: top.duration,
+            streamUrl: top.streamUrl,
+            rawStreamUrl: top.streamUrl,
+            artworkUrl: top.artworkUrl,
+            filterMode
+          };
+          res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          return res.end(JSON.stringify({
+            success: true,
+            channel: targetChannel,
+            track: {
+              ...track,
+              proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(track.streamUrl)}`
+            }
+          }));
+        }
+      } catch (e) {}
 
       if (abortController?.signal?.aborted || res.headersSent) return;
       const track = await resolveMediaTrack(q, filterMode, abortController?.signal);
@@ -1465,7 +1658,7 @@ const server = http.createServer(async (req, res) => {
           systemChannels[targetChannel].position = 0;
           if (track.duration) systemChannels[targetChannel].duration = track.duration;
         }
-        res.writeHead(200, { "Content-Type": "application/json" });
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({
           success: true,
           channel: targetChannel,
@@ -1475,12 +1668,12 @@ const server = http.createServer(async (req, res) => {
           }
         }));
       } else {
-        res.writeHead(404, { "Content-Type": "application/json" });
+        res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ success: false, error: `Track not found for: ${q}` }));
       }
     } catch (e) {
       if (abortController?.signal?.aborted || res.headersSent) return;
-      res.writeHead(500, { "Content-Type": "application/json" });
+      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ success: false, error: e.message }));
     }
   }
@@ -1571,6 +1764,46 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+
+  // --------------------------------------------------------------------------
+  // API: Dedicated Endpoint - Resolve Spotify Playlists, Albums, & Tracks
+  // --------------------------------------------------------------------------
+  if (pathname === "/api/spotify-playlist") {
+    if (abortController?.signal?.aborted || res.headersSent) return;
+    let urlParam = parsedUrl.searchParams.get("url") || parsedUrl.searchParams.get("link") || parsedUrl.searchParams.get("q");
+
+    if (!urlParam && req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      await new Promise(r => req.on("end", r));
+      try {
+        const b = JSON.parse(body);
+        urlParam = b.url || b.link || b.query;
+      } catch(e) {}
+    }
+
+    if (!urlParam || (!isSpotifyUrl(urlParam) && !extractSpotifyUrl(urlParam))) {
+      res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Please provide a valid Spotify URL (playlist, album, or track)" }));
+    }
+
+    const cleanSpotifyUrl = extractSpotifyUrl(urlParam) || urlParam.trim();
+
+    try {
+      const spotifyData = await resolveSpotifyLink(cleanSpotifyUrl);
+      if (!spotifyData || !spotifyData.tracks?.length) {
+        res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: "Could not fetch tracks for this Spotify link. Please ensure it is public." }));
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: true, playlist: spotifyData }));
+    } catch (err) {
+      if (abortController?.signal?.aborted || res.headersSent) return;
+      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  }
 
   // --------------------------------------------------------------------------
   // API: Spotify Trending Playlists & Refresh

@@ -566,6 +566,9 @@ const BrowserPlayer = {
 
   async playQuery(query, filterMode = "filterless", immediate = true) {
     this.prime();
+    if (isSpotifyUrl(query)) {
+      return importAndPlaySpotifyLink(query, activeSystemChannel);
+    }
     showToast(`Loading: ${query}...`);
 
     try {
@@ -621,15 +624,20 @@ const BrowserPlayer = {
   playPlaylist(playlist) {
     if (!playlist || !playlist.tracks || playlist.tracks.length === 0) return;
     this.prime();
-    showToast(`Starting Playlist: ${playlist.name}...`);
+    showToast(`Starting Playlist: ${playlist.name || playlist.title}...`);
 
     this.queue = [];
     const first = playlist.tracks[0];
     const firstTrack = {
       title: first.title,
-      author: first.artist || playlist.name,
+      author: first.artist || first.author || playlist.name,
+      artist: first.artist || first.author || playlist.name,
       duration: first.duration || 0,
       artworkUrl: first.artworkUrl || playlist.coverUrl || "logo.png",
+      query: first.query || `${first.title} ${first.artist || ""}`.trim(),
+      url: first.url || null,
+      streamUrl: first.streamUrl || null,
+      rawStreamUrl: first.rawStreamUrl || null,
       filterMode: "filterless"
     };
 
@@ -637,9 +645,14 @@ const BrowserPlayer = {
       const t = playlist.tracks[i];
       this.queue.push({
         title: t.title,
-        author: t.artist || playlist.name,
+        author: t.artist || t.author || playlist.name,
+        artist: t.artist || t.author || playlist.name,
         duration: t.duration || 0,
         artworkUrl: t.artworkUrl || playlist.coverUrl || "logo.png",
+        query: t.query || `${t.title} ${t.artist || ""}`.trim(),
+        url: t.url || null,
+        streamUrl: t.streamUrl || null,
+        rawStreamUrl: t.rawStreamUrl || null,
         filterMode: "filterless"
       });
     }
@@ -2051,6 +2064,15 @@ async function importAndPlaySpotifyLink(url, target = activeSystemChannel) {
 
   try {
     const res = await fetch(`/api/spotify-playlist?url=${encodeURIComponent(cleanUrl)}`);
+    if (!res.ok) {
+      let errText = "Could not load Spotify playlist";
+      try {
+        const errJson = await res.json();
+        errText = errJson.error || errText;
+      } catch(e) {}
+      showToast(errText);
+      return;
+    }
     const data = await res.json();
     if (!data.success || !data.playlist) {
       showToast(data.error || "Could not load Spotify playlist");
@@ -3172,6 +3194,11 @@ function dispatchPlayTrack(queryOrTrack, filterMode = currentFilterMode, immedia
   const isObj = typeof queryOrTrack === "object" && queryOrTrack !== null;
   const rawStr = isObj ? `${queryOrTrack.title || ""} ${queryOrTrack.author || queryOrTrack.artist || ""}`.trim() : String(queryOrTrack || "").trim();
   const cleanedStr = rawStr.replace(/^(!|\/)?(playnow|play-now|play\s+now|pn|play|now)\s+/i, "").trim();
+
+  // If a raw string is a Spotify URL, redirect to full Spotify playlist/track import & play
+  if (!isObj && isSpotifyUrl(cleanedStr)) {
+    return importAndPlaySpotifyLink(cleanedStr, activeSystemChannel);
+  }
 
   const isLocalPlayer = activeSystemChannel === "browser" || activeSystemChannel === "app" || activeSystemChannel === "all";
 

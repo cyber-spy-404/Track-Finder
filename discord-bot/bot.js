@@ -140,6 +140,44 @@ function decryptSaavnMediaUrl(encUrl) {
   return null;
 }
 
+// Fast JioSaavn Song Search (Instant ~150ms response, 320kbps audio)
+async function searchJioSaavn(query, limit = 10) {
+  try {
+    const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=${limit}&p=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+    const results = data.results || [];
+    return results
+      .filter(r => r && r.title)
+      .map(r => {
+        const encUrl = r.more_info?.encrypted_media_url;
+        const streamUrl = encUrl ? decryptSaavnMediaUrl(encUrl) : null;
+        const artwork = (r.image || "").replace("150x150", "500x500");
+        const cleanTitle = (r.title || "")
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&')
+          .replace(/&#039;/g, "'")
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+        const artistNames = r.more_info?.artistMap?.primary_artists?.map(a => a.name).join(", ") || r.subtitle || "Music Artist";
+        return {
+          id: `saavn_${r.id}`,
+          title: cleanTitle,
+          author: artistNames,
+          artist: artistNames,
+          duration: Math.round(parseFloat(r.more_info?.duration || 0) * 1000),
+          artworkUrl: artwork || "logo.png",
+          url: r.perma_url || `https://www.jiosaavn.com/song/${r.id}`,
+          streamUrl: streamUrl,
+          rawStreamUrl: streamUrl,
+          source: "jiosaavn"
+        };
+      });
+  } catch (e) {
+    return [];
+  }
+}
+
 // Fast JioSaavn Playlist Search (Instant ~150ms response, zero rate-limits)
 async function searchJioSaavnPlaylists(query, limit = 5) {
   try {
@@ -355,7 +393,27 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50) {
     } catch (e) {}
   }
 
-  // Case 3: YouTube Playlist via yt-dlp
+  // Case 3A: Direct Spotify Playlist / Album / Track Link
+  if (isSpotifyUrl(clean) || (clean.startsWith("http") && clean.includes("spotify.com")) || clean.startsWith("spotify:")) {
+    try {
+      const spData = await resolveSpotifyLink(clean);
+      if (spData && spData.tracks && spData.tracks.length > 0) {
+        const result = {
+          id: spData.id,
+          title: spData.title,
+          description: spData.description,
+          author: spData.author,
+          artworkUrl: spData.artworkUrl,
+          tracks: spData.tracks,
+          trackCount: spData.trackCount
+        };
+        playlistTracksCache.set(cacheKey, { time: Date.now(), data: result });
+        return result;
+      }
+    } catch (e) {}
+  }
+
+  // Case 3B: YouTube Playlist via yt-dlp
   const url = clean.startsWith("http") ? clean : `https://www.youtube.com/playlist?list=${clean}`;
   return new Promise((resolve) => {
     execFile(
@@ -2193,7 +2251,51 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null) {
     };
   }
 
-  // YouTube / Spotify query via yt-dlp direct stream extractor
+  // Spotify Link Resolution (Extract single track or first track of playlist/album)
+  const spotifyUrl = extractSpotifyUrl(query);
+  if (spotifyUrl) {
+    try {
+      const spData = await resolveSpotifyLink(spotifyUrl);
+      if (spData && spData.tracks && spData.tracks.length > 0) {
+        const topTrack = spData.tracks[0];
+        const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
+        const saavnMatch = await searchJioSaavn(searchQ, 3);
+        if (saavnMatch.length > 0 && saavnMatch[0].streamUrl) {
+          const matched = saavnMatch[0];
+          return {
+            title: topTrack.title || matched.title,
+            author: topTrack.artist || matched.author,
+            duration: topTrack.duration || matched.duration,
+            streamUrl: matched.streamUrl,
+            rawStreamUrl: matched.streamUrl,
+            artworkUrl: topTrack.artworkUrl || matched.artworkUrl || "logo.png",
+            filterMode
+          };
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Fast Path 1: Check JioSaavn first for instant (~100ms) 320kbps CD-quality audio stream!
+  if (!isUrl) {
+    try {
+      const saavnResults = await searchJioSaavn(query, 3);
+      if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
+        const top = saavnResults[0];
+        return {
+          title: top.title,
+          author: top.author,
+          duration: top.duration,
+          streamUrl: top.streamUrl,
+          rawStreamUrl: top.streamUrl,
+          artworkUrl: top.artworkUrl,
+          filterMode
+        };
+      }
+    } catch (e) {}
+  }
+
+  // Fast Path 2: YouTube / Spotify query via yt-dlp direct stream extractor
   try {
     const streamInfo = await extractYouTubeStream(query);
     if (streamInfo && streamInfo.streamUrl) {
