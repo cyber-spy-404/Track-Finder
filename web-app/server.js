@@ -1264,10 +1264,41 @@ function getSessionUser(req) {
 }
 
 // ==========================================================================
-// IP REQUEST REGULATOR (HOLD SINGLE & LAST REQUEST PER IP, DROP REST)
+// CLIENT PLATFORM IDENTIFIER (Web App vs Mobile App vs Discord Bot)
 // ==========================================================================
-const inFlightRequests = new Map(); // slotKey -> { id, clientIp, slotKey, category, req, res, abortController, createdAt }
-const ipInFlightSlots = new Map();  // clientIp -> Set<slotKey>
+function getClientPlatform(req, parsedUrl) {
+  // 1. Explicit query parameter (?platform=app|browser|bot or ?channel=app|browser|bot)
+  const qPlatform = parsedUrl?.searchParams?.get("platform") || parsedUrl?.searchParams?.get("channel");
+  if (qPlatform === "app" || qPlatform === "mobile") return "app";
+  if (qPlatform === "bot") return "bot";
+  if (qPlatform === "browser" || qPlatform === "web") return "browser";
+
+  // 2. Custom headers (X-Client-Platform or X-Target-Channel)
+  const headerPlatform = (req.headers["x-client-platform"] || req.headers["x-target-channel"] || "").toLowerCase();
+  if (headerPlatform.includes("mobile") || headerPlatform.includes("app") || headerPlatform.includes("android") || headerPlatform.includes("capacitor")) return "app";
+  if (headerPlatform.includes("bot") || headerPlatform.includes("discord")) return "bot";
+  if (headerPlatform.includes("web") || headerPlatform.includes("browser")) return "browser";
+
+  // 3. Dedicated sub-path (/api/mobile/..., /api/web/..., /api/bot/...)
+  const p = parsedUrl?.pathname || "";
+  if (p.startsWith("/api/mobile/") || p.startsWith("/mobile/")) return "app";
+  if (p.startsWith("/api/bot/") || p.startsWith("/bot/")) return "bot";
+  if (p.startsWith("/api/web/") || p.startsWith("/web/")) return "browser";
+
+  // 4. User-Agent / Capacitor heuristics
+  const ua = (req.headers["user-agent"] || "").toLowerCase();
+  if (ua.includes("capacitor") || ua.includes("wv") || (ua.includes("android") && ua.includes("version/"))) {
+    return "app";
+  }
+
+  return "browser";
+}
+
+// ==========================================================================
+// IP REQUEST REGULATOR (SEPARATED PER CLIENT PLATFORM)
+// ==========================================================================
+const inFlightRequests = new Map(); // slotKey -> { id, clientIp, platform, slotKey, category, req, res, abortController, createdAt }
+const ipInFlightSlots = new Map();  // ipPlatformKey -> Set<slotKey>
 let requestCounter = 0;
 
 function getClientIp(req) {
@@ -1284,15 +1315,15 @@ function getClientIp(req) {
 }
 
 function getRequestCategory(pathname, parsedUrl) {
-  if (pathname === "/api/search") return "search";
-  if (pathname === "/api/resolve-track") return "resolve";
-  if (pathname === "/api/radio") return "radio";
-  if (pathname === "/api/stream-audio") {
+  if (pathname.includes("/search")) return "search";
+  if (pathname.includes("/resolve-track") || pathname.includes("/resolve")) return "resolve";
+  if (pathname.includes("/radio")) return "radio";
+  if (pathname.includes("/stream-audio") || pathname.includes("/stream")) {
     const channel = parsedUrl.searchParams.get("channel") || "browser";
     return `stream:${channel}`;
   }
-  if (pathname === "/api/action") return "action";
-  if (pathname === "/api/state") return "state";
+  if (pathname.includes("/action")) return "action";
+  if (pathname.includes("/state")) return "state";
   if (pathname.startsWith("/api/user/")) return "user";
   if (pathname.startsWith("/api/auth/")) return "auth";
   if (pathname.startsWith("/api/spotify-")) return "spotify";
@@ -1341,36 +1372,37 @@ function registerIncomingRequest(req, res, pathname, parsedUrl) {
   }
 
   const clientIp = getClientIp(req);
-  const slotKey = `${clientIp}::${category}`;
+  const platform = getClientPlatform(req, parsedUrl);
+  const slotKey = `${clientIp}::${platform}::${category}`;
   const reqId = ++requestCounter;
   const abortController = new AbortController();
 
-  // 1. Per-Slot Single-and-Last Policy:
-  // Drop any older in-flight request from this IP in the same category immediately
+  // 1. Per-Platform Per-Slot Single-and-Last Policy:
+  // Drop any older in-flight request from this IP for this specific platform in the same category
   if (inFlightRequests.has(slotKey)) {
     const prev = inFlightRequests.get(slotKey);
-    dropInFlightRequest(prev, "newer request received in slot");
+    dropInFlightRequest(prev, "newer request received in platform slot");
   }
 
-  // 2. Heavy Compute Operations Guard:
-  // If this is a search or resolve, cancel any previous search/resolve from this IP
+  // 2. Heavy Compute Operations Guard (isolated per platform):
   if (category === "search" || category === "resolve") {
-    const heavySlotKey = `${clientIp}::heavy`;
+    const heavySlotKey = `${clientIp}::${platform}::heavy`;
     if (inFlightRequests.has(heavySlotKey)) {
       const prevHeavy = inFlightRequests.get(heavySlotKey);
-      dropInFlightRequest(prevHeavy, "newer heavy compute request received from IP");
+      dropInFlightRequest(prevHeavy, "newer heavy compute request received from platform");
     }
   }
 
-  // 3. Global In-Flight Concurrency Guard Per IP (Max 3 concurrent active API requests per IP)
-  const MAX_GLOBAL_PER_IP = 3;
-  let activeSlots = ipInFlightSlots.get(clientIp);
+  // 3. Platform In-Flight Concurrency Guard Per IP (Max 4 concurrent active API requests per platform)
+  const MAX_PER_PLATFORM = 4;
+  const platformIpKey = `${clientIp}::${platform}`;
+  let activeSlots = ipInFlightSlots.get(platformIpKey);
   if (!activeSlots) {
     activeSlots = new Set();
-    ipInFlightSlots.set(clientIp, activeSlots);
+    ipInFlightSlots.set(platformIpKey, activeSlots);
   }
 
-  if (activeSlots.size >= MAX_GLOBAL_PER_IP) {
+  if (activeSlots.size >= MAX_PER_PLATFORM) {
     let oldest = null;
     for (const key of activeSlots) {
       const entry = inFlightRequests.get(key);
@@ -1379,7 +1411,7 @@ function registerIncomingRequest(req, res, pathname, parsedUrl) {
       }
     }
     if (oldest) {
-      dropInFlightRequest(oldest, "concurrency limit exceeded for IP, holding single latest");
+      dropInFlightRequest(oldest, "concurrency limit exceeded for platform, holding single latest");
     }
   }
 
@@ -1463,8 +1495,9 @@ const server = http.createServer(async (req, res) => {
   // --------------------------------------------------------------------------
   // API: Instant Audio Stream Proxy (Low-Latency TCP Nodelay + Persistent TLS)
   // --------------------------------------------------------------------------
-  if (pathname === "/api/stream-audio") {
-    const targetChannel = parsedUrl.searchParams.get("channel") || "browser";
+  if (pathname === "/api/stream-audio" || pathname === "/api/web/stream" || pathname === "/api/mobile/stream") {
+    const defaultPlatform = pathname === "/api/mobile/stream" ? "app" : (pathname === "/api/web/stream" ? "browser" : getClientPlatform(req, parsedUrl));
+    const targetChannel = parsedUrl.searchParams.get("channel") || defaultPlatform;
     const directUrl = parsedUrl.searchParams.get("url");
 
     let uri = directUrl;
@@ -1589,7 +1622,8 @@ const server = http.createServer(async (req, res) => {
     if (abortController?.signal?.aborted || res.headersSent) return;
     const q = parsedUrl.searchParams.get("q") || "";
     const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
-    const targetChannel = parsedUrl.searchParams.get("channel") || "browser";
+    const defaultPlatform = getClientPlatform(req, parsedUrl);
+    const targetChannel = parsedUrl.searchParams.get("channel") || defaultPlatform;
     const forceSaavn = parsedUrl.searchParams.get("forceSaavn") === "true";
 
     if (!q) {
@@ -1833,7 +1867,12 @@ const server = http.createServer(async (req, res) => {
   // --------------------------------------------------------------------------
   // API: Real-time Player State
   // --------------------------------------------------------------------------
-  if (pathname === "/api/state") {
+  // --------------------------------------------------------------------------
+  // API: Real-time Player State (Separated Response Engine for Web, Mobile & Bot)
+  // --------------------------------------------------------------------------
+  if (pathname === "/api/state" || pathname === "/api/web/state" || pathname === "/api/mobile/state" || pathname === "/api/bot/state") {
+    const platform = pathname === "/api/mobile/state" ? "app" : (pathname === "/api/bot/state" ? "bot" : (pathname === "/api/web/state" ? "browser" : getClientPlatform(req, parsedUrl)));
+
     const chanBrowser = systemChannels.browser;
     const chanApp = systemChannels.app;
 
@@ -1867,8 +1906,14 @@ const server = http.createServer(async (req, res) => {
       streamUrl: null
     };
 
+    // Dedicated channel response state tailored to the caller's platform
+    const activeChan = platform === "app" ? chanApp : (platform === "bot" ? botChannelState : chanBrowser);
+
     const payload = {
       connected: true,
+      serverType: "separated-response-engine",
+      platform: platform,
+      targetChannel: platform === "app" ? "app" : (platform === "bot" ? "bot" : "browser"),
       authenticated: Boolean(sessionUser),
       sessionRevoked: sessionRevoked,
       user: sessionUser ? {
@@ -1888,13 +1933,15 @@ const server = http.createServer(async (req, res) => {
         favoriteCount: sessionUser.favorites?.length || 0,
         queueCount: sessionUser.queue?.length || 0
       } : null,
-      playing: chanBrowser.isPlaying,
-      paused: chanBrowser.isPaused,
-      position: chanBrowser.position,
-      duration: chanBrowser.duration,
-      volume: chanBrowser.volume,
-      current: chanBrowser.current,
-      queue: chanBrowser.queue || [],
+      // Dedicated platform playback state
+      playing: activeChan.isPlaying,
+      paused: activeChan.isPaused,
+      position: activeChan.position,
+      duration: activeChan.duration,
+      volume: activeChan.volume,
+      current: activeChan.current,
+      queue: activeChan.queue || [],
+      history: activeChan.history || [],
       channels: {
         browser: {
           id: "browser",
@@ -1931,14 +1978,14 @@ const server = http.createServer(async (req, res) => {
       announcementChannelName: botData?.announcementChannelName || "music"
     };
 
-    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "X-Server-Platform": platform });
     return res.end(JSON.stringify(payload));
   }
 
   // --------------------------------------------------------------------------
   // API: User Action Controller (play_now, set_track, play_pause, etc.)
   // --------------------------------------------------------------------------
-  if (pathname === "/api/action" && req.method === "POST") {
+  if (pathname === "/api/action" || pathname === "/api/web/action" || pathname === "/api/mobile/action" || pathname === "/api/bot/action") {
     if (abortController?.signal?.aborted || res.headersSent) return;
     let body = "";
     req.on("data", chunk => body += chunk);
@@ -1947,7 +1994,8 @@ const server = http.createServer(async (req, res) => {
       try {
         const parsed = JSON.parse(body || "{}");
         const action = parsed.action;
-        const targetChannel = parsed.targetChannel || parsed.channel || "browser";
+        const defaultPlatform = pathname === "/api/mobile/action" ? "app" : (pathname === "/api/bot/action" ? "bot" : (pathname === "/api/web/action" ? "browser" : getClientPlatform(req, parsedUrl)));
+        const targetChannel = parsed.targetChannel || parsed.channel || defaultPlatform;
 
         // Route Discord Bot actions to the bot worker process
         if (targetChannel === "bot" || action === "send" || action === "set_announcement_channel") {
@@ -2018,11 +2066,16 @@ const server = http.createServer(async (req, res) => {
             chan.isPaused = parsed.paused;
             chan.isPlaying = !parsed.paused;
           }
+        } else if (action === "stop") {
+          chan.isPlaying = false;
+          chan.isPaused = false;
+          chan.position = 0;
+          chan.current = null;
         }
 
         if (abortController?.signal?.aborted || res.headersSent) return;
-        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-        return res.end(JSON.stringify({ success: true, message: `Action ${action} executed` }));
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "X-Server-Platform": defaultPlatform });
+        return res.end(JSON.stringify({ success: true, platform: defaultPlatform, channel: targetChannel, message: `Action ${action} executed for ${targetChannel}` }));
       } catch (err) {
         if (abortController?.signal?.aborted || res.headersSent) return;
         res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
@@ -2425,10 +2478,12 @@ const server = http.createServer(async (req, res) => {
 // Launch Standalone Server
 server.listen(PORT, "0.0.0.0", () => {
   console.log("================================================================");
-  console.log(" 🚀 SPY SEC MUSIC - STANDALONE ULTRA-LOW LATENCY AUDIO ENGINE");
-  console.log(` 🌐 Web Player & Mobile Server Live: http://localhost:${PORT}`);
-  console.log(" ⚡ Dedicated Event Loop: 100% CPU dedicated to Audio & Streaming");
-  console.log(" ⚡ TLS Keep-Alive & TCP NoDelay Active (0ms Overhead)");
+  console.log(" 🌐 SPY SEC MUSIC - DEDICATED SEPARATED RESPONSE SERVERS");
+  console.log(` 🌐 Web App Response Server:    http://localhost:${PORT}/api/web/state`);
+  console.log(` 📱 Mobile App Response Server: http://localhost:${PORT}/api/mobile/state`);
+  console.log(` 🤖 Discord Bot Relay Server:   http://localhost:${PORT}/api/bot/state (Worker :3051)`);
+  console.log(" ⚡ Dedicated Per-Platform State, Queues & Request Regulation");
+  console.log(" ⚡ Zero Cross-Device Interference / Independent Playback");
   console.log("================================================================");
 
   // Automatic Cloud Discord Bot Runner:

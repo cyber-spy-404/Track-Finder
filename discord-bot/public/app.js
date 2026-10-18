@@ -61,9 +61,41 @@ function resolveApiUrl(path) {
 }
 window.resolveApiUrl = resolveApiUrl;
 
-// Transparently wrap window.fetch so all relative API requests hit the server in mobile app
+// ==========================================================================
+// CLIENT PLATFORM IDENTIFIER & ENVIRONMENT DETECTION
+// ==========================================================================
+const isMobileAppEnvironment = Boolean(
+  (typeof window !== "undefined" && window.Capacitor?.isNativePlatform?.()) ||
+  (typeof window !== "undefined" && window.location?.protocol === "file:") ||
+  (typeof window !== "undefined" && window.location?.origin && (window.location.origin.includes("capacitor") || window.location.origin.includes("localhost:"))) &&
+  (typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent))
+);
+window.isMobileAppEnvironment = isMobileAppEnvironment;
+
+// Dedicated active channel: "app" for mobile app, "browser" for web browser
+let activeSystemChannel = isMobileAppEnvironment ? "app" : "browser";
+window.activeSystemChannel = activeSystemChannel;
+
+// Transparently wrap window.fetch so all relative API requests hit the server and carry platform identity
 const _nativeFetch = window.fetch;
 window.fetch = function(input, init) {
+  init = init || {};
+  const platform = isMobileAppEnvironment ? "mobile-app" : "web-app";
+  const channel = activeSystemChannel || (isMobileAppEnvironment ? "app" : "browser");
+
+  let headers = init.headers;
+  if (!headers) {
+    headers = {};
+    init.headers = headers;
+  }
+  if (headers instanceof Headers) {
+    if (!headers.has("X-Client-Platform")) headers.set("X-Client-Platform", platform);
+    if (!headers.has("X-Target-Channel")) headers.set("X-Target-Channel", channel);
+  } else if (typeof headers === "object") {
+    if (!headers["X-Client-Platform"]) headers["X-Client-Platform"] = platform;
+    if (!headers["X-Target-Channel"]) headers["X-Target-Channel"] = channel;
+  }
+
   if (typeof input === "string" && input.startsWith("/api/")) {
     input = resolveApiUrl(input);
   } else if (input instanceof Request && input.url && input.url.startsWith("/api/")) {
@@ -338,14 +370,10 @@ function isSpotifyUrl(url) {
 }
 
 
-// Environment Detection
-const isMobileAppEnvironment = Boolean(
-  window.Capacitor?.isNativePlatform?.() ||
-  window.location?.protocol === "file:" ||
-  (window.location?.origin && window.location.origin.includes("capacitor"))
-);
-
-let activeSystemChannel = "browser"; // Always default to "browser" for immediate local audio playback on all devices!
+// Environment Detection alias
+if (typeof window !== "undefined") {
+  window.isMobileApp = isMobileAppEnvironment;
+}
 
 // ==========================================================================
 // BULLETPROOF DIRECT NATIVE BROWSER AUDIO ENGINE
@@ -499,7 +527,7 @@ const BrowserPlayer = {
       });
     }
 
-    sendAction("set_track", null, { targetChannel: "browser", track }).catch(() => {});
+    sendAction("set_track", null, { targetChannel: activeSystemChannel || (isMobileAppEnvironment ? "app" : "browser"), track }).catch(() => {});
     updateUIWithTrack(track, true);
     if (typeof updateAllQueueBadges === "function") updateAllQueueBadges();
     if (typeof updateHeartButtonStatus === "function") updateHeartButtonStatus();
@@ -1108,11 +1136,13 @@ const BrowserPlayer = {
 
   reportState() {
     if (!this.audio) return;
+    const targetChannel = activeSystemChannel || (isMobileAppEnvironment ? "app" : "browser");
     fetch("/api/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        targetChannel: "browser",
+        targetChannel: targetChannel,
+        channel: targetChannel,
         action: "report_state",
         position: Math.round((this.audio.currentTime || 0) * 1000),
         duration: Math.round((this.audio.duration || 0) * 1000),
@@ -5256,8 +5286,9 @@ function updateUI(state) {
     }
   }
 
-  // If Browser channel is currently active, delegate main UI to BrowserPlayer
-  if (activeSystemChannel === "browser") {
+  // Dedicated local channel playback: Web uses 'browser', Mobile App uses 'app'
+  const localChan = isMobileAppEnvironment ? "app" : "browser";
+  if (activeSystemChannel === localChan || activeSystemChannel === "browser" || activeSystemChannel === "app") {
     updateUIWithTrack(BrowserPlayer.currentTrack, BrowserPlayer.isPlaying());
     return;
   }
@@ -5302,12 +5333,13 @@ async function sendAction(action, value = null, extra = {}) {
   }
 }
 
-// Polling State Fetcher
+// Polling State Fetcher (Dedicated to local platform: 'app' for Mobile, 'browser' for Web)
 async function fetchState() {
   try {
+    const platform = isMobileAppEnvironment ? "app" : "browser";
     const token = localStorage.getItem("ahm_session_token") || "";
     const headers = token ? { "Authorization": `Bearer ${token}` } : {};
-    const res = await fetch("/api/state", { headers });
+    const res = await fetch(`/api/state?channel=${platform}`, { headers });
     if (!res.ok) return;
     const state = await res.json();
     currentState = state;

@@ -7,6 +7,9 @@
     "start": "node index.js",
     "web": "node web-app/server.js",
     "bot": "node discord-bot/bot.js",
+    "server:web": "node web-app/server.js",
+    "server:bot": "node discord-bot/bot.js",
+    "mobile:sync": "node mobile-app/copy-assets.js",
     "postinstall": "cd web-app && npm install && cd ../discord-bot && npm install"
   },
   "dependencies": {
