@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -13,6 +14,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -87,6 +90,160 @@ public class MainActivity extends AppCompatActivity {
         webView.setKeepScreenOn(true);
 
         webView.setWebViewClient(new WebViewClient() {
+            private boolean handleUrlOverride(WebView view, String url) {
+                if (url == null) return false;
+
+                // Keep local bundled assets and local loopback within the webview
+                if (url.startsWith("file://") || url.startsWith("http://localhost") || url.startsWith("http://127.0.0.1")) {
+                    return false;
+                }
+
+                // Intercept phone dialer links (Fixes ERR_UNKNOWN_URL_SCHEME for tel:)
+                if (url.startsWith("tel:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_DIAL, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+
+                // Intercept email client links
+                if (url.startsWith("mailto:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_SENDTO, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+
+                // Intercept SMS links
+                if (url.startsWith("sms:") || url.startsWith("smsto:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_SENDTO, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+
+                // Intercept custom Android intent URI schemes
+                if (url.startsWith("intent:")) {
+                    try {
+                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+                        if (intent != null) {
+                            PackageManager pm = getPackageManager();
+                            if (intent.resolveActivity(pm) != null) {
+                                startActivity(intent);
+                                return true;
+                            }
+                            String fallbackUrl = intent.getStringExtra("browser_fallback_url");
+                            if (fallbackUrl != null && (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
+                                view.loadUrl(fallbackUrl);
+                                return true;
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+
+                // Intercept Phone Call Links (Open dialer directly)
+                if (url.startsWith("tel:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_DIAL, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+
+                // Intercept Email Links
+                if (url.startsWith("mailto:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_SENDTO, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+
+                // Intercept Google Play market links
+                if (url.startsWith("market:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+
+                // Any other non-http scheme (e.g. app schemes)
+                if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("javascript:") && !url.startsWith("file://")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return true;
+                }
+
+                return false;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleUrlOverride(view, url);
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (request != null && request.getUrl() != null) {
+                    return handleUrlOverride(view, request.getUrl().toString());
+                }
+                return false;
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                // If a non-http scheme failed, ignore it so it doesn't navigate to white error screen
+                if (failingUrl != null && (failingUrl.startsWith("tel:") || failingUrl.startsWith("mailto:") || failingUrl.startsWith("intent:"))) {
+                    return;
+                }
+                if (failingUrl != null && !failingUrl.startsWith("http://") && !failingUrl.startsWith("https://") && !failingUrl.startsWith("file://")) {
+                    view.loadUrl("file:///android_asset/public/index.html");
+                }
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request != null && request.isForMainFrame() && request.getUrl() != null) {
+                    String failingUrl = request.getUrl().toString();
+                    if (failingUrl.startsWith("tel:") || failingUrl.startsWith("mailto:") || failingUrl.startsWith("intent:")) {
+                        return;
+                    }
+                    if (!failingUrl.startsWith("http://") && !failingUrl.startsWith("https://") && !failingUrl.startsWith("file://")) {
+                        view.loadUrl("file:///android_asset/public/index.html");
+                    }
+                }
+            }
+
             @Override
             public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
                 handler.proceed();
@@ -136,6 +293,14 @@ public class MainActivity extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
+            }
+        }
+
+        @JavascriptInterface
+        public void preloadCover(String coverUrl) {
+            MediaPlaybackService service = MediaPlaybackService.getInstance();
+            if (service != null && coverUrl != null && !coverUrl.isEmpty()) {
+                service.preloadCover(coverUrl);
             }
         }
 
@@ -226,9 +391,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (webView != null) {
-            webView.onPause();
-        }
+        // Do NOT call webView.onPause(). Background audio playback, queue transitions,
+        // and media bridge updates must continue running uninterrupted when the screen is locked or app is minimized.
     }
 
     @Override

@@ -28,6 +28,8 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.media.app.NotificationCompat.MediaStyle;
 import androidx.media.session.MediaButtonReceiver;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -73,7 +75,9 @@ public class MediaPlaybackService extends Service {
     private boolean isBuffering = false;
 
     private Bitmap cachedCoverBitmap = null;
+    private Bitmap previousCoverBitmap = null; // Retained until new cover finishes to avoid blank flash
     private String lastCoverLoaded = "";
+    private long coverLoadSequence = 0;
     private final ExecutorService imageExecutor = Executors.newSingleThreadExecutor();
     private PowerManager.WakeLock wakeLock;
 
@@ -246,6 +250,9 @@ public class MediaPlaybackService extends Service {
 
     public void updateDirectState(String title, String artist, String album, String cover, double duration, double position, boolean isPlaying, boolean buffering) {
         new Handler(Looper.getMainLooper()).post(() -> {
+            boolean titleChanged = (title != null && !title.isEmpty() && !title.equals(currentTitle));
+            boolean coverChanged = (cover != null && !cover.isEmpty() && !cover.equals(currentCover));
+
             if (title != null && !title.isEmpty()) currentTitle = title;
             if (artist != null && !artist.isEmpty()) currentArtist = artist;
             if (album != null && !album.isEmpty()) currentAlbum = album;
@@ -274,23 +281,41 @@ public class MediaPlaybackService extends Service {
             if (currentArtist == null || currentArtist.isEmpty()) currentArtist = "CyberSpy 404";
             if (currentAlbum == null || currentAlbum.isEmpty()) currentAlbum = "Lossless Audio";
 
-            publishPlaybackState();
+            if (titleChanged) {
+                // Track changed: move current bitmap to previousCoverBitmap so notification never shows blank.
+                // The new bitmap will replace it once downloaded (see loadCoverBitmap callback).
+                if (cachedCoverBitmap != null) {
+                    previousCoverBitmap = cachedCoverBitmap;
+                }
+                cachedCoverBitmap = null;
+                lastCoverLoaded = "";
+            }
 
-            if (cover != null && !cover.equals(currentCover)) {
+            if (cover != null && (coverChanged || (titleChanged && !cover.isEmpty()))) {
                 currentCover = cover;
                 loadCoverBitmap(cover);
+            } else if (titleChanged && (cover == null || cover.isEmpty())) {
+                currentCover = "";
+                cachedCoverBitmap = null;
+                lastCoverLoaded = "";
             }
+
+            publishPlaybackState();
         });
     }
 
     private void handleUpdateState(Intent intent) {
         String title = intent.getStringExtra(EXTRA_TITLE);
-        if (title != null && !title.isEmpty()) currentTitle = title;
         String artist = intent.getStringExtra(EXTRA_ARTIST);
-        if (artist != null && !artist.isEmpty()) currentArtist = artist;
         String album = intent.getStringExtra(EXTRA_ALBUM);
-        if (album != null && !album.isEmpty()) currentAlbum = album;
         String cover = intent.getStringExtra(EXTRA_COVER);
+
+        boolean titleChanged = (title != null && !title.isEmpty() && !title.equals(currentTitle));
+        boolean coverChanged = (cover != null && !cover.isEmpty() && !cover.equals(currentCover));
+
+        if (title != null && !title.isEmpty()) currentTitle = title;
+        if (artist != null && !artist.isEmpty()) currentArtist = artist;
+        if (album != null && !album.isEmpty()) currentAlbum = album;
 
         double duration = intent.getDoubleExtra(EXTRA_DURATION, 0.0);
         if (duration > 0 && !Double.isNaN(duration) && !Double.isInfinite(duration)) {
@@ -317,38 +342,150 @@ public class MediaPlaybackService extends Service {
         if (currentArtist == null || currentArtist.isEmpty()) currentArtist = "CyberSpy 404";
         if (currentAlbum == null || currentAlbum.isEmpty()) currentAlbum = "Lossless Audio";
 
-        publishPlaybackState();
+        if (titleChanged) {
+            if (cachedCoverBitmap != null) {
+                previousCoverBitmap = cachedCoverBitmap;
+            }
+            cachedCoverBitmap = null;
+            lastCoverLoaded = "";
+        }
 
-        if (cover != null && !cover.equals(currentCover)) {
+        if (cover != null && (coverChanged || (titleChanged && !cover.isEmpty()))) {
             currentCover = cover;
             loadCoverBitmap(cover);
+        } else if (titleChanged && (cover == null || cover.isEmpty())) {
+            currentCover = "";
+            cachedCoverBitmap = null;
+            lastCoverLoaded = "";
         }
+
+        publishPlaybackState();
+    }
+
+    /**
+     * Called from JS bridge before updateMediaState to start downloading cover early,
+     * so the bitmap is ready (or nearly so) when updateMediaState arrives.
+     */
+    public void preloadCover(String coverUrl) {
+        if (coverUrl == null || coverUrl.isEmpty()) return;
+        if (coverUrl.equals(lastCoverLoaded) && cachedCoverBitmap != null) return;
+        // Warm-start the download; actual commit happens inside loadCoverBitmap callback
+        new Handler(Looper.getMainLooper()).post(() -> loadCoverBitmap(coverUrl));
     }
 
     private void loadCoverBitmap(String coverUrl) {
+        if (coverUrl == null || coverUrl.isEmpty()) {
+            cachedCoverBitmap = null;
+            lastCoverLoaded = "";
+            new Handler(Looper.getMainLooper()).post(this::publishPlaybackState);
+            return;
+        }
+
         if (coverUrl.equals(lastCoverLoaded) && cachedCoverBitmap != null) {
             new Handler(Looper.getMainLooper()).post(this::publishPlaybackState);
             return;
         }
 
+        // Don't clear cachedCoverBitmap here — previousCoverBitmap already holds the old one
+        // so notification continues to show the previous track's art while the new one downloads.
+        final long thisSeq = ++coverLoadSequence;
+        // Post state immediately so Android sees the title/artist update even before image arrives
+        new Handler(Looper.getMainLooper()).post(this::publishPlaybackState);
+
         imageExecutor.execute(() -> {
             Bitmap bmp = null;
             try {
                 if (coverUrl.startsWith("http://") || coverUrl.startsWith("https://")) {
-                    URL url = new URL(coverUrl);
-                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                    connection.setDoInput(true);
-                    connection.setConnectTimeout(4000);
-                    connection.setReadTimeout(4000);
-                    connection.connect();
-                    InputStream input = connection.getInputStream();
-                    bmp = BitmapFactory.decodeStream(input);
+                    String currentUrl = coverUrl;
+                    int redirects = 0;
+                    HttpURLConnection connection = null;
+
+                    while (redirects < 5) {
+                        URL url = new URL(currentUrl);
+                        connection = (HttpURLConnection) url.openConnection();
+                        connection.setDoInput(true);
+                        connection.setConnectTimeout(6000);
+                        connection.setReadTimeout(6000);
+                        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+                        connection.setRequestProperty("Accept", "image/webp,image/png,image/jpeg,image/*,*/*;q=0.8");
+                        connection.setInstanceFollowRedirects(true);
+                        connection.connect();
+
+                        int responseCode = connection.getResponseCode();
+                        if (responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                            responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+                            responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
+                            responseCode == 307 || responseCode == 308) {
+                            String location = connection.getHeaderField("Location");
+                            if (location != null && !location.isEmpty()) {
+                                if (location.startsWith("/")) {
+                                    URL base = new URL(currentUrl);
+                                    currentUrl = new URL(base, location).toString();
+                                } else {
+                                    currentUrl = location;
+                                }
+                                connection.disconnect();
+                                redirects++;
+                                continue;
+                            }
+                        }
+                        break;
+                    }
+
+                    if (connection != null) {
+                        try (InputStream rawInput = connection.getInputStream();
+                             BufferedInputStream bis = new BufferedInputStream(rawInput);
+                             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                            byte[] buffer = new byte[8192];
+                            int bytesRead;
+                            while ((bytesRead = bis.read(buffer)) != -1) {
+                                baos.write(buffer, 0, bytesRead);
+                            }
+                            byte[] imageBytes = baos.toByteArray();
+                            if (imageBytes.length > 0) {
+                                bmp = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                            }
+                        }
+                    }
                 } else if (coverUrl.startsWith("file:///android_asset/")) {
                     String assetPath = coverUrl.replace("file:///android_asset/", "");
-                    InputStream is = getAssets().open(assetPath);
-                    bmp = BitmapFactory.decodeStream(is);
+                    try (InputStream is = getAssets().open(assetPath)) {
+                        bmp = BitmapFactory.decodeStream(is);
+                    } catch (Exception e) {
+                        if (assetPath.startsWith("public/")) {
+                            try (InputStream is = getAssets().open(assetPath.replace("public/", ""))) {
+                                bmp = BitmapFactory.decodeStream(is);
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                } else {
+                    try (InputStream is = getAssets().open("public/" + coverUrl)) {
+                        bmp = BitmapFactory.decodeStream(is);
+                    } catch (Exception e) {
+                        try (InputStream is = getAssets().open(coverUrl)) {
+                            bmp = BitmapFactory.decodeStream(is);
+                        } catch (Exception ignored2) {}
+                    }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception ignored) {}
+
+            // Scale down to max 720x720 to prevent IPC TransactionTooLargeException in Binder
+            if (bmp != null) {
+                int w = bmp.getWidth();
+                int h = bmp.getHeight();
+                int maxDim = Math.max(w, h);
+                if (maxDim > 720) {
+                    float ratio = 720f / maxDim;
+                    int newW = Math.max(1, Math.round(w * ratio));
+                    int newH = Math.max(1, Math.round(h * ratio));
+                    try {
+                        Bitmap scaled = Bitmap.createScaledBitmap(bmp, newW, newH, true);
+                        if (scaled != bmp) {
+                            bmp.recycle();
+                            bmp = scaled;
+                        }
+                    } catch (Throwable ignored) {}
+                }
             }
 
             if (bmp == null) {
@@ -357,9 +494,20 @@ public class MediaPlaybackService extends Service {
                 } catch (Exception ignored) {}
             }
 
-            cachedCoverBitmap = bmp;
-            lastCoverLoaded = coverUrl;
-            new Handler(Looper.getMainLooper()).post(this::publishPlaybackState);
+            final Bitmap finalBmp = bmp;
+            new Handler(Looper.getMainLooper()).post(() -> {
+                // Ignore stale out-of-order downloads from earlier skipped tracks
+                if (thisSeq == coverLoadSequence) {
+                    cachedCoverBitmap = finalBmp;
+                    lastCoverLoaded = coverUrl;
+                    // Release the retained previous bitmap now that new one is ready
+                    if (previousCoverBitmap != null && previousCoverBitmap != finalBmp) {
+                        previousCoverBitmap.recycle();
+                        previousCoverBitmap = null;
+                    }
+                    publishPlaybackState();
+                }
+            });
         });
     }
 
@@ -379,9 +527,26 @@ public class MediaPlaybackService extends Service {
             metaBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs);
         }
 
-        if (cachedCoverBitmap != null) {
-            metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, cachedCoverBitmap);
-            metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, cachedCoverBitmap);
+        // Always set ART_URI so Android 11+ System UI can resolve the cover directly from the CDN
+        // even when our bitmap download is still in-flight.
+        if (currentCover != null && !currentCover.isEmpty()) {
+            metaBuilder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, currentCover);
+            metaBuilder.putString(MediaMetadataCompat.METADATA_KEY_ART_URI, currentCover);
+        }
+
+        // Use cached bitmap if available; fall back to previousCoverBitmap to avoid blank flash.
+        Bitmap artBitmap = cachedCoverBitmap != null ? cachedCoverBitmap : previousCoverBitmap;
+        if (artBitmap != null) {
+            metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, artBitmap);
+            metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, artBitmap);
+        } else {
+            try {
+                Bitmap defIcon = BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher);
+                if (defIcon != null) {
+                    metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, defIcon);
+                    metaBuilder.putBitmap(MediaMetadataCompat.METADATA_KEY_ART, defIcon);
+                }
+            } catch (Exception ignored) {}
         }
 
         mediaSession.setMetadata(metaBuilder.build());
@@ -480,8 +645,15 @@ public class MediaPlaybackService extends Service {
             builder.setSubText(null);
         }
 
-        if (cachedCoverBitmap != null) {
-            builder.setLargeIcon(cachedCoverBitmap);
+        // Use cached bitmap; if still downloading, fall back to previous track's art to avoid blank flash
+        Bitmap notifArt = cachedCoverBitmap != null ? cachedCoverBitmap : previousCoverBitmap;
+        if (notifArt != null) {
+            builder.setLargeIcon(notifArt);
+        } else {
+            try {
+                Bitmap defIcon = BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher);
+                if (defIcon != null) builder.setLargeIcon(defIcon);
+            } catch (Exception ignored) {}
         }
 
         return builder.build();

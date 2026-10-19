@@ -1005,6 +1005,139 @@ function loginCustomer({ email, username, password }) {
 }
 
 /**
+ * Initiates password recovery for customer by email
+ */
+function forgotPasswordCustomer({ email }) {
+  const identifier = (email || "").trim().toLowerCase();
+  if (!identifier) {
+    return { success: false, error: "Please enter your email address." };
+  }
+
+  const matchedUser = Object.values(users).find(u =>
+    (u.email && u.email.toLowerCase() === identifier) ||
+    (u.username && u.username.toLowerCase() === identifier)
+  );
+
+  if (!matchedUser) {
+    return { 
+      success: false, 
+      error: "No active account found registered with that email address." 
+    };
+  }
+
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+  matchedUser.resetCode = resetCode;
+  matchedUser.resetCodeExpires = Date.now() + 15 * 60 * 1000;
+  saveUsers();
+
+  return {
+    success: true,
+    message: "A 6-digit security recovery code has been generated.",
+    code: resetCode,
+    email: matchedUser.email || identifier
+  };
+}
+
+/**
+ * Resets user password using recovery code
+ */
+function resetPasswordCustomer({ email, code, newPassword }) {
+  const identifier = (email || "").trim().toLowerCase();
+  const resetCode = (code || "").trim();
+  const pwd = (newPassword || "").trim();
+
+  if (!identifier) return { success: false, error: "Email address is required." };
+  if (!resetCode) return { success: false, error: "Please enter the 6-digit verification code." };
+  if (!pwd || pwd.length < 8) return { success: false, error: "New password must be at least 8 characters long." };
+
+  const matchedUser = Object.values(users).find(u =>
+    (u.email && u.email.toLowerCase() === identifier) ||
+    (u.username && u.username.toLowerCase() === identifier)
+  );
+
+  if (!matchedUser) {
+    return { success: false, error: "Account not found." };
+  }
+
+  if (!matchedUser.resetCode || matchedUser.resetCode !== resetCode) {
+    return { success: false, error: "Invalid verification code. Please check and try again." };
+  }
+
+  if (Date.now() > (matchedUser.resetCodeExpires || 0)) {
+    return { success: false, error: "Verification code has expired. Please request a new one." };
+  }
+
+  const salt = crypto.randomBytes(16).toString("hex");
+  matchedUser.passwordSalt = salt;
+  matchedUser.passwordHash = hashPassword(pwd, salt);
+  delete matchedUser.resetCode;
+  delete matchedUser.resetCodeExpires;
+  saveUsers();
+
+  return {
+    success: true,
+    message: "Password reset successful! You may now sign in with your new credentials."
+  };
+}
+
+/**
+ * Handles social OAuth sign-in / registration (Google, Apple)
+ */
+function oauthLoginCustomer({ provider, email, name, avatar, providerId }) {
+  const prov = (provider || "google").toLowerCase();
+  const userEmail = (email || "").trim().toLowerCase();
+  if (!userEmail) {
+    return { success: false, error: "Valid email is required from social provider." };
+  }
+
+  let matchedUser = Object.values(users).find(u =>
+    (u.email && u.email.toLowerCase() === userEmail) ||
+    (u.oauthProvider === prov && u.oauthId === providerId)
+  );
+
+  if (!matchedUser) {
+    const userId = `customer_${userEmail.replace(/[^a-z0-9]/g, "_")}`;
+    matchedUser = {
+      id: userId,
+      email: userEmail,
+      username: userEmail.split("@")[0],
+      displayName: name || (userEmail.split("@")[0].charAt(0).toUpperCase() + userEmail.split("@")[0].slice(1)),
+      avatar: avatar || (prov === "apple" ? "🍎" : "🎧"),
+      type: "customer",
+      oauthProvider: prov,
+      oauthId: providerId || Date.now().toString(),
+      isServerMember: false,
+      createdAt: Date.now(),
+      lastActive: Date.now(),
+      tasteProfile: {
+        listenedTracks: [],
+        artistAffinity: {},
+        genreAffinity: {},
+        preferredGenres: ["cyberpunk", "electronic", "lofi"],
+        lastUpdatedDate: "",
+        dailyMixes: [],
+        historyCount: 0
+      }
+    };
+    users[userId] = matchedUser;
+  } else {
+    matchedUser.lastActive = Date.now();
+    if (name && !matchedUser.displayName) matchedUser.displayName = name;
+    if (avatar && (!matchedUser.avatar || matchedUser.avatar === "logo.png")) matchedUser.avatar = avatar;
+  }
+
+  generateDailyRecommendations(matchedUser, false);
+  saveUsers();
+
+  const token = createSession(matchedUser);
+  return {
+    success: true,
+    token,
+    user: matchedUser
+  };
+}
+
+/**
  * Calibrates customer taste preferences directly
  */
 function calibrateUserTaste(userId, { preferredGenres, favoriteArtists }) {
@@ -1242,6 +1375,9 @@ module.exports = {
   getDailyRecommendations,
   registerCustomer,
   loginCustomer,
+  forgotPasswordCustomer,
+  resetPasswordCustomer,
+  oauthLoginCustomer,
   calibrateUserTaste,
   hashPassword,
   rehydrateUser,

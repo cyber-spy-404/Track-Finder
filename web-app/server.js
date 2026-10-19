@@ -87,6 +87,22 @@ function extractYouTubeUrl(text) {
   return match ? match[0] : null;
 }
 
+function extractYouTubePlaylistId(urlOrId) {
+  if (!urlOrId || typeof urlOrId !== "string") return null;
+  const str = urlOrId.trim();
+  if (/^[a-zA-Z0-9_-]{10,64}$/.test(str) && (str.startsWith("PL") || str.startsWith("OL") || str.startsWith("RD") || str.startsWith("UU") || str.startsWith("FL") || str.startsWith("TL"))) {
+    return str;
+  }
+  try {
+    const urlObj = new URL(str.startsWith("http") ? str : `https://${str}`);
+    const list = urlObj.searchParams.get("list");
+    if (list) return list;
+  } catch (e) {}
+  const match = str.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
+  if (match) return match[1];
+  return null;
+}
+
 /**
  * Resolves full Spotify playlist/album/track metadata & tracklist without user credentials.
  */
@@ -133,19 +149,30 @@ async function resolveSpotifyLink(url) {
         .replace(/&amp;/g, '&')
         .replace(/&#039;/g, "'")
         .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>');
+        .replace(/&gt;/g, '>')
+        .replace(/\u00A0/g, ' ')
+        .replace(/\u200B/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
       const artist = (t.artist || preview.artist || "Spotify Artist")
         .replace(/&quot;/g, '"')
         .replace(/&amp;/g, '&')
-        .replace(/&#039;/g, "'");
+        .replace(/&#039;/g, "'")
+        .replace(/\u00A0/g, ' ')
+        .replace(/\u200B/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const cleanTitle = name.replace(/\(.*?\)|\[.*?\]/g, "").trim();
+      const primaryArtist = artist.split(/[,&x/]|feat\.|ft\./i)[0].trim();
+      const cleanQ = primaryArtist ? `${cleanTitle} ${primaryArtist}` : `${cleanTitle} ${artist}`.trim();
       return {
         id: `sp_${Date.now()}_${idx + 1}`,
         title: name,
         artist: artist,
         duration: t.duration || 180000,
         artworkUrl: preview.image || "logo.png",
-        query: `${artist} - ${name}`,
-        url: t.uri || cleanUrl,
+        query: cleanQ,
+        url: (t.uri && !t.uri.includes(":playlist:")) ? t.uri : null,
         previewUrl: t.previewUrl || (idx === 0 ? preview.audio : null),
         source: "spotify"
       };
@@ -302,17 +329,53 @@ function executeYtDlp(args, options, callback) {
 // MULTI-SOURCE SEARCH & RESILIENT AUDIO ENGINE (JIOSAAVN + LAVALINK + YT-DLP)
 // ==========================================================================
 
+function cleanMusicQuery(q) {
+  if (!q || typeof q !== "string") return "";
+  let clean = q
+    .replace(/\u00A0/g, " ")
+    .replace(/\u200B/g, "")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
+  clean = clean.replace(/\(.*?\)|\[.*?\]/g, "");
+  if (clean.includes(" - ")) {
+    const parts = clean.split(" - ");
+    const artist = parts[0].split(/[,&x/]|feat\.|ft\./i)[0].trim();
+    const title = parts.slice(1).join(" ").trim();
+    clean = `${title} ${artist}`.trim();
+  }
+  return clean.replace(/[,;&]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 // Fast JioSaavn Search (Instant ~150ms response, zero datacenter IP bans, 320kbps audio)
 async function searchJioSaavn(query, limit = 10, signal = null) {
   if (signal?.aborted) return [];
+  const cleanQ = cleanMusicQuery(query);
   try {
-    const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=${limit}&p=1&q=${encodeURIComponent(query)}`;
-    const timeoutSignal = AbortSignal.timeout(3000);
-    const fetchSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
-    const res = await fetch(url, { signal: fetchSignal });
-    const data = await res.json();
+    const fetchResults = async (qStr) => {
+      const url = `https://www.jiosaavn.com/api.php?__call=search.getResults&_format=json&_marker=0&api_version=4&ctx=web6dot0&n=${limit}&p=1&q=${encodeURIComponent(qStr)}`;
+      const timeoutSignal = AbortSignal.timeout(3000);
+      const fetchSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+      const res = await fetch(url, { signal: fetchSignal });
+      const data = await res.json();
+      return (data.results || []).filter(r => r && r.title);
+    };
+
+    let rawList = await fetchResults(cleanQ || query);
+    if ((!rawList || rawList.length === 0) && cleanQ && cleanQ !== query) {
+      rawList = await fetchResults(query);
+    }
+    if ((!rawList || rawList.length === 0) && cleanQ) {
+      const parts = cleanQ.split(" ");
+      if (parts.length > 1) {
+        rawList = await fetchResults(parts[0]);
+      }
+    }
     if (signal?.aborted) return [];
-    const results = data.results || [];
+    const results = rawList || [];
     return results
       .filter(r => r && r.title)
       .map(r => {
@@ -812,32 +875,39 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
   }
 
   // Case 4: YouTube Playlist via Lavalink or yt-dlp
-  const url = clean.startsWith("http") ? clean : `https://www.youtube.com/playlist?list=${clean}`;
+  const ytPlaylistId = extractYouTubePlaylistId(clean);
+  const url = ytPlaylistId ? `https://www.youtube.com/playlist?list=${ytPlaylistId}` : (clean.startsWith("http") ? clean : `https://www.youtube.com/playlist?list=${clean}`);
   return new Promise((resolve) => {
     executeYtDlp(
-      ["--flat-playlist", "-J", "--playlist-end", String(limit), url],
-      { timeout: 14000, maxBuffer: 15 * 1024 * 1024, signal },
+      ["--flat-playlist", "-J", "--no-warnings", "--yes-playlist", "--playlist-end", String(Math.max(limit, 100)), url],
+      { timeout: 18000, maxBuffer: 25 * 1024 * 1024, signal },
       (err, stdout) => {
         if (err || !stdout) return resolve(null);
         try {
           const data = JSON.parse(stdout);
           const entries = (data.entries || []).filter(e => e && e.title && !e.id?.startsWith("UC"));
-          const tracks = entries.map(e => ({
-            id: e.id,
+          const tracks = entries.map((e, idx) => ({
+            id: e.id || `yt_${idx}`,
             title: e.title,
             artist: e.uploader || e.channel || data.title || "YouTube Music",
-            duration: Math.round((e.duration || 0) * 1000),
+            author: e.uploader || e.channel || data.title || "YouTube Music",
+            duration: Math.round((e.duration || 0) * 1000) || 180000,
+            durationMs: Math.round((e.duration || 0) * 1000) || 180000,
             artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
-            url: (e.url && e.url.startsWith("http")) ? e.url : `https://www.youtube.com/watch?v=${e.id}`,
+            url: e.id ? `https://www.youtube.com/watch?v=${e.id}` : ((e.url && e.url.startsWith("http")) ? e.url.split("&list=")[0].split("?list=")[0] : `https://www.youtube.com/watch?v=${e.id}`),
+            query: e.id ? `https://www.youtube.com/watch?v=${e.id}` : `${e.title} ${e.uploader || ""}`.trim(),
             source: "youtube"
           }));
           const pl = {
-            id: data.id || `yt_${Date.now()}`,
+            id: data.id || ytPlaylistId || `yt_${Date.now()}`,
+            name: data.title || "YouTube Playlist",
             title: data.title || "YouTube Playlist",
-            description: data.description || "",
+            description: data.description || `YouTube Playlist (${tracks.length} tracks)`,
             author: data.uploader || data.channel || "YouTube",
             artworkUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
-            tracks: tracks
+            coverUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
+            tracks: tracks,
+            trackCount: tracks.length
           };
           if (tracks.length > 0) {
             playlistTracksCache.set(cacheKey, { time: Date.now(), data: pl });
@@ -850,6 +920,8 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
     );
   });
 }
+
+const resolvePlaylistDetails = resolvePlaylistTracks;
 
 
 // ==========================================================================
@@ -961,12 +1033,14 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
         if (!err && stdout && stdout.trim()) {
           const directUrl = stdout.trim().split("\n")[0].trim();
           if (directUrl.startsWith("http")) {
+            const vMatch = target.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || target.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
+            const derivedThumb = (vMatch && vMatch[1]) ? `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg` : null;
             const data = {
               title: streamMeta?.title || "Audio Track",
               author: streamMeta?.author || "Trending Music",
               duration: streamMeta?.duration || 0,
               streamUrl: directUrl,
-              artworkUrl: streamMeta?.artworkUrl || "logo.png"
+              artworkUrl: streamMeta?.artworkUrl || derivedThumb || "logo.png"
             };
             directStreamCache.set(cleanKey, { time: Date.now(), data });
             if (target && target.startsWith("http")) {
@@ -1010,12 +1084,14 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
             try {
               const info = JSON.parse(stdout2.trim().split("\n")[0]);
               if (info && info.url) {
+                const vMatch = target.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || target.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
+                const derivedThumb = (vMatch && vMatch[1]) ? `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg` : null;
                 const data = {
                   title: streamMeta?.title || info.title || "Audio Track",
                   author: streamMeta?.author || info.uploader || info.channel || "YouTube",
                   duration: streamMeta?.duration || Math.round((info.duration || 0) * 1000),
                   streamUrl: info.url,
-                  artworkUrl: streamMeta?.artworkUrl || info.thumbnail || "logo.png"
+                  artworkUrl: streamMeta?.artworkUrl || info.thumbnail || derivedThumb || "logo.png"
                 };
                 directStreamCache.set(cleanKey, { time: Date.now(), data });
                 return resolve(data);
@@ -1074,22 +1150,24 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
     try {
       const spData = await resolveSpotifyLink(spotifyUrl);
       if (spData && spData.tracks && spData.tracks.length > 0) {
-        const topTrack = spData.tracks[0];
-        const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
-        const saavnMatch = await searchJioSaavn(searchQ, 3, signal);
-        if (saavnMatch.length > 0 && saavnMatch[0].streamUrl) {
-          const matched = saavnMatch[0];
-          return {
-            title: topTrack.title || matched.title,
-            author: topTrack.artist || matched.author,
-            duration: topTrack.duration || matched.duration,
-            streamUrl: matched.streamUrl,
-            rawStreamUrl: matched.streamUrl,
-            artworkUrl: topTrack.artworkUrl || matched.artworkUrl || "logo.png",
-            filterMode
-          };
+        for (let i = 0; i < Math.min(spData.tracks.length, 5); i++) {
+          const topTrack = spData.tracks[i];
+          const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
+          const saavnMatch = await searchJioSaavn(searchQ, 3, signal);
+          if (saavnMatch.length > 0 && saavnMatch[0].streamUrl) {
+            const matched = saavnMatch[0];
+            return {
+              title: topTrack.title || matched.title,
+              author: topTrack.artist || matched.author,
+              duration: topTrack.duration || matched.duration,
+              streamUrl: matched.streamUrl,
+              rawStreamUrl: matched.streamUrl,
+              artworkUrl: topTrack.artworkUrl || matched.artworkUrl || "logo.png",
+              filterMode
+            };
+          }
         }
-        query = searchQ;
+        query = spData.tracks[0].query || `${spData.tracks[0].title} ${spData.tracks[0].artist}`.trim();
       }
     } catch (e) {}
   }
@@ -1584,7 +1662,10 @@ const server = http.createServer(async (req, res) => {
   }
 
   const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
-  const pathname = parsedUrl.pathname;
+  let pathname = parsedUrl.pathname;
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    pathname = pathname.replace(/\/+$/, "");
+  }
 
   // IP Request Regulation: Hold Single & Last Request Per IP
   const { abortController } = registerIncomingRequest(req, res, pathname, parsedUrl);
@@ -1740,8 +1821,18 @@ const server = http.createServer(async (req, res) => {
         try {
           const spData = await resolveSpotifyLink(spotifyUrl);
           if (spData && spData.tracks && spData.tracks.length > 0) {
-            const first = spData.tracks[0];
-            const resolvedFirst = await resolveMediaTrack(first.query || `${first.title} ${first.artist}`, filterMode, abortController?.signal);
+            let resolvedFirst = null;
+            let chosenIndex = 0;
+            const maxAttempts = Math.min(spData.tracks.length, 5);
+            for (let i = 0; i < maxAttempts; i++) {
+              const cand = spData.tracks[i];
+              const candQ = cand.query || `${cand.title} ${cand.artist}`;
+              resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal);
+              if (resolvedFirst) {
+                chosenIndex = i;
+                break;
+              }
+            }
             if (resolvedFirst) {
               res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
               return res.end(JSON.stringify({
@@ -1749,6 +1840,7 @@ const server = http.createServer(async (req, res) => {
                 channel: targetChannel,
                 isPlaylist: spData.type !== "track",
                 playlist: spData,
+                startIndex: chosenIndex,
                 track: {
                   ...resolvedFirst,
                   proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(resolvedFirst.streamUrl)}`
@@ -1763,12 +1855,62 @@ const server = http.createServer(async (req, res) => {
       const ytUrl = extractYouTubeUrl(q) || (isYouTubeUrl(q) ? q.trim() : null);
       if (ytUrl) {
         try {
-          const isYtPlaylist = ytUrl.includes("playlist?list=") || ytUrl.includes("&list=");
+          // Check if URL specifies an individual video ID (watch?v=..., youtu.be/..., shorts/...)
+          const vMatch = ytUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) ||
+                         ytUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) ||
+                         ytUrl.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
+          const hasVideoId = Boolean(vMatch && vMatch[1]);
+          const ytPlaylistId = extractYouTubePlaylistId(ytUrl);
+          const isYtPlaylist = Boolean(ytPlaylistId || ytUrl.includes("playlist?list=") || ytUrl.includes("&list=") || ytUrl.includes("?list="));
+
           if (isYtPlaylist) {
-            const plData = await resolvePlaylistDetails(ytUrl);
+            const plData = await resolvePlaylistTracks(ytUrl, 100, abortController?.signal);
             if (plData && plData.tracks && plData.tracks.length > 0) {
-              const first = plData.tracks[0];
-              const resolvedFirst = await resolveMediaTrack(first.query || `${first.title} ${first.artist}`, filterMode, abortController?.signal);
+              let chosenIndex = 0;
+              if (hasVideoId && vMatch[1]) {
+                const foundIdx = plData.tracks.findIndex(t => t.id === vMatch[1] || (t.url && t.url.includes(vMatch[1])));
+                if (foundIdx >= 0) chosenIndex = foundIdx;
+              }
+              let resolvedFirst = null;
+              const maxAttempts = Math.min(plData.tracks.length, chosenIndex + 5);
+              for (let i = chosenIndex; i < maxAttempts; i++) {
+                const cand = plData.tracks[i];
+                const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
+                const candQ = candUrl || cand.query || `${cand.title} ${cand.artist}`;
+                resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal);
+                if (resolvedFirst) {
+                  chosenIndex = i;
+                  break;
+                }
+              }
+              if (!resolvedFirst && chosenIndex > 0) {
+                for (let i = 0; i < Math.min(chosenIndex, 5); i++) {
+                  const cand = plData.tracks[i];
+                  const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
+                  const candQ = candUrl || cand.query || `${cand.title} ${cand.artist}`;
+                  resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal);
+                  if (resolvedFirst) {
+                    chosenIndex = i;
+                    break;
+                  }
+                }
+              }
+              if (!resolvedFirst && plData.tracks.length > 0) {
+                const cand = plData.tracks[chosenIndex] || plData.tracks[0];
+                const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
+                const candThumb = cand.id ? `https://i.ytimg.com/vi/${cand.id}/hqdefault.jpg` : null;
+                resolvedFirst = {
+                  id: cand.id,
+                  title: cand.title,
+                  author: cand.artist || cand.author || "YouTube",
+                  artist: cand.artist || cand.author || "YouTube",
+                  duration: cand.duration || 180000,
+                  streamUrl: candUrl || ytUrl,
+                  artworkUrl: cand.artworkUrl || candThumb || plData.artworkUrl || "logo.png",
+                  source: "youtube"
+                };
+              }
+
               if (resolvedFirst) {
                 res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
                 return res.end(JSON.stringify({
@@ -1776,16 +1918,19 @@ const server = http.createServer(async (req, res) => {
                   channel: targetChannel,
                   isPlaylist: true,
                   playlist: plData,
+                  startIndex: chosenIndex,
                   track: {
                     ...resolvedFirst,
-                    proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(resolvedFirst.streamUrl)}`
+                    proxyStreamUrl: resolvedFirst.streamUrl ? `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(resolvedFirst.streamUrl)}` : null
                   }
                 }));
               }
             }
           }
 
-          const ytTrack = await resolveMediaTrack(ytUrl, filterMode, abortController?.signal);
+          // Single video track: use canonical video URL to avoid parameter contamination
+          const singleTrackTarget = (hasVideoId && vMatch[1]) ? `https://www.youtube.com/watch?v=${vMatch[1]}` : ytUrl;
+          const ytTrack = await resolveMediaTrack(singleTrackTarget, filterMode, abortController?.signal);
           if (ytTrack) {
             const shouldSet = parsedUrl.searchParams.get("set") === "true";
             if (shouldSet && systemChannels[targetChannel]) {
@@ -1995,6 +2140,44 @@ const server = http.createServer(async (req, res) => {
 
       res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ success: true, playlist: spotifyData }));
+    } catch (err) {
+      if (abortController?.signal?.aborted || res.headersSent) return;
+      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // API: Dedicated Endpoint - Resolve YouTube Playlists & Mixes
+  // --------------------------------------------------------------------------
+  if (pathname === "/api/youtube-playlist") {
+    if (abortController?.signal?.aborted || res.headersSent) return;
+    let urlParam = parsedUrl.searchParams.get("url") || parsedUrl.searchParams.get("link") || parsedUrl.searchParams.get("id") || parsedUrl.searchParams.get("q");
+
+    if (!urlParam && req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      await new Promise(r => req.on("end", r));
+      try {
+        const b = JSON.parse(body);
+        urlParam = b.url || b.link || b.id || b.query;
+      } catch(e) {}
+    }
+
+    if (!urlParam) {
+      res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Please provide a valid YouTube playlist URL or ID" }));
+    }
+
+    try {
+      const plData = await resolvePlaylistTracks(urlParam, 100, abortController?.signal);
+      if (!plData || !plData.tracks?.length) {
+        res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: "Could not fetch tracks for this YouTube playlist. Please ensure it is public." }));
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: true, playlist: plData }));
     } catch (err) {
       if (abortController?.signal?.aborted || res.headersSent) return;
       res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
@@ -2244,9 +2427,15 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --------------------------------------------------------------------------
-  // API: User Authentication (Login, Register, Logout, Me)
+  // API: User Authentication (Login, Register, Logout, Me, Forgot/Reset, OAuth)
+  // Supports standard and aliased routes (/api/user/..., /api/..., /api/auth/...)
   // --------------------------------------------------------------------------
-  if (pathname === "/api/user/login" && req.method === "POST") {
+  const isLoginRoute = pathname === "/api/user/login" || pathname === "/api/login" || pathname === "/api/auth/login";
+  if (isLoginRoute) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Method not allowed. Use POST for authentication." }));
+    }
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
@@ -2256,22 +2445,28 @@ const server = http.createServer(async (req, res) => {
         if (result.success) {
           res.writeHead(200, {
             "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
             "Set-Cookie": `ahm_auth_token=${encodeURIComponent(result.token)}; Path=/; Max-Age=2592000; SameSite=Lax`
           });
           return res.end(JSON.stringify(result));
         } else {
-          res.writeHead(401, { "Content-Type": "application/json" });
+          res.writeHead(401, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
           return res.end(JSON.stringify(result));
         }
       } catch (err) {
-        res.writeHead(400, { "Content-Type": "application/json" });
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
     return;
   }
 
-  if (pathname === "/api/user/register" && req.method === "POST") {
+  const isRegisterRoute = pathname === "/api/user/register" || pathname === "/api/register" || pathname === "/api/auth/register";
+  if (isRegisterRoute) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Method not allowed. Use POST for registration." }));
+    }
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
@@ -2281,31 +2476,110 @@ const server = http.createServer(async (req, res) => {
         if (result.success) {
           res.writeHead(200, {
             "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
             "Set-Cookie": `ahm_auth_token=${encodeURIComponent(result.token)}; Path=/; Max-Age=2592000; SameSite=Lax`
           });
           return res.end(JSON.stringify(result));
         } else {
-          res.writeHead(400, { "Content-Type": "application/json" });
+          res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
           return res.end(JSON.stringify(result));
         }
       } catch (err) {
-        res.writeHead(400, { "Content-Type": "application/json" });
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
     return;
   }
 
-  if (pathname === "/api/user/logout" && req.method === "POST") {
+  const isForgotPassRoute = pathname === "/api/user/forgot-password" || pathname === "/api/forgot-password" || pathname === "/api/auth/forgot-password";
+  if (isForgotPassRoute) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Method not allowed. Use POST." }));
+    }
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const { email } = JSON.parse(body || "{}");
+        const result = userStore.forgotPasswordCustomer({ email });
+        res.writeHead(result.success ? 200 : 400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  const isResetPassRoute = pathname === "/api/user/reset-password" || pathname === "/api/reset-password" || pathname === "/api/auth/reset-password";
+  if (isResetPassRoute) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Method not allowed. Use POST." }));
+    }
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const { email, code, newPassword } = JSON.parse(body || "{}");
+        const result = userStore.resetPasswordCustomer({ email, code, newPassword });
+        res.writeHead(result.success ? 200 : 400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  const isOAuthLoginRoute = pathname === "/api/user/oauth-login" || pathname === "/api/oauth-login" || pathname === "/api/auth/oauth-login";
+  if (isOAuthLoginRoute) {
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Method not allowed. Use POST." }));
+    }
+    let body = "";
+    req.on("data", chunk => body += chunk);
+    req.on("end", () => {
+      try {
+        const { provider, email, name, avatar, providerId } = JSON.parse(body || "{}");
+        const result = userStore.oauthLoginCustomer({ provider, email, name, avatar, providerId });
+        if (result.success) {
+          res.writeHead(200, {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+            "Set-Cookie": `ahm_auth_token=${encodeURIComponent(result.token)}; Path=/; Max-Age=2592000; SameSite=Lax`
+          });
+          return res.end(JSON.stringify(result));
+        } else {
+          res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          return res.end(JSON.stringify(result));
+        }
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  const isLogoutRoute = pathname === "/api/user/logout" || pathname === "/api/logout" || pathname === "/api/auth/logout";
+  if (isLogoutRoute && (req.method === "POST" || req.method === "GET")) {
     const sessionUser = getSessionUser(req);
     res.writeHead(200, {
       "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
       "Set-Cookie": `ahm_auth_token=; Path=/; Max-Age=0; SameSite=Lax`
     });
     return res.end(JSON.stringify({ success: true }));
   }
 
-  if (pathname === "/api/user/me") {
+  const isMeRoute = pathname === "/api/user/me" || pathname === "/api/me" || pathname === "/api/auth/me";
+  if (isMeRoute) {
     const sessionToken = getSessionToken(req);
     const user = sessionToken ? userStore.getUserByToken(sessionToken) : null;
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
