@@ -383,9 +383,9 @@ setTimeout(ensureYtDlpBinary, 200);
 
 function executeYtDlp(args, options, callback) {
   const runArgs = [...args];
-  // Enable TV and mobile web clients by default for YouTube extraction on datacenter IPs (Render/VPS)
+  // Enable VisionOS and Android VR clients for YouTube extraction to bypass datacenter IP bot detection
   if (!runArgs.includes("--extractor-args")) {
-    runArgs.unshift("--extractor-args", "youtube:player_client=tv,mweb");
+    runArgs.unshift("--extractor-args", "youtube:player_client=visionos,android_vr");
   }
 
   const binaryName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
@@ -2211,7 +2211,7 @@ const server = http.createServer(async (req, res) => {
     const localBinarySize = localBinaryExists ? fs.statSync(localBinary).size : 0;
 
     const runCmd = (cmd, args) => new Promise(resolve => {
-      execFile(cmd, args, { timeout: 30000 }, (err, stdout, stderr) => {
+      execFile(cmd, args, { timeout: 35000 }, (err, stdout, stderr) => {
         resolve({
           err: err ? err.message : null,
           stdout: stdout ? stdout.trim() : null,
@@ -2230,31 +2230,27 @@ const server = http.createServer(async (req, res) => {
       });
     });
 
-    Promise.all([
-      runCmd(localBinary, ["--version"]),
-      runCmd("python3", [localBinary, "--version"]),
-      runCmd(localBinary, ["-g", "--no-playlist", "--no-warnings", targetUrl]),
-      runCmd(localBinary, ["--extractor-args", "youtube:player_client=tv,mweb", "-g", "--no-playlist", "--no-warnings", targetUrl]),
-      runCmd(localBinary, ["--extractor-args", "youtube:player_client=android", "-g", "--no-playlist", "--no-warnings", targetUrl]),
-      runYtDlp(["-g", "--get-title", "--get-duration", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", targetUrl])
-    ]).then(([directVer, pythonVer, rawDirect, tvDirect, androidDirect, fullExec]) => {
-      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-      return res.end(JSON.stringify({
-        url: targetUrl,
-        binary: { path: localBinary, exists: localBinaryExists, size: localBinarySize },
-        directVersion: directVer,
-        pythonVersion: pythonVer,
-        rawDirect: rawDirect,
-        tvDirect: tvDirect,
-        androidDirect: androidDirect,
-        fullExtract: fullExec,
-        platform: process.platform,
-        execPath: process.execPath
-      }, null, 2));
-    }).catch(e => {
-      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-      return res.end(JSON.stringify({ error: e.message }));
-    });
+    (async () => {
+      try {
+        const directVer = await runCmd(localBinary, ["--version"]);
+        const visionosDirect = await runCmd(localBinary, ["--extractor-args", "youtube:player_client=visionos", "-g", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", targetUrl]);
+        const fullExec = await runYtDlp(["-g", "--get-title", "--get-duration", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", targetUrl]);
+
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({
+          url: targetUrl,
+          binary: { path: localBinary, exists: localBinaryExists, size: localBinarySize },
+          directVersion: directVer,
+          visionosDirect: visionosDirect,
+          fullExtract: fullExec,
+          platform: process.platform,
+          execPath: process.execPath
+        }, null, 2));
+      } catch (e) {
+        res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ error: e.message }));
+      }
+    })();
     return;
   }
 
