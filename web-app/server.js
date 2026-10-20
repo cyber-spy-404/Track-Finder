@@ -692,7 +692,7 @@ async function searchYouTubeMulti(query, limit = 20, signal = null) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve([]);
     executeYtDlp(
-      ["--flat-playlist", "-J", "--no-warnings", "--extractor-args", "youtube:player_client=android", `ytsearch${fetchLimit}:${query}`],
+      ["--flat-playlist", "-J", "--no-warnings", "--extractor-args", "youtube:player_client=visionos", `ytsearch${fetchLimit}:${query}`],
       { timeout: 12000, maxBuffer: 15 * 1024 * 1024, signal },
       (err, stdout) => {
         if (signal?.aborted) return resolve([]);
@@ -870,7 +870,7 @@ async function searchPlaylistsMulti(query, limit = 5, signal = null) {
     const ytTimeout = setTimeout(() => resolve(combined.slice(0, limit)), 2500);
 
     executeYtDlp(
-      ["--flat-playlist", "-J", "--no-warnings", "--playlist-end", String(fetchLimit), "--extractor-args", "youtube:player_client=android", url],
+      ["--flat-playlist", "-J", "--no-warnings", "--playlist-end", String(fetchLimit), "--extractor-args", "youtube:player_client=visionos", url],
       { timeout: 3500, maxBuffer: 10 * 1024 * 1024, signal },
       (err, stdout) => {
         clearTimeout(ytTimeout);
