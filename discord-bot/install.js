@@ -25,19 +25,29 @@ try {
   console.log("ℹ️ pip install note:", err.message);
 }
 
-// 3. Standalone binary backup on Linux (Always ensure latest binary exists)
-if (process.platform !== "win32") {
-  const target = path.join(__dirname, "yt-dlp");
-  try {
-    console.log("⬇️ Fetching latest standalone yt-dlp binary backup...");
-    execSync(`curl -L -f -s https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "${target}" && chmod +x "${target}"`, {
-      timeout: 30000,
+// 3. Standalone binary backup (Linux & Windows)
+const binaryName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
+const target = path.join(__dirname, binaryName);
+try {
+  console.log(`⬇️ Fetching latest standalone ${binaryName} binary...`);
+  if (process.platform === "win32") {
+    execSync(`powershell -Command "Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' -OutFile '${target}'"`, {
+      timeout: 60000,
       stdio: "inherit"
     });
-    console.log("✅ Latest standalone yt-dlp binary downloaded.");
-  } catch (err2) {
-    console.log("ℹ️ Standalone binary note:", err2.message);
+  } else {
+    execSync(`curl -L -f --retry 3 -s https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "${target}" && chmod 755 "${target}"`, {
+      timeout: 60000,
+      stdio: "inherit"
+    });
   }
+  if (fs.existsSync(target) && fs.statSync(target).size > 1000000) {
+    console.log(`✅ Latest standalone ${binaryName} binary ready (${(fs.statSync(target).size / 1024 / 1024).toFixed(1)}MB).`);
+  } else {
+    console.warn("⚠️ Standalone binary downloaded but size is suspicious.");
+  }
+} catch (err2) {
+  console.log("ℹ️ Standalone binary note:", err2.message);
 }
 
 console.log("🎉 Discord Bot build setup completed successfully.");

@@ -2,7 +2,7 @@ const http = require("http");
 const https = require("https");
 const path = require("path");
 const fs = require("fs");
-const { execFile } = require("child_process");
+const { execFile, execSync } = require("child_process");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const userStore = require("./userStore");
@@ -309,6 +309,35 @@ const directStreamCache = new Map();
 // ==========================================================================
 // RESILIENT YT-DLP RUNNER (Windows, Linux, Docker, Render)
 // ==========================================================================
+let isDownloadingBinary = false;
+function ensureYtDlpBinary() {
+  const binaryName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
+  const localBinary = path.join(__dirname, binaryName);
+  if (fs.existsSync(localBinary) && fs.statSync(localBinary).size > 1000000) {
+    return localBinary;
+  }
+  if (isDownloadingBinary) return null;
+  isDownloadingBinary = true;
+  console.log(`[YtDlp] Binary missing, downloading standalone ${binaryName} on-demand...`);
+  try {
+    if (process.platform === "win32") {
+      execSync(`powershell -Command "Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' -OutFile '${localBinary}'"`, { timeout: 60000 });
+    } else {
+      execSync(`curl -L -f --retry 3 -s https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "${localBinary}" && chmod 755 "${localBinary}"`, { timeout: 60000 });
+    }
+    if (fs.existsSync(localBinary)) {
+      console.log(`✅ [YtDlp] Standalone ${binaryName} ready (${(fs.statSync(localBinary).size / 1024 / 1024).toFixed(1)}MB).`);
+      return localBinary;
+    }
+  } catch (err) {
+    console.warn("[YtDlp] On-demand download note:", err.message);
+  } finally {
+    isDownloadingBinary = false;
+  }
+  return null;
+}
+setTimeout(ensureYtDlpBinary, 200);
+
 function executeYtDlp(args, options, callback) {
   // Automatically ensure yt-dlp has access to Node.js JS runtime for fast YouTube signature deciphering
   const runArgs = [...args];
@@ -334,7 +363,12 @@ function executeYtDlp(args, options, callback) {
     });
   };
 
-  const localBinary = path.join(__dirname, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
+  const binaryName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
+  const localBinary = path.join(__dirname, binaryName);
+  if (!fs.existsSync(localBinary) || fs.statSync(localBinary).size < 1000000) {
+    ensureYtDlpBinary();
+  }
+
   if (fs.existsSync(localBinary)) {
     return execFile(localBinary, runArgs, options, (err, stdout, stderr) => {
       if (options?.signal?.aborted || err?.name === "AbortError") {

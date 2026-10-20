@@ -13,7 +13,7 @@ const http = require("http");
 const https = require("https");
 const path = require("path");
 const fs = require("fs");
-const { execFile } = require("child_process");
+const { execFile, execSync } = require("child_process");
 const {
   checkBlocked,
   isIslamicText,
@@ -402,28 +402,79 @@ async function searchPlaylistsMulti(query, limit = 5) {
   });
 }
 
+let isDownloadingBinaryBot = false;
+function ensureYtDlpBinaryBot() {
+  const binaryName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
+  const localBinary = path.join(__dirname, binaryName);
+  if (fs.existsSync(localBinary) && fs.statSync(localBinary).size > 1000000) {
+    return localBinary;
+  }
+  if (isDownloadingBinaryBot) return null;
+  isDownloadingBinaryBot = true;
+  console.log(`[YtDlp] Binary missing in bot directory, downloading standalone ${binaryName} on-demand...`);
+  try {
+    if (process.platform === "win32") {
+      execSync(`powershell -Command "Invoke-WebRequest -Uri 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe' -OutFile '${localBinary}'"`, { timeout: 60000 });
+    } else {
+      execSync(`curl -L -f --retry 3 -s https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "${localBinary}" && chmod 755 "${localBinary}"`, { timeout: 60000 });
+    }
+    if (fs.existsSync(localBinary)) {
+      console.log(`✅ [YtDlp] Standalone ${binaryName} ready in bot directory (${(fs.statSync(localBinary).size / 1024 / 1024).toFixed(1)}MB).`);
+      return localBinary;
+    }
+  } catch (err) {
+    console.warn("[YtDlp] Bot on-demand download note:", err.message);
+  } finally {
+    isDownloadingBinaryBot = false;
+  }
+  return null;
+}
+setTimeout(ensureYtDlpBinaryBot, 200);
+
 function executeYtDlp(args, options, callback) {
   const runArgs = [...args];
   if (!runArgs.includes("--js-runtimes")) {
     runArgs.unshift("--js-runtimes", "node");
   }
 
-  const localBinary = path.join(__dirname, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
-  if (fs.existsSync(localBinary)) {
-    return execFile(localBinary, runArgs, options, callback);
+  const tryPythonAndSystem = (prevErr) => {
+    const pythonCmd = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
+    execFile(pythonCmd, ["-m", "yt_dlp", ...runArgs], options, (err, stdout, stderr) => {
+      if (options?.signal?.aborted || err?.name === "AbortError") {
+        return callback(new Error("Request aborted"), "", "");
+      }
+      if (err) {
+        return execFile("yt-dlp", runArgs, options, (err2, stdout2, stderr2) => {
+          if (options?.signal?.aborted || err2?.name === "AbortError") {
+            return callback(new Error("Request aborted"), "", "");
+          }
+          callback(err2 || err || prevErr, stdout2 || stdout, stderr2 || stderr);
+        });
+      }
+      callback(null, stdout, stderr);
+    });
+  };
+
+  const binaryName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp";
+  const localBinary = path.join(__dirname, binaryName);
+  if (!fs.existsSync(localBinary) || fs.statSync(localBinary).size < 1000000) {
+    ensureYtDlpBinaryBot();
   }
-  const pythonCmd = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
-  execFile(pythonCmd, ["-m", "yt_dlp", ...runArgs], options, (err, stdout, stderr) => {
-    if (err && (err.code === "ENOENT" || err.message?.includes("ENOENT"))) {
-      return execFile("yt-dlp", runArgs, options, (err2, stdout2, stderr2) => {
-        if (err2 && process.platform !== "win32") {
-          return execFile("python", ["-m", "yt_dlp", ...runArgs], options, callback);
-        }
-        callback(err2, stdout2, stderr2);
-      });
-    }
-    callback(err, stdout, stderr);
-  });
+
+  if (fs.existsSync(localBinary)) {
+    return execFile(localBinary, runArgs, options, (err, stdout, stderr) => {
+      if (options?.signal?.aborted || err?.name === "AbortError") {
+        return callback(new Error("Request aborted"), "", "");
+      }
+      if (err) {
+        console.warn("[executeYtDlp] localBinary failed, falling back to python/system yt-dlp:", err.message);
+        return tryPythonAndSystem(err);
+      }
+      callback(null, stdout, stderr);
+    });
+  }
+
+  tryPythonAndSystem(null);
 }
 
 function extractYouTubePlaylistId(urlOrId) {
