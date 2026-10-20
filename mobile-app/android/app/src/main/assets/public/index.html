@@ -1868,10 +1868,18 @@
   <!-- Bulletproof Direct Native HTML5 Audio Engine -->
   <audio id="browserAudio" preload="auto" playsinline crossorigin="anonymous" style="display: none;"></audio>
 
+  <!-- Seamless YouTube Audio Bridge Container (Headless IFrame Engine) -->
+  <div id="ytPlayerContainer" style="position:fixed; bottom:-9999px; left:-9999px; width:1px; height:1px; opacity:0; pointer-events:none; z-index:-9999;">
+    <div id="ytPlayerFrame"></div>
+  </div>
+
+  <!-- Official YouTube IFrame Player API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
   <!-- Professional Cyber Authentication Service & Component -->
   <script src="auth-component.js"></script>
 
   <!-- Interactive JavaScript Engine with Cache-Buster -->
-  <script src="app.js?v=10.0"></script>
+  <script src="app.js?v=11.0"></script>
 </body>
 </html>

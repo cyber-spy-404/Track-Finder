@@ -1106,7 +1106,7 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
         try {
           const data = JSON.parse(stdout);
           const entries = (data.entries || []).filter(e => e && e.title && e.title !== "[Deleted video]" && e.title !== "[Private video]" && !e.id?.startsWith("UC"));
-          const isPlaylistIslamic = isIslamicText(data.title || "") || isIslamicText(data.description || "") || isIslamicText(data.uploader || "") || entries.some(e => isIslamicText(e?.title || ""));
+          const isPlaylistIslamic = isIslamicText(data.title || "") || (isIslamicText(data.description || "") && !/pop|rock|hip\s*hop|dance|party|hits|music|billboard/i.test(data.title || ""));
           const tracks = entries.map((e, idx) => {
             const author = e.uploader || e.channel || data.title || "YouTube";
             const duration = Math.round((e.duration || 0) * 1000) || 180000;
@@ -1131,11 +1131,12 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
               filterMode: isItemIslamic ? "strict" : "filterless"
             };
           });
+          const plAuthor = data.uploader || data.channel || (isPlaylistIslamic ? "Islamic Recitations" : "YouTube");
           const pl = {
             id: data.id || ytPlaylistId || `yt_${Date.now()}`,
             name: data.title || (isPlaylistIslamic ? "Holy Quran Recitation" : "YouTube Playlist"),
             title: data.title || (isPlaylistIslamic ? "Holy Quran Recitation" : "YouTube Playlist"),
-            author: isPlaylistIslamic ? "Mishary Rashid Alafasy" : (data.uploader || data.channel || "YouTube"),
+            author: plAuthor,
             description: data.description || `Playlist with ${tracks.length} tracks`,
             artworkUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
             coverUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
