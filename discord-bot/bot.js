@@ -816,7 +816,7 @@ async function extractYouTubeStream(queryOrUrl) {
   return new Promise((resolve) => {
     executeYtDlp(
       ["-g", "--get-title", "--get-duration", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
-      { timeout: 15000 },
+      { timeout: 35000 },
       (err, stdout) => {
         if (!err && stdout && stdout.trim()) {
           const lines = stdout.trim().split("\n").map(l => l.trim()).filter(Boolean);
@@ -2493,9 +2493,31 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, expectedTi
   const { mode: detectedMode, query } = parseQueryFilter(queryOrUrl);
   const filterMode = (detectedMode !== "filterless") ? detectedMode : (forcedFilterMode || "filterless");
   const isUrl = query.startsWith("http://") || query.startsWith("https://");
+  const isExplicitYt = Boolean(query && (query.includes("youtube.com/watch") || query.includes("youtu.be/") || query.includes("youtube.com/shorts/")));
 
-  // Check if query or expectedTitle is an authentic Quran Surah
-  const surahMatch = resolveSurahInfo(query) || resolveSurahInfo(expectedTitle);
+  // Direct YouTube URL: Always extract the exact YouTube video requested!
+  if (isExplicitYt) {
+    try {
+      const streamInfo = await extractYouTubeStream(query);
+      if (streamInfo && streamInfo.streamUrl) {
+        return {
+          title: streamInfo.title || expectedTitle || "YouTube Audio",
+          author: streamInfo.author || expectedArtist || "YouTube",
+          duration: streamInfo.duration || 0,
+          streamUrl: streamInfo.streamUrl,
+          rawStreamUrl: streamInfo.streamUrl,
+          artworkUrl: streamInfo.artworkUrl || "logo.png",
+          filterMode: isIslamicText(expectedTitle) ? "strict" : filterMode,
+          source: "youtube"
+        };
+      }
+    } catch (err) {
+      console.warn("Direct YouTube stream extraction error in bot.js resolveMediaTrack:", err.message);
+    }
+  }
+
+  // Check if query or expectedTitle is an authentic Quran Surah (for non-YouTube queries)
+  const surahMatch = resolveSurahInfo(query) || (!isExplicitYt ? resolveSurahInfo(expectedTitle) : null);
   if (surahMatch) {
     const sNum = surahMatch.number;
     const padded = String(sNum).padStart(3, "0");
@@ -3785,14 +3807,25 @@ const webServer = http.createServer(async (req, res) => {
     if (directUrl) {
       uri = directUrl;
     } else if (targetChannel === "browser") {
-      uri = systemChannels.browser.current?.streamUrl;
+      uri = systemChannels.browser.current?.streamUrl || systemChannels.browser.current?.rawStreamUrl || systemChannels.browser.current?.url;
     } else if (targetChannel === "app") {
-      uri = systemChannels.app.current?.streamUrl;
+      uri = systemChannels.app.current?.streamUrl || systemChannels.app.current?.rawStreamUrl || systemChannels.app.current?.url;
     } else {
       const guildId = "1553640111047180448";
       const player = lavalink.getPlayer(guildId);
       const currentTrack = player?.queue?.current;
       uri = currentTrack?.userData?.streamUrl || currentTrack?.info?.uri;
+    }
+
+    if (uri && (uri.includes("youtube.com/watch") || uri.includes("youtu.be/") || uri.includes("youtube.com/shorts/"))) {
+      try {
+        const streamInfo = await extractYouTubeStream(uri);
+        if (streamInfo && streamInfo.streamUrl && streamInfo.streamUrl.startsWith("http")) {
+          uri = streamInfo.streamUrl;
+        }
+      } catch (e) {
+        console.warn("[StreamProxy] YouTube stream extract error:", e.message);
+      }
     }
 
     if (!uri || (!uri.startsWith("http://") && !uri.startsWith("https://"))) {

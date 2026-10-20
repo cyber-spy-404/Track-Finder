@@ -980,38 +980,26 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
           const entries = (data.entries || []).filter(e => e && e.title && e.title !== "[Deleted video]" && e.title !== "[Private video]" && !e.id?.startsWith("UC"));
           const isPlaylistIslamic = isIslamicText(data.title || "") || isIslamicText(data.description || "") || isIslamicText(data.uploader || "") || entries.some(e => isIslamicText(e?.title || ""));
           const tracks = entries.map((e, idx) => {
-            const surahInfo = resolveSurahInfo(e.title) || (isPlaylistIslamic && e.title?.match(/^0*(\d{1,3})\b/) ? resolveSurahInfo(e.title.match(/^0*(\d{1,3})\b/)[1]) : null);
-            let streamUrl = null;
-            let rawStreamUrl = null;
-            let author = e.uploader || e.channel || data.title || "YouTube Music";
-            let source = "youtube";
-            let filterMode = isPlaylistIslamic ? "strict" : "filterless";
-            let duration = Math.round((e.duration || 0) * 1000) || 180000;
-
-            if (surahInfo) {
-              const padded = String(surahInfo.number).padStart(3, "0");
-              const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
-              streamUrl = quranUrl;
-              rawStreamUrl = quranUrl;
-              author = "Mishary Rashid Alafasy";
-              source = "quran";
-              filterMode = "strict";
-            }
+            const author = e.uploader || e.channel || data.title || "YouTube";
+            const duration = Math.round((e.duration || 0) * 1000) || 180000;
+            const videoId = e.id || (e.url ? (e.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || [])[1] : null);
+            const videoUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : ((e.url && e.url.startsWith("http")) ? e.url.split("&list=")[0].split("?list=")[0] : null);
+            const isItemIslamic = isPlaylistIslamic || isIslamicText(e.title || "");
 
             return {
-              id: e.id || `yt_${idx}`,
-              title: surahInfo ? `Surah ${surahInfo.number}: ${surahInfo.name}` : e.title,
+              id: videoId ? `yt-${videoId}` : `yt_${idx}`,
+              title: e.title,
               artist: author,
               author: author,
               duration: duration,
               durationMs: duration,
-              artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : (surahInfo ? "logo.png" : `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`),
-              url: e.id ? `https://www.youtube.com/watch?v=${e.id}` : ((e.url && e.url.startsWith("http")) ? e.url.split("&list=")[0].split("?list=")[0] : `https://www.youtube.com/watch?v=${e.id}`),
-              query: surahInfo ? `Surah ${surahInfo.number}: ${surahInfo.name}` : (e.id ? `https://www.youtube.com/watch?v=${e.id}` : `${e.title} ${e.uploader || ""}`.trim()),
-              streamUrl,
-              rawStreamUrl,
-              source,
-              filterMode
+              artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : "logo.png"),
+              url: videoUrl,
+              query: videoUrl || `${e.title} ${author}`.trim(),
+              streamUrl: null,
+              rawStreamUrl: null,
+              source: "youtube",
+              filterMode: isItemIslamic ? "strict" : "filterless"
             };
           });
           const pl = {
@@ -1058,23 +1046,25 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
   let target = (queryOrUrl || "").trim();
   let isUrl = target.startsWith("http://") || target.startsWith("https://");
 
-  // Fast Path 0.5: Surah / Quran Direct CDN (Instant <10ms High-Fidelity Audio)
-  const directSurah = resolveSurahInfo(target);
-  if (directSurah) {
-    const padded = String(directSurah.number).padStart(3, "0");
-    const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
-    const data = {
-      title: `Surah ${directSurah.number}: ${directSurah.name}`,
-      author: "Mishary Rashid Alafasy",
-      duration: directSurah.number === 2 ? 7200000 : 300000,
-      streamUrl: quranUrl,
-      rawStreamUrl: quranUrl,
-      artworkUrl: "logo.png",
-      filterMode: "strict",
-      source: "quran"
-    };
-    directStreamCache.set(cleanKey, { time: Date.now(), data });
-    return data;
+  // Fast Path 0.5: Surah / Quran Direct CDN (Instant <10ms High-Fidelity Audio for text queries only, NOT YouTube URLs)
+  if (!isUrl) {
+    const directSurah = resolveSurahInfo(target);
+    if (directSurah) {
+      const padded = String(directSurah.number).padStart(3, "0");
+      const quranUrl = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+      const data = {
+        title: `Surah ${directSurah.number}: ${directSurah.name}`,
+        author: "Mishary Rashid Alafasy",
+        duration: directSurah.number === 2 ? 7200000 : 300000,
+        streamUrl: quranUrl,
+        rawStreamUrl: quranUrl,
+        artworkUrl: "logo.png",
+        filterMode: "strict",
+        source: "quran"
+      };
+      directStreamCache.set(cleanKey, { time: Date.now(), data });
+      return data;
+    }
   }
 
   // Fast Path 1: Direct CDN / Saavn URLs
@@ -1112,25 +1102,6 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
         if (oeData && oeData.title) {
           const ytTitle = (oeData.title || "").trim();
           const ytAuthor = (oeData.author_name || "").replace(/ - Topic$/i, "").trim();
-
-          const oeSurah = resolveSurahInfo(ytTitle);
-          if (oeSurah) {
-            const padded = String(oeSurah.number).padStart(3, "0");
-            const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
-            const data = {
-              title: `Surah ${oeSurah.number}: ${oeSurah.name}`,
-              author: "Mishary Rashid Alafasy",
-              duration: oeSurah.number === 2 ? 7200000 : 300000,
-              streamUrl: quranUrl,
-              rawStreamUrl: quranUrl,
-              artworkUrl: oeData.thumbnail_url || "logo.png",
-              filterMode: "strict",
-              source: "quran"
-            };
-            directStreamCache.set(cleanKey, { time: Date.now(), data });
-            directStreamCache.set(target.toLowerCase(), { time: Date.now(), data });
-            return data;
-          }
 
           streamMeta = {
             title: ytTitle,
@@ -1267,15 +1238,38 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
   if (signal?.aborted) return null;
   let query = (queryOrUrl || "").trim();
   let filterMode = forcedFilterMode || "filterless";
+  const isExplicitYt = Boolean(query && (query.includes("youtube.com/watch") || query.includes("youtu.be/") || query.includes("youtube.com/shorts/")));
 
-  // Check Surah query by number, name, or title
-  const surahInfo = resolveSurahInfo(query) || resolveSurahInfo(expectedTitle);
+  // Direct YouTube URL: Always extract the exact YouTube video requested!
+  if (isExplicitYt) {
+    try {
+      if (signal?.aborted) return null;
+      const streamInfo = await extractYouTubeStream(query, signal);
+      if (streamInfo && streamInfo.streamUrl) {
+        return {
+          title: streamInfo.title || expectedTitle || "YouTube Audio",
+          author: streamInfo.author || expectedArtist || "YouTube",
+          duration: streamInfo.duration || 0,
+          streamUrl: streamInfo.streamUrl,
+          rawStreamUrl: streamInfo.streamUrl,
+          artworkUrl: streamInfo.artworkUrl || "logo.png",
+          filterMode: isIslamicText(expectedTitle) ? "strict" : filterMode,
+          source: "youtube"
+        };
+      }
+    } catch (err) {
+      console.warn("Direct YouTube stream extraction error in resolveMediaTrack:", err.message);
+    }
+  }
+
+  // Check Surah query by number, name, or title (for non-YouTube queries)
+  const surahInfo = resolveSurahInfo(query) || (!isExplicitYt ? resolveSurahInfo(expectedTitle) : null);
   if (surahInfo) {
     const sNum = surahInfo.number;
     const padded = String(sNum).padStart(3, "0");
     const sName = surahInfo.name;
     let reciter = "Mishary Rashid Alafasy";
-    let quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+    let quranUrl = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
     const checkText = `${query} ${expectedTitle} ${expectedArtist}`.toLowerCase();
     if (checkText.includes("sudais") || checkText.includes("abdurrahmaan")) {
       reciter = "Abdurrahman As-Sudais";
@@ -1285,16 +1279,16 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
       quranUrl = `https://download.quranicaudio.com/quran/abdulbaset_mujawwad/${padded}.mp3`;
     } else if (checkText.includes("ghamdi") || checkText.includes("saad al ghamdi")) {
       reciter = "Saad Al-Ghamdi";
-      quranUrl = `https://download.quranicaudio.com/quran/sa3d_al-ghaamidee/${padded}.mp3`;
+      quranUrl = `https://download.quranicaudio.com/quran/sa3d_al-ghaamidi/complete/${padded}.mp3`;
     } else if (checkText.includes("muaiqly") || checkText.includes("maher")) {
       reciter = "Maher Al-Muaiqly";
-      quranUrl = `https://download.quranicaudio.com/quran/maher_almu3aiqly/${padded}.mp3`;
+      quranUrl = `https://download.quranicaudio.com/quran/maher_almu3aiqly/year1440/${padded}.mp3`;
     } else if (checkText.includes("minshawi")) {
       reciter = "Mohamed Siddiq Al-Minshawi";
-      quranUrl = `https://download.quranicaudio.com/quran/muhammad_siddeeq_al-minshaawee/${padded}.mp3`;
+      quranUrl = `https://download.quranicaudio.com/quran/muhammad_siddeeq_al-menshaawi/${padded}.mp3`;
     } else if (checkText.includes("hussary") || checkText.includes("husary")) {
       reciter = "Mahmoud Khalil Al-Hussary";
-      quranUrl = `https://download.quranicaudio.com/quran/mahmood_khaleel_al-husaree/${padded}.mp3`;
+      quranUrl = `https://download.quranicaudio.com/quran/mahmood_khaleel_al-husaree_dour/${padded}.mp3`;
     }
     return {
       title: `Surah ${sNum}: ${sName}`,
@@ -1883,17 +1877,12 @@ const server = http.createServer(async (req, res) => {
 
     let uri = directUrl;
     if (!uri) {
-      if (targetChannel === "browser") uri = systemChannels.browser.current?.streamUrl;
-      else if (targetChannel === "app") uri = systemChannels.app.current?.streamUrl;
+      if (targetChannel === "browser") uri = systemChannels.browser.current?.streamUrl || systemChannels.browser.current?.rawStreamUrl || systemChannels.browser.current?.url;
+      else if (targetChannel === "app") uri = systemChannels.app.current?.streamUrl || systemChannels.app.current?.rawStreamUrl || systemChannels.app.current?.url;
     }
 
-    // 1. Instant Surah Auto-Resolution to authentic Quran audio CDN
-    const surahCheck = resolveSurahInfo(uri) || resolveSurahInfo(systemChannels[targetChannel]?.current?.title || "");
-    if (surahCheck) {
-      const padded = String(surahCheck.number).padStart(3, "0");
-      uri = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
-    } else if (uri && (uri.includes("youtube.com/watch") || uri.includes("youtu.be/") || uri.includes("youtube.com/shorts/"))) {
-      // 2. YouTube Webpage URL: Extract playable audio stream before proxying!
+    // 1. YouTube Webpage URL: Extract playable audio stream before proxying!
+    if (uri && (uri.includes("youtube.com/watch") || uri.includes("youtu.be/") || uri.includes("youtube.com/shorts/"))) {
       try {
         const streamInfo = await extractYouTubeStream(uri, abortController?.signal);
         if (streamInfo && streamInfo.streamUrl && streamInfo.streamUrl.startsWith("http")) {
@@ -1901,6 +1890,13 @@ const server = http.createServer(async (req, res) => {
         }
       } catch (e) {
         console.warn("[StreamProxy] YouTube stream extract error:", e.message);
+      }
+    } else if (!uri || (!uri.startsWith("http://") && !uri.startsWith("https://"))) {
+      const curTitle = systemChannels[targetChannel]?.current?.title || "";
+      const surahCheck = resolveSurahInfo(curTitle);
+      if (surahCheck) {
+        const padded = String(surahCheck.number).padStart(3, "0");
+        uri = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
       }
     }
 
