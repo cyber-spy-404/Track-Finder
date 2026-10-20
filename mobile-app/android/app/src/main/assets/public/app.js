@@ -6309,7 +6309,7 @@ function openTuneTasteModal() {
 
   body.innerHTML = `
     <div style="margin-bottom: 16px;">
-      <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-header); margin-bottom: 4px;">Choose Your Preferred Genres</div>
+      <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Choose Your Preferred Genres</div>
       <div style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px;">
         Tap genres to include in your daily rotation. The engine recalibrates your homepage mixes immediately.
       </div>
@@ -6333,7 +6333,7 @@ function openTuneTasteModal() {
       <input type="text" id="tuneInputArtists" class="auth-text-input" placeholder="e.g. Arijit Singh, Atif Aslam, Pritam..." value="${escapeHtml(curArtists)}">
     </div>
 
-    <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; font-size: 0.76rem; color: var(--text-secondary);">
+    <div class="taste-info-banner">
       💡 <strong>Everyday Rotation</strong>: Your selected preferences weight your Daily Mix 1, Daily Discovery, and 2x4 Quick Access grid. Changes update immediately!
     </div>
 
