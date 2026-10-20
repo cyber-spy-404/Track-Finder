@@ -1,6 +1,6 @@
 {
-  "lastUpdated": 1792315532401,
-  "nextUpdate": 1792401932401,
+  "lastUpdated": 1792403749969,
+  "nextUpdate": 1792490149969,
   "playlists": [
     {
       "id": "top50-india",
@@ -120,7 +120,7 @@
         }
       ],
       "trackCount": 12,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "bollywood-butter",
@@ -222,7 +222,7 @@
         }
       ],
       "trackCount": 10,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "hot-hits-hindi",
@@ -306,7 +306,7 @@
         }
       ],
       "trackCount": 8,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "punjabi-101",
@@ -399,7 +399,7 @@
         }
       ],
       "trackCount": 9,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "arijit-singh-essentials",
@@ -483,7 +483,7 @@
         }
       ],
       "trackCount": 8,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "atif-aslam-essentials",
@@ -558,7 +558,7 @@
         }
       ],
       "trackCount": 7,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "tollywood-bangers",
@@ -624,7 +624,7 @@
         }
       ],
       "trackCount": 6,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "kollywood-chartbusters",
@@ -690,7 +690,7 @@
         }
       ],
       "trackCount": 6,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "sufi-qawwali-mystics",
@@ -707,7 +707,9 @@
           "duration": "08:15",
           "durationMs": 495000,
           "artworkUrl": "covers/sufi_mystics.jpg",
-          "query": "Dam Mast Qalandar Nusrat Fateh Ali Khan"
+          "query": "https://www.youtube.com/watch?v=SKZAiWSquA0",
+          "url": "https://www.youtube.com/watch?v=SKZAiWSquA0",
+          "source": "youtube"
         },
         {
           "id": "sq_2",
@@ -765,7 +767,7 @@
         }
       ],
       "trackCount": 7,
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "37i9dQZF1DX5q67ZpWyRrZ",
@@ -777,11 +779,11 @@
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_1",
           "title": "Aarzu",
-          "artist": "Noor, Khan, Madhurxo",
+          "artist": "Noor, Khan, Madhurxo",
           "duration": "3:07",
           "durationMs": 187567,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Noor, Khan, Madhurxo - Aarzu",
+          "query": "Aarzu Noor",
           "previewUrl": "https://p.scdn.co/mp3-preview/888988ab8ca9568918ab71dfff99a31337de9db9",
           "spotifyUri": "spotify:track:0wHYuCTWPntEgWiUVED4wB"
         },
@@ -792,18 +794,18 @@
           "duration": "4:56",
           "durationMs": 296222,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Navjot Ahuja - Khat",
+          "query": "Khat Navjot Ahuja",
           "previewUrl": "https://p.scdn.co/mp3-preview/2cb7664ce439bff8761a123188e55e2a3f6476a8",
           "spotifyUri": "spotify:track:3gixnmepHSsyAuho34rprN"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_3",
           "title": "Dooron Dooron",
-          "artist": "Paresh Pahuja, Shiv Tandan, Meghdeep Bose",
+          "artist": "Paresh Pahuja, Shiv Tandan, Meghdeep Bose",
           "duration": "3:35",
           "durationMs": 215946,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Paresh Pahuja, Shiv Tandan, Meghdeep Bose - Dooron Dooron",
+          "query": "Dooron Dooron Paresh Pahuja",
           "previewUrl": "https://p.scdn.co/mp3-preview/9fea25c3db6c7e1615c912c4e95aa1db14bf27e5",
           "spotifyUri": "spotify:track:0q5e5KtUOhYQujmhLP0pKd"
         },
@@ -814,29 +816,29 @@
           "duration": "3:41",
           "durationMs": 221057,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Osho Jain - Dekha Hi Nahi",
+          "query": "Dekha Hi Nahi Osho Jain",
           "previewUrl": "https://p.scdn.co/mp3-preview/1f3e0bac11ac968f08775fbfae37f52d916331af",
           "spotifyUri": "spotify:track:5zK7gzWMZlT4TUf2iN2Wjw"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_5",
           "title": "Feeka",
-          "artist": "gini, NEVERSOBER",
+          "artist": "gini, NEVERSOBER",
           "duration": "2:43",
           "durationMs": 163500,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "gini, NEVERSOBER - Feeka",
+          "query": "Feeka gini",
           "previewUrl": "https://p.scdn.co/mp3-preview/1e95b0bddb7a21fe4ba22ae1035e071dde6c0f84",
           "spotifyUri": "spotify:track:0KtpHwKA3UylFJyaJcdBxv"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_6",
           "title": "Paro",
-          "artist": "Aditya Rikhari, UNPLG'd",
+          "artist": "Aditya Rikhari, UNPLG'd",
           "duration": "1:10",
           "durationMs": 70400,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aditya Rikhari, UNPLG'd - Paro",
+          "query": "Paro Aditya Rikhari",
           "previewUrl": "https://p.scdn.co/mp3-preview/457c2cea5306d422427e218ec9cdc7f66c8949f4",
           "spotifyUri": "spotify:track:6nRGPf5tpeJtKpXZO5cgIT"
         },
@@ -847,7 +849,7 @@
           "duration": "2:30",
           "durationMs": 150857,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Banjaare - Bairan",
+          "query": "Bairan Banjaare",
           "previewUrl": "https://p.scdn.co/mp3-preview/1362cf3c52f430d073620897f5d8efc2e4fea120",
           "spotifyUri": "spotify:track:0RsH8g8DxdYZgdGcod5I36"
         },
@@ -858,18 +860,18 @@
           "duration": "2:58",
           "durationMs": 178899,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Saahel - Halki Halki",
+          "query": "Halki Halki Saahel",
           "previewUrl": "https://p.scdn.co/mp3-preview/82c0410243d1e773d6b40f9cccf92806f0e02993",
           "spotifyUri": "spotify:track:20FVN0wtdqkyhGSIJjr4qz"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_9",
           "title": "Kaahe Mose",
-          "artist": "Garvit - Priyansh, Garvit Soni, Priyansh Srivastava",
+          "artist": "Garvit - Priyansh, Garvit Soni, Priyansh Srivastava",
           "duration": "3:39",
           "durationMs": 219097,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Garvit - Priyansh, Garvit Soni, Priyansh Srivastava - Kaahe Mose",
+          "query": "Kaahe Mose Garvit - Priyansh",
           "previewUrl": "https://p.scdn.co/mp3-preview/0a9e04c2d2e2c1be5352231343752d99ba42f89e",
           "spotifyUri": "spotify:track:2kdLpMajZ2VoKEAv9nGsUz"
         },
@@ -880,51 +882,51 @@
           "duration": "2:52",
           "durationMs": 172408,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aditya Rikhari - Samjho Na",
+          "query": "Samjho Na Aditya Rikhari",
           "previewUrl": "https://p.scdn.co/mp3-preview/c80f117e371731958dbf786ed200290b115a5609",
           "spotifyUri": "spotify:track:1d5lpW3gUyq537iuyrb9Lf"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_11",
           "title": "Amsham - അംശം",
-          "artist": "Aksomaniac, M.H.R, Bhumi, Circle Tone",
+          "artist": "Aksomaniac, M.H.R, Bhumi, Circle Tone",
           "duration": "4:41",
           "durationMs": 281800,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aksomaniac, M.H.R, Bhumi, Circle Tone - Amsham - അംശം",
+          "query": "Amsham - അംശം Aksomaniac",
           "previewUrl": "https://p.scdn.co/mp3-preview/af78d8479dd69b262c62552352b442268e939dd8",
           "spotifyUri": "spotify:track:0Dt5EqEckM8jcfMYEdlx2Z"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_12",
           "title": "Udi Udi",
-          "artist": "Aneesh, Sarkar, Hruday",
+          "artist": "Aneesh, Sarkar, Hruday",
           "duration": "2:41",
           "durationMs": 161250,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aneesh, Sarkar, Hruday - Udi Udi",
+          "query": "Udi Udi Aneesh",
           "previewUrl": "https://p.scdn.co/mp3-preview/b7775716d0d0856f828c0bbfc3bc6b9623e02106",
           "spotifyUri": "spotify:track:4ROldgaRDDAI2VP8rWkjat"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_13",
           "title": "Don't Even Text",
-          "artist": "Tsumyoki, gini",
+          "artist": "Tsumyoki, gini",
           "duration": "2:59",
           "durationMs": 179644,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Tsumyoki, gini - Don't Even Text",
+          "query": "Don't Even Text Tsumyoki",
           "previewUrl": "https://p.scdn.co/mp3-preview/de91cb9ca0f9a6dee4b7694deef2ef41cc9935c9",
           "spotifyUri": "spotify:track:0pMACt1jSBlH8mKdaE1TSv"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_14",
           "title": "Iss Tarah",
-          "artist": "Chaar Diwaari, Sonu Nigam",
+          "artist": "Chaar Diwaari, Sonu Nigam",
           "duration": "5:23",
           "durationMs": 323496,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Chaar Diwaari, Sonu Nigam - Iss Tarah",
+          "query": "Iss Tarah Chaar Diwaari",
           "previewUrl": "https://p.scdn.co/mp3-preview/dfabe5056cbf727ddc2247db28568e0c4f0e60f5",
           "spotifyUri": "spotify:track:1hj2XHe0acA4QuAS0HSxsz"
         },
@@ -935,18 +937,18 @@
           "duration": "3:50",
           "durationMs": 230443,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Janisht Joshi - Yeh Duniya Jala Do",
+          "query": "Yeh Duniya Jala Do Janisht Joshi",
           "previewUrl": "https://p.scdn.co/mp3-preview/4a0291cf2effac8e956f6631d5c1ffecdc9a2fde",
           "spotifyUri": "spotify:track:15Z1xuTPQjErBcsaFpunGg"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_16",
           "title": "Finding Her (Female Version) (From \"UR Debut\")",
-          "artist": "Tanishka Bahl, Kushagra, Bharath, Saaheal",
+          "artist": "Tanishka Bahl, Kushagra, Bharath, Saaheal",
           "duration": "3:26",
           "durationMs": 206735,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Tanishka Bahl, Kushagra, Bharath, Saaheal - Finding Her (Female Version) (From \"UR Debut\")",
+          "query": "Finding Her Tanishka Bahl",
           "previewUrl": "https://p.scdn.co/mp3-preview/7a0a42378223b5dc026b0bb094ca6371764abae1",
           "spotifyUri": "spotify:track:2sQsgq7QJqGCJ1HsZcORvT"
         },
@@ -957,18 +959,18 @@
           "duration": "3:53",
           "durationMs": 233630,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "The Local Train - Choo Lo",
+          "query": "Choo Lo The Local Train",
           "previewUrl": "https://p.scdn.co/mp3-preview/c5d4e05e621bcdbd437dd7db50c5b318934b0851",
           "spotifyUri": "spotify:track:2qgXrzJsry4KgYoJCpuaul"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_18",
           "title": "Finding Her",
-          "artist": "Kushagra, Bharath, Saaheal",
+          "artist": "Kushagra, Bharath, Saaheal",
           "duration": "3:27",
           "durationMs": 207000,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Kushagra, Bharath, Saaheal - Finding Her",
+          "query": "Finding Her Kushagra",
           "previewUrl": "https://p.scdn.co/mp3-preview/7e70fa1e32a874ef6fa44501d13787ddc0fd11ce",
           "spotifyUri": "spotify:track:5ThyDv6aRVU8AH4vXQNldF"
         },
@@ -979,7 +981,7 @@
           "duration": "2:43",
           "durationMs": 163653,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Prateek Kuhad - Co2",
+          "query": "Co2 Prateek Kuhad",
           "previewUrl": "https://p.scdn.co/mp3-preview/edaf3c09dc11d2149a74d4e8b4a466f32a3fe15b",
           "spotifyUri": "spotify:track:3hB9lDLyAClYVZivMMl20N"
         },
@@ -990,40 +992,40 @@
           "duration": "2:54",
           "durationMs": 174285,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aditya Bhardwaj - Bye",
+          "query": "Bye Aditya Bhardwaj",
           "previewUrl": "https://p.scdn.co/mp3-preview/0e52f2e023e45564c768dc5dd8a57cf7568dd972",
           "spotifyUri": "spotify:track:0GamKm5LCEwxFh8p2VWvnq"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_21",
           "title": "Zulfein",
-          "artist": "Mehul Mahesh, Dj AYnik",
+          "artist": "Mehul Mahesh, Dj AYnik",
           "duration": "3:18",
           "durationMs": 198831,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Mehul Mahesh, Dj AYnik - Zulfein",
+          "query": "Zulfein Mehul Mahesh",
           "previewUrl": "https://p.scdn.co/mp3-preview/3d455037b45d03dbd2f8d3a560cb26642c41637e",
           "spotifyUri": "spotify:track:6GK02ZOmn7hzEOWVc4YfwC"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_22",
           "title": "Taare",
-          "artist": "Farak, 10A, Saswat Balan",
+          "artist": "Farak, 10A, Saswat Balan",
           "duration": "2:34",
           "durationMs": 154473,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Farak, 10A, Saswat Balan - Taare",
+          "query": "Taare Farak",
           "previewUrl": "https://p.scdn.co/mp3-preview/31bfc2b773706d0fcbfbe8f7ddbe6627f5ce8e0f",
           "spotifyUri": "spotify:track:2iVj11OdEBNIGUv9f7jGPK"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_23",
           "title": "Leja",
-          "artist": "Lost Stories, JAI DHIR",
+          "artist": "Lost Stories, JAI DHIR",
           "duration": "3:18",
           "durationMs": 198058,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Lost Stories, JAI DHIR - Leja",
+          "query": "Leja Lost Stories",
           "previewUrl": "https://p.scdn.co/mp3-preview/5bc75cbf58b04ea62a489ddf2a278ab2a3220717",
           "spotifyUri": "spotify:track:2wthG5BIYGo3UXPplvXscX"
         },
@@ -1034,7 +1036,7 @@
           "duration": "2:28",
           "durationMs": 148966,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Anubha Bajaj - Lamhey",
+          "query": "Lamhey Anubha Bajaj",
           "previewUrl": "https://p.scdn.co/mp3-preview/9e13f39c392199a19b91a747ba3adbc52b8be223",
           "spotifyUri": "spotify:track:5Z2GQ0eBKoatNYqbGayihP"
         },
@@ -1045,7 +1047,7 @@
           "duration": "4:23",
           "durationMs": 263550,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Rushil Aswal - Kehne Lagaa",
+          "query": "Kehne Lagaa Rushil Aswal",
           "previewUrl": "https://p.scdn.co/mp3-preview/63485073ca7be927943176e1976204914af38b17",
           "spotifyUri": "spotify:track:1TtX2QDYyCkJ0567Fanbas"
         },
@@ -1056,29 +1058,29 @@
           "duration": "2:51",
           "durationMs": 171063,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Akshath - nadaaniyan",
+          "query": "nadaaniyan Akshath",
           "previewUrl": "https://p.scdn.co/mp3-preview/c4478bc4a27775ff7aa0cf95673f3d86f967b417",
           "spotifyUri": "spotify:track:3bmsaFp11I9pbicxzlStf3"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_27",
           "title": "bargad",
-          "artist": "sufr, Arpit Bala, toorjo dey",
+          "artist": "sufr, Arpit Bala, toorjo dey",
           "duration": "2:55",
           "durationMs": 175384,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "sufr, Arpit Bala, toorjo dey - bargad",
+          "query": "bargad sufr",
           "previewUrl": "https://p.scdn.co/mp3-preview/12a6431424fe0ca0cf64028fa38bdc9c51d5d2d6",
           "spotifyUri": "spotify:track:0Q9rHyEG7lME4y2Fqtuxgl"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_28",
           "title": "Kaliyaan",
-          "artist": "Lost Stories, Bawari Basanti",
+          "artist": "Lost Stories, Bawari Basanti",
           "duration": "2:39",
           "durationMs": 159622,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Lost Stories, Bawari Basanti - Kaliyaan",
+          "query": "Kaliyaan Lost Stories",
           "previewUrl": "https://p.scdn.co/mp3-preview/6f28600239f07997fb7e11c95a5d0636085bb2cb",
           "spotifyUri": "spotify:track:2imK2X4ah7bVms1TjSAB19"
         },
@@ -1089,29 +1091,29 @@
           "duration": "2:35",
           "durationMs": 155363,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Curtain Blue - Yeh Duniya",
+          "query": "Yeh Duniya Curtain Blue",
           "previewUrl": "https://p.scdn.co/mp3-preview/c1ee3574155a4f9a79ea8b84e9c6aff64e5be84a",
           "spotifyUri": "spotify:track:3afNMElBBtkRPyR79DMyMJ"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_30",
           "title": "Banda Kaam Ka",
-          "artist": "Chaar Diwaari, Sanjith Hegde",
+          "artist": "Chaar Diwaari, Sanjith Hegde",
           "duration": "4:08",
           "durationMs": 248947,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Chaar Diwaari, Sanjith Hegde - Banda Kaam Ka",
+          "query": "Banda Kaam Ka Chaar Diwaari",
           "previewUrl": "https://p.scdn.co/mp3-preview/de847a24f6a0bb445db8257e4300796ca8b107c1",
           "spotifyUri": "spotify:track:6vH6xKa1vh9ihWrLYZAmU8"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_31",
           "title": "sun saawariya",
-          "artist": "Accha Insaan, AtharvaMusic, Yaani Karnawat",
+          "artist": "Accha Insaan, AtharvaMusic, Yaani Karnawat",
           "duration": "2:39",
           "durationMs": 159600,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Accha Insaan, AtharvaMusic, Yaani Karnawat - sun saawariya",
+          "query": "sun saawariya Accha Insaan",
           "previewUrl": "https://p.scdn.co/mp3-preview/74d7926710b361858ec09272d8e0c372f3fdd70b",
           "spotifyUri": "spotify:track:0dnsJ8W8k4ncYstIsrz5pY"
         },
@@ -1122,18 +1124,18 @@
           "duration": "5:13",
           "durationMs": 313163,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "The Local Train - Aaoge Tum Kabhi",
+          "query": "Aaoge Tum Kabhi The Local Train",
           "previewUrl": "https://p.scdn.co/mp3-preview/d7628e3bcc3a0abedaf8be874ab1e0caf720e2c7",
           "spotifyUri": "spotify:track:5ivRSlOhVIXN2QMzqgsX0s"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_33",
           "title": "Savera",
-          "artist": "Iqlipse Nova, Anubha Bajaj",
+          "artist": "Iqlipse Nova, Anubha Bajaj",
           "duration": "2:23",
           "durationMs": 143472,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Iqlipse Nova, Anubha Bajaj - Savera",
+          "query": "Savera Iqlipse Nova",
           "previewUrl": "https://p.scdn.co/mp3-preview/8c2e587fdb9bd51ca124e92e47bb9aa9415d302d",
           "spotifyUri": "spotify:track:4XA2TXEycTQL3xhPV7L2kt"
         },
@@ -1144,40 +1146,40 @@
           "duration": "4:11",
           "durationMs": 251813,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Anuv Jain - Jo Tum Mere Ho",
+          "query": "Jo Tum Mere Ho Anuv Jain",
           "previewUrl": "https://p.scdn.co/mp3-preview/3a031660b71a0f633205d140cdd63096d222213f",
           "spotifyUri": "spotify:track:0eCajpR75pDW0r64U6hP2x"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_35",
           "title": "Marham",
-          "artist": "Divyam Sodhi, Khwaab, Aditi Raj",
+          "artist": "Divyam Sodhi, Khwaab, Aditi Raj",
           "duration": "2:50",
           "durationMs": 170000,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Divyam Sodhi, Khwaab, Aditi Raj - Marham",
+          "query": "Marham Divyam Sodhi",
           "previewUrl": "https://p.scdn.co/mp3-preview/5254735bcbd4bb20ca85661e83225309e109b1c5",
           "spotifyUri": "spotify:track:4vgWEM1dc8S3JMjHrSdFTo"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_36",
           "title": "Ishq - From \"Lost;Found\"",
-          "artist": "Faheem Abdullah, Rauhan Malik, Amir Ameer",
+          "artist": "Faheem Abdullah, Rauhan Malik, Amir Ameer",
           "duration": "3:48",
           "durationMs": 228639,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Faheem Abdullah, Rauhan Malik, Amir Ameer - Ishq - From \"Lost;Found\"",
+          "query": "Ishq - From \"Lost;Found\" Faheem Abdullah",
           "previewUrl": "https://p.scdn.co/mp3-preview/02605ffacdd8b0d55b4c52054481dab0b153ffd2",
           "spotifyUri": "spotify:track:7hDoxkN20lLb06zifzYnD2"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_37",
           "title": "Kaise Ab Kahein - From \"Gutar Gu\"",
-          "artist": "Gaurav Chatterji, Aasa Singh, Hansika Pareek, Hrishi Giridhar, Pratik Gangavane",
+          "artist": "Gaurav Chatterji, Aasa Singh, Hansika Pareek, Hrishi Giridhar, Pratik Gangavane",
           "duration": "2:00",
           "durationMs": 120000,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Gaurav Chatterji, Aasa Singh, Hansika Pareek, Hrishi Giridhar, Pratik Gangavane - Kaise Ab Kahein - From \"Gutar Gu\"",
+          "query": "Kaise Ab Kahein - From \"Gutar Gu\" Gaurav Chatterji",
           "previewUrl": "https://p.scdn.co/mp3-preview/f986e53ac206f77523801640bf67cb25848d6778",
           "spotifyUri": "spotify:track:3eSm4iAkLsn3BeggfiQOH9"
         },
@@ -1188,18 +1190,18 @@
           "duration": "3:41",
           "durationMs": 221271,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Dikshant - Aankhon Se Batana",
+          "query": "Aankhon Se Batana Dikshant",
           "previewUrl": "https://p.scdn.co/mp3-preview/f4ef0c811a2373ac9ad72e41d124f669ae3853e2",
           "spotifyUri": "spotify:track:1ZiReD9pPTttQWwSoYqdyH"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_39",
           "title": "Aashiqana",
-          "artist": "Chaar Diwaari, Indian Ocean, gini",
+          "artist": "Chaar Diwaari, Indian Ocean, gini",
           "duration": "6:43",
           "durationMs": 403580,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Chaar Diwaari, Indian Ocean, gini - Aashiqana",
+          "query": "Aashiqana Chaar Diwaari",
           "previewUrl": "https://p.scdn.co/mp3-preview/b4415cf5a86832018dcdcff7fd00f1e01d7d5509",
           "spotifyUri": "spotify:track:5VmmaElvu2KTB0mpUSGlMy"
         },
@@ -1210,18 +1212,18 @@
           "duration": "3:27",
           "durationMs": 207309,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Anuv Jain - Baarishein",
+          "query": "Baarishein Anuv Jain",
           "previewUrl": "https://p.scdn.co/mp3-preview/397c6c81db8847cc1c8c1ca3022d336385806da0",
           "spotifyUri": "spotify:track:5iCY0TXNImK4hyKfcplQsg"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_41",
           "title": "Sajde - From \"Lost;Found\"",
-          "artist": "Faheem Abdullah, Huzaif Nazar",
+          "artist": "Faheem Abdullah, Huzaif Nazar",
           "duration": "7:40",
           "durationMs": 460833,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Faheem Abdullah, Huzaif Nazar - Sajde - From \"Lost;Found\"",
+          "query": "Sajde - From \"Lost;Found\" Faheem Abdullah",
           "previewUrl": "https://p.scdn.co/mp3-preview/4ede72641e8b17d197bded582dd585f6a3883048",
           "spotifyUri": "spotify:track:6lXXUx3PwJ4B4cln5FJfzo"
         },
@@ -1232,7 +1234,7 @@
           "duration": "2:57",
           "durationMs": 177963,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aditya Rikhari - Raatein Guzaari",
+          "query": "Raatein Guzaari Aditya Rikhari",
           "previewUrl": "https://p.scdn.co/mp3-preview/157a78fc4ca364a49b0b3ad9d475b9554bf45c44",
           "spotifyUri": "spotify:track:0ZnBHVFiUAnVTF38LUVDpR"
         },
@@ -1243,7 +1245,7 @@
           "duration": "3:04",
           "durationMs": 184090,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Suzonn - Farq hai",
+          "query": "Farq hai Suzonn",
           "previewUrl": "https://p.scdn.co/mp3-preview/e3e06f9ef4d71a30857d5200b693aa05bb99585e",
           "spotifyUri": "spotify:track:6MZyrnqwsLnrWY5Gk0AyXg"
         },
@@ -1254,7 +1256,7 @@
           "duration": "3:06",
           "durationMs": 186393,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "gini - Sukoon",
+          "query": "Sukoon gini",
           "previewUrl": "https://p.scdn.co/mp3-preview/4fedad3a351ecfd8588e9f96d87c7524f12ffde1",
           "spotifyUri": "spotify:track:1WXLlS4NR1Fzg44gF54ESK"
         },
@@ -1265,7 +1267,7 @@
           "duration": "3:19",
           "durationMs": 199993,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Samad Khan - Aasmani",
+          "query": "Aasmani Samad Khan",
           "previewUrl": "https://p.scdn.co/mp3-preview/672be9080d2862a088043523d7af995b843ff7a9",
           "spotifyUri": "spotify:track:1cnYfIyxflsgDQz3ND5WWf"
         },
@@ -1276,7 +1278,7 @@
           "duration": "3:37",
           "durationMs": 217894,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Anuv Jain - Husn",
+          "query": "Husn Anuv Jain",
           "previewUrl": "https://p.scdn.co/mp3-preview/b63c711eafe2689125139996629e6e2a81d45c52",
           "spotifyUri": "spotify:track:0TL0LFcwIBF5eX7arDIKxY"
         },
@@ -1287,7 +1289,7 @@
           "duration": "2:38",
           "durationMs": 158447,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Mitraz - Alfaazo",
+          "query": "Alfaazo Mitraz",
           "previewUrl": "https://p.scdn.co/mp3-preview/b2fed33a57af993186e5f846a95ec58e01d4c524",
           "spotifyUri": "spotify:track:6KvXpACADAz73IPrCgXobL"
         },
@@ -1298,7 +1300,7 @@
           "duration": "3:11",
           "durationMs": 191868,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Mitraz - Akhiyaan",
+          "query": "Akhiyaan Mitraz",
           "previewUrl": "https://p.scdn.co/mp3-preview/015492c1232e22ab618c8054d98428db5eb78dda",
           "spotifyUri": "spotify:track:2l3dFxtoSMgMQVyRIUHjpz"
         },
@@ -1309,51 +1311,51 @@
           "duration": "3:10",
           "durationMs": 190098,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aditya Rikhari - Sahiba",
+          "query": "Sahiba Aditya Rikhari",
           "previewUrl": "https://p.scdn.co/mp3-preview/1fb997be8ec3392d3cef404b7f64a4f5f1347db6",
           "spotifyUri": "spotify:track:0eLtIxPRNJfsmehITZ1qaJ"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_50",
           "title": "Sunday",
-          "artist": "Aditya A, NAALAYAK",
+          "artist": "Aditya A, NAALAYAK",
           "duration": "2:24",
           "durationMs": 144923,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aditya A, NAALAYAK - Sunday",
+          "query": "Sunday Aditya A",
           "previewUrl": "https://p.scdn.co/mp3-preview/d5b114abfe5f9896eb9f1a2f7f6de87ab6e2f915",
           "spotifyUri": "spotify:track:1GMFeGQBppaepcx6NsR7qB"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_51",
           "title": "Baawra",
-          "artist": "Kushagra, Tanishka Bahl, Akash Rajput",
+          "artist": "Kushagra, Tanishka Bahl, Akash Rajput",
           "duration": "4:28",
           "durationMs": 268000,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Kushagra, Tanishka Bahl, Akash Rajput - Baawra",
+          "query": "Baawra Kushagra",
           "previewUrl": "https://p.scdn.co/mp3-preview/d5ef615bc8225224787a84e66b015e2089ed6e56",
           "spotifyUri": "spotify:track:2Repz4eP8qEqOVz8CltLZ0"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_52",
           "title": "Dhundhala",
-          "artist": "Yashraj, Dropped Out, Talwiinder",
+          "artist": "Yashraj, Dropped Out, Talwiinder",
           "duration": "3:02",
           "durationMs": 182400,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Yashraj, Dropped Out, Talwiinder - Dhundhala",
+          "query": "Dhundhala Yashraj",
           "previewUrl": "https://p.scdn.co/mp3-preview/1064adfef04ef9a79e31f11331c54e3f6c357a41",
           "spotifyUri": "spotify:track:6PSGzXHJaQogb2G8m8gGZZ"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_53",
           "title": "Rangi Saari",
-          "artist": "Kavita Seth, Kanishk Seth",
+          "artist": "Kavita Seth, Kanishk Seth",
           "duration": "3:34",
           "durationMs": 214000,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Kavita Seth, Kanishk Seth - Rangi Saari",
+          "query": "Rangi Saari Kavita Seth",
           "previewUrl": "https://p.scdn.co/mp3-preview/7f0c430b94d07680e549dab0aaeee3869a39a6c6",
           "spotifyUri": "spotify:track:3F2BSn4ayglzMwquBRHZq6"
         },
@@ -1364,7 +1366,7 @@
           "duration": "3:41",
           "durationMs": 221988,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aditya Rikhari - Faasle",
+          "query": "Faasle Aditya Rikhari",
           "previewUrl": "https://p.scdn.co/mp3-preview/77e5ec8ef6d6a04219be8aa254126ddf962099e6",
           "spotifyUri": "spotify:track:0s76ExpXyMGVBlKLUr683e"
         },
@@ -1375,29 +1377,29 @@
           "duration": "3:17",
           "durationMs": 197549,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Prateek Kuhad - Kasoor",
+          "query": "Kasoor Prateek Kuhad",
           "previewUrl": "https://p.scdn.co/mp3-preview/62573b436e8c87d8ec0b165b4afde83e3301ed35",
           "spotifyUri": "spotify:track:08kTa3SL9sV6Iy8KLKtGql"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_56",
           "title": "Heer Ranjha",
-          "artist": "Rito Riba, Rajat Nagpal, Rana Sotal",
+          "artist": "Rito Riba, Rajat Nagpal, Rana Sotal",
           "duration": "3:43",
           "durationMs": 223107,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Rito Riba, Rajat Nagpal, Rana Sotal - Heer Ranjha",
+          "query": "Heer Ranjha Rito Riba",
           "previewUrl": "https://p.scdn.co/mp3-preview/a3613fc2deb5547008bbbb599e401b7fb1f02e39",
           "spotifyUri": "spotify:track:3wwLWFRLiReDf5AqgmAJwT"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_57",
           "title": "Kho Gaye",
-          "artist": "Taaruk Raina, Mismatched",
+          "artist": "Taaruk Raina, Mismatched",
           "duration": "3:17",
           "durationMs": 197763,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Taaruk Raina, Mismatched - Kho Gaye",
+          "query": "Kho Gaye Taaruk Raina",
           "previewUrl": "https://p.scdn.co/mp3-preview/17054af953c09fb5b93c848bf87cb6fa315bcbbd",
           "spotifyUri": "spotify:track:5iaKalECn9aYPfh9w07yOX"
         },
@@ -1408,29 +1410,29 @@
           "duration": "1:43",
           "durationMs": 103264,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Aditya A - Chaand Baaliyan",
+          "query": "Chaand Baaliyan Aditya A",
           "previewUrl": "https://p.scdn.co/mp3-preview/f94adb4d193339ca817a41b662a821ab26161566",
           "spotifyUri": "spotify:track:0snQrp1VaY5Pj1YIHRJpRJ"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_59",
           "title": "KTMBK",
-          "artist": "Zaeden, Hanita Bhambri",
+          "artist": "Zaeden, Hanita Bhambri",
           "duration": "2:34",
           "durationMs": 154434,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Zaeden, Hanita Bhambri - KTMBK",
+          "query": "KTMBK Zaeden",
           "previewUrl": "https://p.scdn.co/mp3-preview/5d7699bbff6eca6dfbe2205ea6317a083fd5312e",
           "spotifyUri": "spotify:track:1XmoGNf6OVs6N251UejkbN"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_60",
           "title": "Bolo Bolo",
-          "artist": "W.i.S.H., Panther",
+          "artist": "W.i.S.H., Panther",
           "duration": "3:57",
           "durationMs": 237378,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "W.i.S.H., Panther - Bolo Bolo",
+          "query": "Bolo Bolo W.i.S.H.",
           "previewUrl": "https://p.scdn.co/mp3-preview/6643c884f74da1ede5776eb98eb53d96971814e1",
           "spotifyUri": "spotify:track:3dYnYRTcJSfELlIH3mgNOl"
         },
@@ -1441,7 +1443,7 @@
           "duration": "3:33",
           "durationMs": 213004,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Donn Bhat - Ishq",
+          "query": "Ishq Donn Bhat",
           "previewUrl": "https://p.scdn.co/mp3-preview/337312d6e4df0f4e35df71dd3ee5d368d713be92",
           "spotifyUri": "spotify:track:760n01fPMR7sqrn3msFBcT"
         },
@@ -1452,7 +1454,7 @@
           "duration": "4:06",
           "durationMs": 246519,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Prateek Kuhad - Mulaqat",
+          "query": "Mulaqat Prateek Kuhad",
           "previewUrl": "https://p.scdn.co/mp3-preview/5a1d203097e91b239d0a7cad1c5d2770891ddd71",
           "spotifyUri": "spotify:track:7uZLUFqPgGqwzD5rzOl8Sa"
         },
@@ -1463,7 +1465,7 @@
           "duration": "3:11",
           "durationMs": 191111,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Mitraz - Junoon",
+          "query": "Junoon Mitraz",
           "previewUrl": "https://p.scdn.co/mp3-preview/f7f5f13192e6e764eca293e5038a4831bd9e10d1",
           "spotifyUri": "spotify:track:1Y5treJOPB7WnAMZnsA5u8"
         },
@@ -1474,7 +1476,7 @@
           "duration": "2:26",
           "durationMs": 146000,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Sarah Black - Maname",
+          "query": "Maname Sarah Black",
           "previewUrl": "https://p.scdn.co/mp3-preview/5b4a8643c137bad62c45429982edbf2855acb04d",
           "spotifyUri": "spotify:track:1dhe3PICallkMWr9098yzp"
         },
@@ -1485,7 +1487,7 @@
           "duration": "3:01",
           "durationMs": 181566,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "JBABE - Cries in Crocodile",
+          "query": "Cries in Crocodile JBABE",
           "previewUrl": "https://p.scdn.co/mp3-preview/728255f2d9687ff1d205ec7697538ec3e248e601",
           "spotifyUri": "spotify:track:2FAsIE5rXnHFxLbVgQbxYa"
         },
@@ -1496,7 +1498,7 @@
           "duration": "3:45",
           "durationMs": 225391,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Salman Elahi - Pahadon Mein",
+          "query": "Pahadon Mein Salman Elahi",
           "previewUrl": "https://p.scdn.co/mp3-preview/d6c5cc0214459d5c51fcca38a2b265771fb608aa",
           "spotifyUri": "spotify:track:1EuQFujqMzy76oZZ7R2xNO"
         },
@@ -1507,18 +1509,18 @@
           "duration": "3:01",
           "durationMs": 181818,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Sai Abhyankkar - Katchi Sera - From \"Think Indie\"",
+          "query": "Katchi Sera - From \"Think Indie\" Sai Abhyankkar",
           "previewUrl": "https://p.scdn.co/mp3-preview/6bae729abb4bbcb040bf35ab6a8b85bf022f2e37",
           "spotifyUri": "spotify:track:1zzejMGRYKP5XOa3FmzXfa"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_68",
           "title": "Aasmaan Jaley",
-          "artist": "Abhay Jodhpurkar, Abhijeet Srivastava",
+          "artist": "Abhay Jodhpurkar, Abhijeet Srivastava",
           "duration": "2:46",
           "durationMs": 166615,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Abhay Jodhpurkar, Abhijeet Srivastava - Aasmaan Jaley",
+          "query": "Aasmaan Jaley Abhay Jodhpurkar",
           "previewUrl": "https://p.scdn.co/mp3-preview/d8ddc161ef2c655eeb4f5cd62326a9783a3161f8",
           "spotifyUri": "spotify:track:2dEvh4AAZvD8qwq0VGTAe6"
         },
@@ -1529,7 +1531,7 @@
           "duration": "4:18",
           "durationMs": 258716,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Mitraz - Muskurahat",
+          "query": "Muskurahat Mitraz",
           "previewUrl": "https://p.scdn.co/mp3-preview/040b3cc9adc7e1064b62fe1e94bb170705710bbe",
           "spotifyUri": "spotify:track:6oURWs2pULRYC9JAhLEaw8"
         },
@@ -1540,7 +1542,7 @@
           "duration": "3:37",
           "durationMs": 217241,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Anuv Jain - Gul",
+          "query": "Gul Anuv Jain",
           "previewUrl": "https://p.scdn.co/mp3-preview/4e29b85a536d490c6335ce6e77e9db8fd6a59de9",
           "spotifyUri": "spotify:track:0NLkVxf0PyxsXBG3EuZcJf"
         },
@@ -1551,18 +1553,18 @@
           "duration": "3:32",
           "durationMs": 212773,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Anuv Jain - Alag Aasmaan",
+          "query": "Alag Aasmaan Anuv Jain",
           "previewUrl": "https://p.scdn.co/mp3-preview/a7d720c3dad31b983d7b80910e90310e65becfc7",
           "spotifyUri": "spotify:track:74kCarkFBzXYXNkkYJIsG0"
         },
         {
           "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_72",
           "title": "Saawariya",
-          "artist": "Iqlipse Nova, Hiten, Bandana Datta",
+          "artist": "Iqlipse Nova, Hiten, Bandana Datta",
           "duration": "2:02",
           "durationMs": 122240,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Iqlipse Nova, Hiten, Bandana Datta - Saawariya",
+          "query": "Saawariya Iqlipse Nova",
           "previewUrl": "https://p.scdn.co/mp3-preview/762a02cee119d11def544a9d51c585bffc5331da",
           "spotifyUri": "spotify:track:4iHO9d5IT1Jc0EgMVBROG0"
         },
@@ -1573,7 +1575,7 @@
           "duration": "3:31",
           "durationMs": 211290,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "The Local Train - Dil Mere",
+          "query": "Dil Mere The Local Train",
           "previewUrl": "https://p.scdn.co/mp3-preview/c8b36eced4c8417bdca85d5aa8ed51ffb9dc6f8e",
           "spotifyUri": "spotify:track:6ZmtxXUXRVjxOhugKkmerC"
         },
@@ -1584,7 +1586,7 @@
           "duration": "3:32",
           "durationMs": 212054,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Anuv Jain - Mazaak",
+          "query": "Mazaak Anuv Jain",
           "previewUrl": "https://p.scdn.co/mp3-preview/169ee60af4488e36cfb8879f1abf3af6f1a052a5",
           "spotifyUri": "spotify:track:6BvRzfqi3sMAoQYnRpMVL0"
         },
@@ -1595,14 +1597,14 @@
           "duration": "4:03",
           "durationMs": 243310,
           "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-          "query": "Dream Note - Waqt Ki Baatein",
+          "query": "Waqt Ki Baatein Dream Note",
           "previewUrl": "https://p.scdn.co/mp3-preview/dbb922a662f9f315c139ce06b2e7cab6986a23b1",
           "spotifyUri": "spotify:track:1lIYP8fDGGnp91OMTUnwjV"
         }
       ],
       "badge": "🎸 Desi Acoustic & Pop",
       "genre": "indie",
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "37i9dQZF1DXcBWIGoYBM5M",
@@ -1614,11 +1616,11 @@
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_1",
           "title": "expectations (feat. Chappell Roan)",
-          "artist": "Olivia Rodrigo, Chappell Roan",
+          "artist": "Olivia Rodrigo, Chappell Roan",
           "duration": "3:43",
           "durationMs": 223935,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Olivia Rodrigo, Chappell Roan - expectations (feat. Chappell Roan)",
+          "query": "expectations Olivia Rodrigo",
           "previewUrl": "https://p.scdn.co/mp3-preview/cc5b59142bd150799f61068e522f8aaa120d28c9",
           "spotifyUri": "spotify:track:3XmwAZpIMNpTJy8faw3ajD"
         },
@@ -1629,7 +1631,7 @@
           "duration": "3:01",
           "durationMs": 181270,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "ADÉLA - Nicole Kidman",
+          "query": "Nicole Kidman ADÉLA",
           "previewUrl": "https://p.scdn.co/mp3-preview/68bc3cb0611cfe6569ce56eeb025359233168a69",
           "spotifyUri": "spotify:track:70cHKK8bHAfJrOGVnfRG9J"
         },
@@ -1640,7 +1642,7 @@
           "duration": "3:18",
           "durationMs": 198840,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Ashe - Stop The Wedding!",
+          "query": "Stop The Wedding! Ashe",
           "previewUrl": "https://p.scdn.co/mp3-preview/8a374e33d78679e1143d7a07797ddfa0225f8586",
           "spotifyUri": "spotify:track:3zOYmiNOuyDL0ClxJcEJ0T"
         },
@@ -1651,7 +1653,7 @@
           "duration": "3:45",
           "durationMs": 225868,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Taylor Swift - Patient Zero",
+          "query": "Patient Zero Taylor Swift",
           "previewUrl": "https://p.scdn.co/mp3-preview/3b622221c4b4a6c28ef70ed256b47ef825108142",
           "spotifyUri": "spotify:track:11hcBLPtbMp4aQI6zGQLub"
         },
@@ -1662,18 +1664,18 @@
           "duration": "2:31",
           "durationMs": 151500,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Malcolm Todd - Earrings",
+          "query": "Earrings Malcolm Todd",
           "previewUrl": "https://p.scdn.co/mp3-preview/20a1469df9f65a51878811bbe49979c418abc1b7",
           "spotifyUri": "spotify:track:0eAuGrXyGFYwur9ARUe7LJ"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_6",
           "title": "BbY WOW",
-          "artist": "KAROL G, Judeline, rusowsky",
+          "artist": "KAROL G, Judeline, rusowsky",
           "duration": "3:45",
           "durationMs": 225834,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "KAROL G, Judeline, rusowsky - BbY WOW",
+          "query": "BbY WOW KAROL G",
           "previewUrl": "https://p.scdn.co/mp3-preview/f6ab45a8375c5bcf6f03161edd9f44c1fad501c8",
           "spotifyUri": "spotify:track:3h5T5JypYU7huFiVYhv1dr"
         },
@@ -1684,7 +1686,7 @@
           "duration": "3:28",
           "durationMs": 208810,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Tate McRae - Housewife",
+          "query": "Housewife Tate McRae",
           "previewUrl": "https://p.scdn.co/mp3-preview/724b097d9dc53e0541de27d199adfe3f610944ba",
           "spotifyUri": "spotify:track:2sFepQNyl1WjpROruP8bJ0"
         },
@@ -1695,7 +1697,7 @@
           "duration": "3:43",
           "durationMs": 223069,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Tame Impala - Loser",
+          "query": "Loser Tame Impala",
           "previewUrl": "https://p.scdn.co/mp3-preview/0015e9347a45b62215447eba657b2fc3ce279d2d",
           "spotifyUri": "spotify:track:7bxaFZ1O3cHkgLKMsdC3xR"
         },
@@ -1706,18 +1708,18 @@
           "duration": "3:17",
           "durationMs": 197949,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Ariana Grande - hate that i made you love me",
+          "query": "hate that i made you love me Ariana Grande",
           "previewUrl": "https://p.scdn.co/mp3-preview/9fb8e09c9facc2d9443b6e57ae36d47bf83c01b8",
           "spotifyUri": "spotify:track:20jbSiX29FDX4oQxBXyUEi"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_10",
           "title": "Dai Dai",
-          "artist": "Shakira, Burna Boy",
+          "artist": "Shakira, Burna Boy",
           "duration": "3:43",
           "durationMs": 223448,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Shakira, Burna Boy - Dai Dai",
+          "query": "Dai Dai Shakira",
           "previewUrl": "https://p.scdn.co/mp3-preview/a6955a6725dcf614e9915396987847ea0b509580",
           "spotifyUri": "spotify:track:0kosUz0jePvjiz4ctmR6wL"
         },
@@ -1728,7 +1730,7 @@
           "duration": "4:57",
           "durationMs": 297090,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Olivia Rodrigo - the cure",
+          "query": "the cure Olivia Rodrigo",
           "previewUrl": "https://p.scdn.co/mp3-preview/7559346825a2233855b5fc77e84a954606de3444",
           "spotifyUri": "spotify:track:4EoJ151oQ5jY48z4RhSE96"
         },
@@ -1739,7 +1741,7 @@
           "duration": "2:38",
           "durationMs": 158494,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "KATSEYE - Animal",
+          "query": "Animal KATSEYE",
           "previewUrl": "https://p.scdn.co/mp3-preview/65040556453e4f1c76bcefebf54a718521588331",
           "spotifyUri": "spotify:track:3ouNEk0tv5TTi8VWMe1xbX"
         },
@@ -1750,7 +1752,7 @@
           "duration": "3:00",
           "durationMs": 180740,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Temper City - Self Aware",
+          "query": "Self Aware Temper City",
           "previewUrl": "https://p.scdn.co/mp3-preview/98af5b6b77831ad55b6d1129148745705a311973",
           "spotifyUri": "spotify:track:4qW3BbQAwZsrnu8a3ZRdyT"
         },
@@ -1761,7 +1763,7 @@
           "duration": "3:52",
           "durationMs": 232226,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Ella Langley - Choosin' Texas",
+          "query": "Choosin' Texas Ella Langley",
           "previewUrl": "https://p.scdn.co/mp3-preview/ad3f225321f11467402cc47e09f9ea1195f3de91",
           "spotifyUri": "spotify:track:65DbTqJKhbwqYbZ1Okr0rc"
         },
@@ -1772,7 +1774,7 @@
           "duration": "1:37",
           "durationMs": 97960,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Dominic Fike - Babydoll",
+          "query": "Babydoll Dominic Fike",
           "previewUrl": "https://p.scdn.co/mp3-preview/bf5ab98492256120bd9c48658e9c899c8692f77f",
           "spotifyUri": "spotify:track:7yNf9YjeO5JXUE3JEBgnYc"
         },
@@ -1783,7 +1785,7 @@
           "duration": "3:04",
           "durationMs": 184927,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "ADÉLA - Ain't In LA",
+          "query": "Ain't In LA ADÉLA",
           "previewUrl": "https://p.scdn.co/mp3-preview/a3d0119e3182fbb19636c2a44737fa3e0b71f939",
           "spotifyUri": "spotify:track:02HyFYmpzt02VJ8k0CqxKj"
         },
@@ -1794,7 +1796,7 @@
           "duration": "3:04",
           "durationMs": 184000,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Olivia Dean - Man I Need",
+          "query": "Man I Need Olivia Dean",
           "previewUrl": "https://p.scdn.co/mp3-preview/0a36635f94b4e44e6e4f5b7edb3f501d458812d9",
           "spotifyUri": "spotify:track:1qbmS6ep2hbBRaEZFpn7BX"
         },
@@ -1805,7 +1807,7 @@
           "duration": "2:53",
           "durationMs": 173975,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "SIENNA SPIRO - Great Expectation",
+          "query": "Great Expectation SIENNA SPIRO",
           "previewUrl": "https://p.scdn.co/mp3-preview/f82f2f3e714a66934fc309e357cbf249ad045f62",
           "spotifyUri": "spotify:track:7ujApz6iFP3PmKIDGcaGbe"
         },
@@ -1816,7 +1818,7 @@
           "duration": "3:29",
           "durationMs": 209680,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Olivia Rodrigo - stupid song",
+          "query": "stupid song Olivia Rodrigo",
           "previewUrl": "https://p.scdn.co/mp3-preview/894b272aa0422aeebe856825b55e5c736a9bc5ee",
           "spotifyUri": "spotify:track:4LfCY65LvojKjWEnU7fNN4"
         },
@@ -1827,7 +1829,7 @@
           "duration": "2:50",
           "durationMs": 170584,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Steve Lacy - oh yeah?",
+          "query": "oh yeah? Steve Lacy",
           "previewUrl": "https://p.scdn.co/mp3-preview/72b6457625435b7f64c345e86930e5f0071c559c",
           "spotifyUri": "spotify:track:22NHkFYbgxB2Zirj29Gbp8"
         },
@@ -1838,7 +1840,7 @@
           "duration": "4:46",
           "durationMs": 286967,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Noah Kahan - Orbiter",
+          "query": "Orbiter Noah Kahan",
           "previewUrl": "https://p.scdn.co/mp3-preview/3f175c1a53a23119bfe50c9ca04e68d27d3131a5",
           "spotifyUri": "spotify:track:4W6yulge3h7FSy0zGFrNKs"
         },
@@ -1849,18 +1851,18 @@
           "duration": "3:57",
           "durationMs": 237117,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Bad Bunny - DtMF",
+          "query": "DtMF Bad Bunny",
           "previewUrl": "https://p.scdn.co/mp3-preview/e41ce6b82410d81c08baacca2a7169e5ace4287d",
           "spotifyUri": "spotify:track:3sK8wGT43QFpWrvNQsrQya"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_23",
           "title": "STORM II",
-          "artist": "GENER8ION, Yung Lean",
+          "artist": "GENER8ION, Yung Lean",
           "duration": "2:53",
           "durationMs": 173433,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "GENER8ION, Yung Lean - STORM II",
+          "query": "STORM II GENER8ION",
           "previewUrl": "https://p.scdn.co/mp3-preview/369b246146e99c2f6ebabf5dfb9e20df98b8fe65",
           "spotifyUri": "spotify:track:0FZd4IaxB12sUTKSUUGwWq"
         },
@@ -1871,7 +1873,7 @@
           "duration": "3:57",
           "durationMs": 237344,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Drake - Janice STFU",
+          "query": "Janice STFU Drake",
           "previewUrl": "https://p.scdn.co/mp3-preview/1de9b315e1aa811aedaf905b1058b668b2d3146e",
           "spotifyUri": "spotify:track:514joG57v4yKTsfQmz7stz"
         },
@@ -1882,7 +1884,7 @@
           "duration": "2:57",
           "durationMs": 177428,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Alyssa Grace - bloodstream",
+          "query": "bloodstream Alyssa Grace",
           "previewUrl": "https://p.scdn.co/mp3-preview/f1e7acbb1c04e8ba21d08d2402cf069a8eed8f96",
           "spotifyUri": "spotify:track:2oWFJJW9d1bIra3zHjR6GO"
         },
@@ -1893,18 +1895,18 @@
           "duration": "3:24",
           "durationMs": 204068,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Bruno Mars - Risk It All",
+          "query": "Risk It All Bruno Mars",
           "previewUrl": "https://p.scdn.co/mp3-preview/2467ff71a7508c57a62112ee5beb996bd6b9e957",
           "spotifyUri": "spotify:track:5y2ijHECwFYWqcAHKTZgzD"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_27",
           "title": "Rein Me In (with Olivia Dean)",
-          "artist": "Sam Fender, Olivia Dean",
+          "artist": "Sam Fender, Olivia Dean",
           "duration": "5:39",
           "durationMs": 339410,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Sam Fender, Olivia Dean - Rein Me In (with Olivia Dean)",
+          "query": "Rein Me In Sam Fender",
           "previewUrl": "https://p.scdn.co/mp3-preview/6c85f9e4507e93478ee4adb7782f1a35a9d0e1ce",
           "spotifyUri": "spotify:track:7MZHqgTVTnN6xZGYAcEEAf"
         },
@@ -1915,29 +1917,29 @@
           "duration": "2:58",
           "durationMs": 178822,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Jamie Miller - Babydoll",
+          "query": "Babydoll Jamie Miller",
           "previewUrl": "https://p.scdn.co/mp3-preview/aaf6fc2f4516963243325a71453dd8582cb4dacf",
           "spotifyUri": "spotify:track:1o9mAOmNm3wT2NdyGV1Ard"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_29",
           "title": "Raindance (feat. Tems)",
-          "artist": "Dave, Tems",
+          "artist": "Dave, Tems",
           "duration": "3:39",
           "durationMs": 219743,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Dave, Tems - Raindance (feat. Tems)",
+          "query": "Raindance Dave",
           "previewUrl": "https://p.scdn.co/mp3-preview/7d860804d259f81b4a7bc04900a5410d99995fd4",
           "spotifyUri": "spotify:track:3oTuTpF1F3A7rEC6RKsMRz"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_30",
           "title": "Solar Eclipse (feat. Don Toliver)",
-          "artist": "Drake, Don Toliver",
+          "artist": "Drake, Don Toliver",
           "duration": "3:38",
           "durationMs": 218388,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Drake, Don Toliver - Solar Eclipse (feat. Don Toliver)",
+          "query": "Solar Eclipse Drake",
           "previewUrl": "https://p.scdn.co/mp3-preview/4feadd4524eee165380031ed90bdff09daacb902",
           "spotifyUri": "spotify:track:4IAWZw00ZI9DLKDjesx86u"
         },
@@ -1948,7 +1950,7 @@
           "duration": "2:56",
           "durationMs": 176453,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Justin Bieber - DAISIES",
+          "query": "DAISIES Justin Bieber",
           "previewUrl": "https://p.scdn.co/mp3-preview/d990a355be1d84adc0882bda733862fba7767e70",
           "spotifyUri": "spotify:track:5BZsQlgw21vDOAjoqkNgKb"
         },
@@ -1959,7 +1961,7 @@
           "duration": "3:09",
           "durationMs": 189898,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Zara Larsson - Midnight Sun",
+          "query": "Midnight Sun Zara Larsson",
           "previewUrl": "https://p.scdn.co/mp3-preview/c5bbc379559c92c9d07e2cebf4a1e14029d01331",
           "spotifyUri": "spotify:track:37UCSVSqiPGdR1DijOFyYY"
         },
@@ -1970,7 +1972,7 @@
           "duration": "3:08",
           "durationMs": 188531,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "LISA - SaWaDiKa",
+          "query": "SaWaDiKa LISA",
           "previewUrl": "https://p.scdn.co/mp3-preview/3f5b29adf9f673b9f985c1976c26f5820649d711",
           "spotifyUri": "spotify:track:1VWiDyYTrqQhhmnWANWkFa"
         },
@@ -1981,7 +1983,7 @@
           "duration": "3:17",
           "durationMs": 197142,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "RAYE - WHERE IS MY HUSBAND!",
+          "query": "WHERE IS MY HUSBAND! RAYE",
           "previewUrl": "https://p.scdn.co/mp3-preview/0194ff4186a1f53bff2cdf6d7660289ca8eb0e7e",
           "spotifyUri": "spotify:track:55lijDD6OAjLFFUHU9tcDm"
         },
@@ -1992,18 +1994,18 @@
           "duration": "3:39",
           "durationMs": 219864,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Faouzia - UNETHICAL",
+          "query": "UNETHICAL Faouzia",
           "previewUrl": "https://p.scdn.co/mp3-preview/7600d81f153683eb1265f92aa5567cc313658481",
           "spotifyUri": "spotify:track:6QKpHmO41jkd9pTp0FfmHs"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_36",
           "title": "Draw You Out - From The Hunger Games: Sunrise on the Reaping - The Album",
-          "artist": "Noah Kahan, The Hunger Games",
+          "artist": "Noah Kahan, The Hunger Games",
           "duration": "4:15",
           "durationMs": 255984,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Noah Kahan, The Hunger Games - Draw You Out - From The Hunger Games: Sunrise on the Reaping - The Album",
+          "query": "Draw You Out - From The Hunger Games: Sunrise on the Reaping - The Album Noah Kahan",
           "previewUrl": "https://p.scdn.co/mp3-preview/4e369f5cce22a4bcc212166ee320dc8679ce9c79",
           "spotifyUri": "spotify:track:5KTcGJKm4HgLhLt8Tc7EQ5"
         },
@@ -2014,7 +2016,7 @@
           "duration": "4:08",
           "durationMs": 248866,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Harry Styles - Coming Up Roses",
+          "query": "Coming Up Roses Harry Styles",
           "previewUrl": "https://p.scdn.co/mp3-preview/03a64c71a3d7477335cd39a069e0e175e65798b6",
           "spotifyUri": "spotify:track:0QPdjsMOUhwouq1NS3HwfQ"
         },
@@ -2025,7 +2027,7 @@
           "duration": "3:33",
           "durationMs": 213645,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Sabrina Carpenter - Manchild",
+          "query": "Manchild Sabrina Carpenter",
           "previewUrl": "https://p.scdn.co/mp3-preview/37c21b6b0df9b7156527d0729a58b6db37c88a0a",
           "spotifyUri": "spotify:track:42UBPzRMh5yyz0EDPr6fr1"
         },
@@ -2036,18 +2038,18 @@
           "duration": "2:50",
           "durationMs": 170859,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "STELLA LEFTY - Boston",
+          "query": "Boston STELLA LEFTY",
           "previewUrl": "https://p.scdn.co/mp3-preview/7ffa15bbf70382813f8661408e976cc41655b367",
           "spotifyUri": "spotify:track:36idurZmYRjJ56KQ8JD9bN"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_40",
           "title": "Stateside + Zara Larsson",
-          "artist": "PinkPantheress, Zara Larsson",
+          "artist": "PinkPantheress, Zara Larsson",
           "duration": "3:04",
           "durationMs": 184761,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "PinkPantheress, Zara Larsson - Stateside + Zara Larsson",
+          "query": "Stateside + Zara Larsson PinkPantheress",
           "previewUrl": "https://p.scdn.co/mp3-preview/cc3201e7ed85d09f1683e591fd2eb964ea7247a6",
           "spotifyUri": "spotify:track:1DwscornXpj8fmOmYVlqZt"
         },
@@ -2058,7 +2060,7 @@
           "duration": "2:49",
           "durationMs": 169000,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Olivia Dean - So Easy (To Fall In Love)",
+          "query": "So Easy Olivia Dean",
           "previewUrl": "https://p.scdn.co/mp3-preview/e0ea7353932017364bdb12dc776e89b360abac42",
           "spotifyUri": "spotify:track:6sGIMrtIzQjdzNndVxe397"
         },
@@ -2069,7 +2071,7 @@
           "duration": "3:32",
           "durationMs": 212973,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Bruno Mars - I Just Might",
+          "query": "I Just Might Bruno Mars",
           "previewUrl": "https://p.scdn.co/mp3-preview/d3b9a6318dcc942387b69c677a80377044856d69",
           "spotifyUri": "spotify:track:12bYYQaLqHliSXvRIYlq8G"
         },
@@ -2080,7 +2082,7 @@
           "duration": "3:04",
           "durationMs": 184248,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Ariana Grande - petal",
+          "query": "petal Ariana Grande",
           "previewUrl": "https://p.scdn.co/mp3-preview/30dc1adb43c170165bb8091e788b55f26f2fc672",
           "spotifyUri": "spotify:track:70pVCVMGjmIWPbWXDwf11e"
         },
@@ -2091,18 +2093,18 @@
           "duration": "3:29",
           "durationMs": 209066,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "sombr - Homewrecker",
+          "query": "Homewrecker sombr",
           "previewUrl": "https://p.scdn.co/mp3-preview/d46acdc8f94c6fa471388c7a10c619bb08c88197",
           "spotifyUri": "spotify:track:7tICCrK3CcyRFKza7yrR0z"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_45",
           "title": "Jamaican (Bam Bam)",
-          "artist": "HUGEL, SOLTO (FR)",
+          "artist": "HUGEL, SOLTO (FR)",
           "duration": "2:36",
           "durationMs": 156393,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "HUGEL, SOLTO (FR) - Jamaican (Bam Bam)",
+          "query": "Jamaican HUGEL",
           "previewUrl": "https://p.scdn.co/mp3-preview/90e14dd98b61140a5259ce400de788704d406742",
           "spotifyUri": "spotify:track:7e4zDInS6tA2jwzphvs2Ay"
         },
@@ -2113,7 +2115,7 @@
           "duration": "3:05",
           "durationMs": 185806,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "F3miii - NOBLE",
+          "query": "NOBLE F3miii",
           "previewUrl": "https://p.scdn.co/mp3-preview/5fada77b20c9b592ea707bf74334195c2b8a125f",
           "spotifyUri": "spotify:track:2LSmH4vxyRhkJ2pPqcmkXw"
         },
@@ -2124,7 +2126,7 @@
           "duration": "2:20",
           "durationMs": 140720,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "KATSEYE - Hootie Frutti",
+          "query": "Hootie Frutti KATSEYE",
           "previewUrl": "https://p.scdn.co/mp3-preview/b90cdabeb3093431041841713c812e70bafb1478",
           "spotifyUri": "spotify:track:6oUUmBcUbZa5O48V5pjgAD"
         },
@@ -2135,18 +2137,18 @@
           "duration": "2:24",
           "durationMs": 144101,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "Dominic Fike - White Keys",
+          "query": "White Keys Dominic Fike",
           "previewUrl": "https://p.scdn.co/mp3-preview/4c09f53084e36b6c85f8b2a44893c226a3194f42",
           "spotifyUri": "spotify:track:5ViLKrbyL3HD6wsq3AB9eI"
         },
         {
           "id": "sp_37i9dQZF1DXcBWIGoYBM5M_49",
           "title": "Talk To You (ft. 54 Ultra)",
-          "artist": "ANOTR, 54 Ultra",
+          "artist": "ANOTR, 54 Ultra",
           "duration": "3:11",
           "durationMs": 191076,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "ANOTR, 54 Ultra - Talk To You (ft. 54 Ultra)",
+          "query": "Talk To You ANOTR",
           "previewUrl": "https://p.scdn.co/mp3-preview/b55c8fa4e31192a3e35ad53d3e889733f9cd9da1",
           "spotifyUri": "spotify:track:0kl6Ozan3fuUdCl6TlB15v"
         },
@@ -2157,14 +2159,14 @@
           "duration": "2:39",
           "durationMs": 159007,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-          "query": "BTS - SWIM",
+          "query": "SWIM BTS",
           "previewUrl": "https://p.scdn.co/mp3-preview/acafb81cc609de53b9687a40f214f79d828b6947",
           "spotifyUri": "spotify:track:68lbSrXDORS51pmyjZv712"
         }
       ],
       "badge": "🌍 Global Hits in India",
       "genre": "pop",
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     },
     {
       "id": "37i9dQZEVXbMDoHDwVN2tF",
@@ -2175,69 +2177,69 @@
       "tracks": [
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_1",
-          "title": "Housewife",
-          "artist": "Tate McRae",
-          "duration": "3:28",
-          "durationMs": 208810,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Tate McRae - Housewife",
-          "previewUrl": "https://p.scdn.co/mp3-preview/724b097d9dc53e0541de27d199adfe3f610944ba",
-          "spotifyUri": "spotify:track:2sFepQNyl1WjpROruP8bJ0"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_2",
           "title": "BbY WOW",
-          "artist": "KAROL G, Judeline, rusowsky",
+          "artist": "KAROL G, Judeline, rusowsky",
           "duration": "3:45",
           "durationMs": 225834,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "KAROL G, Judeline, rusowsky - BbY WOW",
+          "query": "BbY WOW KAROL G",
           "previewUrl": "https://p.scdn.co/mp3-preview/f6ab45a8375c5bcf6f03161edd9f44c1fad501c8",
           "spotifyUri": "spotify:track:3h5T5JypYU7huFiVYhv1dr"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_3",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_2",
           "title": "Nicole Kidman",
           "artist": "ADÉLA",
           "duration": "3:01",
           "durationMs": 181270,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "ADÉLA - Nicole Kidman",
+          "query": "Nicole Kidman ADÉLA",
           "previewUrl": "https://p.scdn.co/mp3-preview/68bc3cb0611cfe6569ce56eeb025359233168a69",
           "spotifyUri": "spotify:track:70cHKK8bHAfJrOGVnfRG9J"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_4",
-          "title": "expectations (feat. Chappell Roan)",
-          "artist": "Olivia Rodrigo, Chappell Roan",
-          "duration": "3:43",
-          "durationMs": 223935,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Olivia Rodrigo, Chappell Roan - expectations (feat. Chappell Roan)",
-          "previewUrl": "https://p.scdn.co/mp3-preview/cc5b59142bd150799f61068e522f8aaa120d28c9",
-          "spotifyUri": "spotify:track:3XmwAZpIMNpTJy8faw3ajD"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_5",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_3",
           "title": "Ain't In LA",
           "artist": "ADÉLA",
           "duration": "3:04",
           "durationMs": 184927,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "ADÉLA - Ain't In LA",
+          "query": "Ain't In LA ADÉLA",
           "previewUrl": "https://p.scdn.co/mp3-preview/e2368b512a58a5cfd69000cb14746958e070efdd",
           "spotifyUri": "spotify:track:6U9VpmP3dEinuezxCJ2Zg9"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_6",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_4",
+          "title": "Housewife",
+          "artist": "Tate McRae",
+          "duration": "3:28",
+          "durationMs": 208810,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Housewife Tate McRae",
+          "previewUrl": "https://p.scdn.co/mp3-preview/724b097d9dc53e0541de27d199adfe3f610944ba",
+          "spotifyUri": "spotify:track:2sFepQNyl1WjpROruP8bJ0"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_5",
           "title": "the cure",
           "artist": "Olivia Rodrigo",
           "duration": "4:57",
           "durationMs": 297090,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Olivia Rodrigo - the cure",
+          "query": "the cure Olivia Rodrigo",
           "previewUrl": "https://p.scdn.co/mp3-preview/cb81ba83e65dc3ec82c8a85d2dca61adeda847fe",
           "spotifyUri": "spotify:track:55pBIZO1cqoldeqpp5WR7H"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_6",
+          "title": "Earrings",
+          "artist": "Malcolm Todd",
+          "duration": "2:31",
+          "durationMs": 151500,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Earrings Malcolm Todd",
+          "previewUrl": "https://p.scdn.co/mp3-preview/20a1469df9f65a51878811bbe49979c418abc1b7",
+          "spotifyUri": "spotify:track:0eAuGrXyGFYwur9ARUe7LJ"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_7",
@@ -2246,75 +2248,75 @@
           "duration": "3:19",
           "durationMs": 199460,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Ashe - Stop The Wedding!",
+          "query": "Stop The Wedding! Ashe",
           "previewUrl": "https://p.scdn.co/mp3-preview/f7fe3678a39303c44a44bae450f32837f3d1bc90",
           "spotifyUri": "spotify:track:7MOO89Qv9AV7VZkt5mcqA8"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_8",
-          "title": "stupid song",
-          "artist": "Olivia Rodrigo",
-          "duration": "3:29",
-          "durationMs": 209680,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Olivia Rodrigo - stupid song",
-          "previewUrl": "https://p.scdn.co/mp3-preview/e7efd6e9d58979bc860703193212bbcb980d492a",
-          "spotifyUri": "spotify:track:49j6SvuvWfbEKZKzsHCdLJ"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_9",
-          "title": "Earrings",
-          "artist": "Malcolm Todd",
-          "duration": "2:31",
-          "durationMs": 151500,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Malcolm Todd - Earrings",
-          "previewUrl": "https://p.scdn.co/mp3-preview/20a1469df9f65a51878811bbe49979c418abc1b7",
-          "spotifyUri": "spotify:track:0eAuGrXyGFYwur9ARUe7LJ"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_10",
-          "title": "Lies (feat. Lana Del Rey)",
-          "artist": "Zach Bryan, Lana Del Rey",
-          "duration": "3:40",
-          "durationMs": 220588,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Zach Bryan, Lana Del Rey - Lies (feat. Lana Del Rey)",
-          "previewUrl": "https://p.scdn.co/mp3-preview/46a21f2dd3bdd6c6aa0a6be40f91498ac0572ed7",
-          "spotifyUri": "spotify:track:4EVSMqqVEehvyyOBmjNTlA"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_11",
           "title": "Beauty And A Beat",
-          "artist": "Justin Bieber, Nicki Minaj",
+          "artist": "Justin Bieber, Nicki Minaj",
           "duration": "3:47",
           "durationMs": 227986,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Justin Bieber, Nicki Minaj - Beauty And A Beat",
+          "query": "Beauty And A Beat Justin Bieber",
           "previewUrl": "https://p.scdn.co/mp3-preview/7ee90f1ac5d956116da382002302bb6a6b0c0c3c",
           "spotifyUri": "spotify:track:6QFCMUUq1T2Vf5sFUXcuQ7"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_12",
-          "title": "Die With A Smile",
-          "artist": "Lady Gaga, Bruno Mars",
-          "duration": "4:11",
-          "durationMs": 251667,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_9",
+          "title": "Pós - Ao Vivo",
+          "artist": "Felipe e Rodrigo",
+          "duration": "2:55",
+          "durationMs": 175577,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Lady Gaga, Bruno Mars - Die With A Smile",
-          "previewUrl": "https://p.scdn.co/mp3-preview/5d962f377ad36292fb39435c9d4d1db7b7ff4e0f",
-          "spotifyUri": "spotify:track:7so0lgd0zP2Sbgs2d7a1SZ"
+          "query": "Pós - Ao Vivo Felipe e Rodrigo",
+          "previewUrl": "https://p.scdn.co/mp3-preview/a388632e697278d1c9efc11a05f6fb2c8bc56c03",
+          "spotifyUri": "spotify:track:1uDn0nbzeGPVw97jp7SvzR"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_13",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_10",
           "title": "The One That Got Away",
           "artist": "Katy Perry",
           "duration": "3:47",
           "durationMs": 227333,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Katy Perry - The One That Got Away",
+          "query": "The One That Got Away Katy Perry",
           "previewUrl": "https://p.scdn.co/mp3-preview/4c37249b9fc2962f5ef829e216314e9caeaee367",
           "spotifyUri": "spotify:track:2009X8GyWTqyxIdzAEYW6N"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_11",
+          "title": "stupid song",
+          "artist": "Olivia Rodrigo",
+          "duration": "3:29",
+          "durationMs": 209680,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "stupid song Olivia Rodrigo",
+          "previewUrl": "https://p.scdn.co/mp3-preview/e7efd6e9d58979bc860703193212bbcb980d492a",
+          "spotifyUri": "spotify:track:49j6SvuvWfbEKZKzsHCdLJ"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_12",
+          "title": "Die With A Smile",
+          "artist": "Lady Gaga, Bruno Mars",
+          "duration": "4:11",
+          "durationMs": 251667,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Die With A Smile Lady Gaga",
+          "previewUrl": "https://p.scdn.co/mp3-preview/5d962f377ad36292fb39435c9d4d1db7b7ff4e0f",
+          "spotifyUri": "spotify:track:7so0lgd0zP2Sbgs2d7a1SZ"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_13",
+          "title": "expectations (feat. Chappell Roan)",
+          "artist": "Olivia Rodrigo, Chappell Roan",
+          "duration": "3:43",
+          "durationMs": 223935,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "expectations Olivia Rodrigo",
+          "previewUrl": "https://p.scdn.co/mp3-preview/cc5b59142bd150799f61068e522f8aaa120d28c9",
+          "spotifyUri": "spotify:track:3XmwAZpIMNpTJy8faw3ajD"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_14",
@@ -2323,185 +2325,185 @@
           "duration": "3:19",
           "durationMs": 199032,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "sombr - back to friends",
+          "query": "back to friends sombr",
           "previewUrl": "https://p.scdn.co/mp3-preview/daf5f9aeeab319f4cf5c17682d75c18cc1e2ae93",
           "spotifyUri": "spotify:track:7qjZnBKE73H4Oxkopwulqe"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_15",
-          "title": "Great Expectation",
-          "artist": "SIENNA SPIRO",
-          "duration": "2:53",
-          "durationMs": 173975,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "SIENNA SPIRO - Great Expectation",
-          "previewUrl": "https://p.scdn.co/mp3-preview/f82f2f3e714a66934fc309e357cbf249ad045f62",
-          "spotifyUri": "spotify:track:7ujApz6iFP3PmKIDGcaGbe"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_16",
-          "title": "Patient Zero",
-          "artist": "Taylor Swift",
-          "duration": "3:45",
-          "durationMs": 225868,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Taylor Swift - Patient Zero",
-          "previewUrl": "https://p.scdn.co/mp3-preview/3b622221c4b4a6c28ef70ed256b47ef825108142",
-          "spotifyUri": "spotify:track:11hcBLPtbMp4aQI6zGQLub"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_17",
           "title": "Man I Need",
           "artist": "Olivia Dean",
           "duration": "3:04",
           "durationMs": 184000,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Olivia Dean - Man I Need",
+          "query": "Man I Need Olivia Dean",
           "previewUrl": "https://p.scdn.co/mp3-preview/40bcf10e0f80094095d6e0be0ff1b85268dda0b7",
           "spotifyUri": "spotify:track:0mYXRQpTGjaLJt1l9MY4ps"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_18",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_16",
           "title": "Love Me Not",
           "artist": "Ravyn Lenae",
           "duration": "3:33",
           "durationMs": 213466,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Ravyn Lenae - Love Me Not",
+          "query": "Love Me Not Ravyn Lenae",
           "previewUrl": "https://p.scdn.co/mp3-preview/c660e524e84990f7687728af3ba09f9e071e585d",
           "spotifyUri": "spotify:track:4WFgvKVfEhb3IUAFGrutTR"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_19",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_17",
           "title": "Iris",
           "artist": "The Goo Goo Dolls",
           "duration": "4:49",
           "durationMs": 289533,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "The Goo Goo Dolls - Iris",
+          "query": "Iris The Goo Goo Dolls",
           "previewUrl": "https://p.scdn.co/mp3-preview/56aa743b0025372b06faa92e42768ab055f841c1",
           "spotifyUri": "spotify:track:4DPdJvSMB6hmrjgC5eC85d"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_20",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_18",
           "title": "Sweater Weather",
           "artist": "The Neighbourhood",
           "duration": "4:00",
           "durationMs": 240400,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "The Neighbourhood - Sweater Weather",
+          "query": "Sweater Weather The Neighbourhood",
           "previewUrl": "https://p.scdn.co/mp3-preview/877602f424a9dea277b13301ffc516f9fd1fbe7e",
           "spotifyUri": "spotify:track:2QjOHCTQ1Jl3zawyYOpxh6"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_21",
-          "title": "Pós - Ao Vivo",
-          "artist": "Felipe e Rodrigo",
-          "duration": "2:55",
-          "durationMs": 175577,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_19",
+          "title": "Great Expectation",
+          "artist": "SIENNA SPIRO",
+          "duration": "2:53",
+          "durationMs": 173975,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Felipe e Rodrigo - Pós - Ao Vivo",
-          "previewUrl": "https://p.scdn.co/mp3-preview/a388632e697278d1c9efc11a05f6fb2c8bc56c03",
-          "spotifyUri": "spotify:track:1uDn0nbzeGPVw97jp7SvzR"
+          "query": "Great Expectation SIENNA SPIRO",
+          "previewUrl": "https://p.scdn.co/mp3-preview/f82f2f3e714a66934fc309e357cbf249ad045f62",
+          "spotifyUri": "spotify:track:7ujApz6iFP3PmKIDGcaGbe"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_22",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_20",
           "title": "Babydoll",
           "artist": "Dominic Fike",
           "duration": "1:37",
           "durationMs": 97960,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Dominic Fike - Babydoll",
+          "query": "Babydoll Dominic Fike",
           "previewUrl": "https://p.scdn.co/mp3-preview/bf5ab98492256120bd9c48658e9c899c8692f77f",
           "spotifyUri": "spotify:track:7yNf9YjeO5JXUE3JEBgnYc"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_23",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_21",
           "title": "Self Aware",
           "artist": "Temper City",
           "duration": "3:00",
           "durationMs": 180740,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Temper City - Self Aware",
+          "query": "Self Aware Temper City",
           "previewUrl": "https://p.scdn.co/mp3-preview/98af5b6b77831ad55b6d1129148745705a311973",
           "spotifyUri": "spotify:track:4qW3BbQAwZsrnu8a3ZRdyT"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_24",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_22",
+          "title": "Patient Zero",
+          "artist": "Taylor Swift",
+          "duration": "3:45",
+          "durationMs": 225868,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Patient Zero Taylor Swift",
+          "previewUrl": "https://p.scdn.co/mp3-preview/3b622221c4b4a6c28ef70ed256b47ef825108142",
+          "spotifyUri": "spotify:track:11hcBLPtbMp4aQI6zGQLub"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_23",
           "title": "Just Give Me a Reason (feat. Nate Ruess)",
-          "artist": "P!nk, Nate Ruess",
+          "artist": "P!nk, Nate Ruess",
           "duration": "4:02",
           "durationMs": 242721,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "P!nk, Nate Ruess - Just Give Me a Reason (feat. Nate Ruess)",
+          "query": "Just Give Me a Reason P!nk",
           "previewUrl": "https://p.scdn.co/mp3-preview/8f4f290fa153a0235bd689140a17c89063095f15",
           "spotifyUri": "spotify:track:1mKXFLRA179hdOWQBwUk9e"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_25",
-          "title": "Loser",
-          "artist": "Tame Impala",
-          "duration": "3:43",
-          "durationMs": 223069,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Tame Impala - Loser",
-          "previewUrl": "https://p.scdn.co/mp3-preview/0015e9347a45b62215447eba657b2fc3ce279d2d",
-          "spotifyUri": "spotify:track:7bxaFZ1O3cHkgLKMsdC3xR"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_26",
-          "title": "expectations",
-          "artist": "Olivia Rodrigo",
-          "duration": "3:41",
-          "durationMs": 221958,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Olivia Rodrigo - expectations",
-          "previewUrl": "https://p.scdn.co/mp3-preview/080c19d04ec9f4765cb097c0422ac448dbb5642e",
-          "spotifyUri": "spotify:track:4bkClAuofJULiaIZsuL3gT"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_27",
-          "title": "Choosin' Texas",
-          "artist": "Ella Langley",
-          "duration": "3:51",
-          "durationMs": 231746,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Ella Langley - Choosin' Texas",
-          "previewUrl": "https://p.scdn.co/mp3-preview/f08d08e4bc0225289d4b15c46a846cd9e4ebc146",
-          "spotifyUri": "spotify:track:7scFxt9VhL4FJwuPSfRlfN"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_28",
-          "title": "SWIM",
-          "artist": "BTS",
-          "duration": "2:39",
-          "durationMs": 159007,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "BTS - SWIM",
-          "previewUrl": "https://p.scdn.co/mp3-preview/acafb81cc609de53b9687a40f214f79d828b6947",
-          "spotifyUri": "spotify:track:68lbSrXDORS51pmyjZv712"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_29",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_24",
           "title": "Billie Jean",
           "artist": "Michael Jackson",
           "duration": "4:53",
           "durationMs": 293802,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Michael Jackson - Billie Jean",
+          "query": "Billie Jean Michael Jackson",
           "previewUrl": "https://p.scdn.co/mp3-preview/84c7d8302cebe916b8a02392ece9b2c72ce95d34",
           "spotifyUri": "spotify:track:7J1uxwnxfQLu4APicE5Rnj"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_30",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_25",
+          "title": "Choosin' Texas",
+          "artist": "Ella Langley",
+          "duration": "3:51",
+          "durationMs": 231746,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Choosin' Texas Ella Langley",
+          "previewUrl": "https://p.scdn.co/mp3-preview/f08d08e4bc0225289d4b15c46a846cd9e4ebc146",
+          "spotifyUri": "spotify:track:7scFxt9VhL4FJwuPSfRlfN"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_26",
+          "title": "Dai Dai",
+          "artist": "Shakira, Burna Boy",
+          "duration": "3:43",
+          "durationMs": 223448,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Dai Dai Shakira",
+          "previewUrl": "https://p.scdn.co/mp3-preview/a6955a6725dcf614e9915396987847ea0b509580",
+          "spotifyUri": "spotify:track:0kosUz0jePvjiz4ctmR6wL"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_27",
+          "title": "Loser",
+          "artist": "Tame Impala",
+          "duration": "3:43",
+          "durationMs": 223069,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Loser Tame Impala",
+          "previewUrl": "https://p.scdn.co/mp3-preview/0015e9347a45b62215447eba657b2fc3ce279d2d",
+          "spotifyUri": "spotify:track:7bxaFZ1O3cHkgLKMsdC3xR"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_28",
           "title": "Treat You Better",
           "artist": "Shawn Mendes",
           "duration": "3:07",
           "durationMs": 187973,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Shawn Mendes - Treat You Better",
+          "query": "Treat You Better Shawn Mendes",
           "previewUrl": "https://p.scdn.co/mp3-preview/964acb3eecee3568fb10baf97d094b34887fb292",
           "spotifyUri": "spotify:track:3QGsuHI8jO1Rx4JWLUh9jd"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_29",
+          "title": "Postinho de Gasolina",
+          "artist": "João Gustavo e Murilo, Grelo",
+          "duration": "2:23",
+          "durationMs": 143371,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Postinho de Gasolina João Gustavo e Murilo",
+          "previewUrl": "https://p.scdn.co/mp3-preview/ec015d1dfcaaccbbd13a1ccb43c1d2dcf9f95eac",
+          "spotifyUri": "spotify:track:4RuRAwMmuBxw4QsKeFVhxh"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_30",
+          "title": "SWIM",
+          "artist": "BTS",
+          "duration": "2:39",
+          "durationMs": 159007,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "SWIM BTS",
+          "previewUrl": "https://p.scdn.co/mp3-preview/acafb81cc609de53b9687a40f214f79d828b6947",
+          "spotifyUri": "spotify:track:68lbSrXDORS51pmyjZv712"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_31",
@@ -2510,53 +2512,53 @@
           "duration": "3:06",
           "durationMs": 186964,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Alex Warren - Ordinary",
+          "query": "Ordinary Ale",
           "previewUrl": "https://p.scdn.co/mp3-preview/023ecc53465fc16782a581cbdc2e9d738cde1453",
           "spotifyUri": "spotify:track:2RkZ5LkEzeHGRsmDqKwmaJ"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_32",
-          "title": "End of Beginning",
-          "artist": "Djo",
-          "duration": "2:39",
-          "durationMs": 159245,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Djo - End of Beginning",
-          "previewUrl": "https://p.scdn.co/mp3-preview/dcebd3075a93171a92cad9b3228c8c4e80ffcd8d",
-          "spotifyUri": "spotify:track:3qhlB30KknSejmIvZZLjOD"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_33",
           "title": "Sailor Song",
           "artist": "Gigi Perez",
           "duration": "3:31",
           "durationMs": 211978,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Gigi Perez - Sailor Song",
+          "query": "Sailor Song Gigi Perez",
           "previewUrl": "https://p.scdn.co/mp3-preview/2b82b0fdedc4069da92d96f83dcab0d6fcbaf08a",
           "spotifyUri": "spotify:track:21IYMdzTrzSe191Cy5eMap"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_34",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_33",
           "title": "Cinderella (feat. Ty Dolla $ign)",
-          "artist": "Mac Miller, Ty Dolla $ign",
+          "artist": "Mac Miller, Ty Dolla $ign",
           "duration": "8:00",
           "durationMs": 480186,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Mac Miller, Ty Dolla $ign - Cinderella (feat. Ty Dolla $ign)",
+          "query": "Cinderella Mac Miller",
           "previewUrl": "https://p.scdn.co/mp3-preview/04815fdb32f409e135fbdbcaf8ddb70858a8a7f2",
           "spotifyUri": "spotify:track:2lpygKqzPFtItQ4ss3cgfb"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_35",
-          "title": "Training Season",
-          "artist": "Dua Lipa",
-          "duration": "3:29",
-          "durationMs": 209487,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_34",
+          "title": "BIRDS OF A FEATHER",
+          "artist": "Billie Eilish",
+          "duration": "3:30",
+          "durationMs": 210373,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Dua Lipa - Training Season",
-          "previewUrl": "https://p.scdn.co/mp3-preview/18939cfc406c70ae954d4a384434ee7744d7e194",
-          "spotifyUri": "spotify:track:5b5cPscqVEMChvDqscVw26"
+          "query": "BIRDS OF A FEATHER Billie Eilish",
+          "previewUrl": "https://p.scdn.co/mp3-preview/2899f0275fc029d456d924a60ae6f747bda1ed80",
+          "spotifyUri": "spotify:track:6dOtVTDdiauQNBQEDOtlAB"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_35",
+          "title": "End of Beginning",
+          "artist": "Djo",
+          "duration": "2:39",
+          "durationMs": 159245,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "End of Beginning Djo",
+          "previewUrl": "https://p.scdn.co/mp3-preview/dcebd3075a93171a92cad9b3228c8c4e80ffcd8d",
+          "spotifyUri": "spotify:track:3qhlB30KknSejmIvZZLjOD"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_36",
@@ -2565,168 +2567,168 @@
           "duration": "3:42",
           "durationMs": 222973,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "The Killers - Mr. Brightside",
+          "query": "Mr. Brightside The Killers",
           "previewUrl": "https://p.scdn.co/mp3-preview/848b1bd5544e82f62f9cfcec65362d0f5369781f",
           "spotifyUri": "spotify:track:003vvx7Niy0yvhvHt4a68B"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_37",
-          "title": "Wonderwall - Remastered",
-          "artist": "Oasis",
-          "duration": "4:18",
-          "durationMs": 258773,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Oasis - Wonderwall - Remastered",
-          "previewUrl": "https://p.scdn.co/mp3-preview/20284474537394c92c98e543b21efe174ff2599d",
-          "spotifyUri": "spotify:track:7ygpwy2qP3NbrxVkHvUhXY"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_38",
-          "title": "One Of The Girls (with JENNIE, Lily Rose Depp)",
-          "artist": "The Weeknd, JENNIE, Lily-Rose Depp",
-          "duration": "4:04",
-          "durationMs": 244684,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "The Weeknd, JENNIE, Lily-Rose Depp - One Of The Girls (with JENNIE, Lily Rose Depp)",
-          "previewUrl": "https://p.scdn.co/mp3-preview/e5bb7776aff44435b938eb084b2eca23e6c7f5ed",
-          "spotifyUri": "spotify:track:7CyPwkp0oE8Ro9Dd5CUDjW"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_39",
           "title": "hate that i made you love me",
           "artist": "Ariana Grande",
           "duration": "3:17",
           "durationMs": 197949,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Ariana Grande - hate that i made you love me",
+          "query": "hate that i made you love me Ariana Grande",
           "previewUrl": "https://p.scdn.co/mp3-preview/c935ee200aa75c855a349afff4f4852b2e755ec7",
           "spotifyUri": "spotify:track:3iy2QuCtCzpWnR6tia39AB"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_40",
-          "title": "BIRDS OF A FEATHER",
-          "artist": "Billie Eilish",
-          "duration": "3:30",
-          "durationMs": 210373,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_38",
+          "title": "Training Season",
+          "artist": "Dua Lipa",
+          "duration": "3:29",
+          "durationMs": 209487,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Billie Eilish - BIRDS OF A FEATHER",
-          "previewUrl": "https://p.scdn.co/mp3-preview/2899f0275fc029d456d924a60ae6f747bda1ed80",
-          "spotifyUri": "spotify:track:6dOtVTDdiauQNBQEDOtlAB"
+          "query": "Training Season Dua Lipa",
+          "previewUrl": "https://p.scdn.co/mp3-preview/18939cfc406c70ae954d4a384434ee7744d7e194",
+          "spotifyUri": "spotify:track:5b5cPscqVEMChvDqscVw26"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_39",
+          "title": "Wonderwall - Remastered",
+          "artist": "Oasis",
+          "duration": "4:18",
+          "durationMs": 258773,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Wonderwall - Remastered Oasis",
+          "previewUrl": "https://p.scdn.co/mp3-preview/20284474537394c92c98e543b21efe174ff2599d",
+          "spotifyUri": "spotify:track:0EjH2xRuoT9oz5QGenFxT1"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_40",
+          "title": "Lies (feat. Lana Del Rey)",
+          "artist": "Zach Bryan, Lana Del Rey",
+          "duration": "3:40",
+          "durationMs": 220588,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Lies Zach Bryan",
+          "previewUrl": "https://p.scdn.co/mp3-preview/46a21f2dd3bdd6c6aa0a6be40f91498ac0572ed7",
+          "spotifyUri": "spotify:track:4EVSMqqVEehvyyOBmjNTlA"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_41",
-          "title": "Flower In A Hurricane (feat. Tame Impala, SZA, King Gizzard & the Lizard Wizard) [from GTAVI]",
-          "artist": "Justice, Tame Impala, SZA, Grand Theft Auto VI, King Gizzard & The Lizard Wizard",
-          "duration": "3:44",
-          "durationMs": 224877,
+          "title": "One Of The Girls (with JENNIE, Lily Rose Depp)",
+          "artist": "The Weeknd, JENNIE, Lily-Rose Depp",
+          "duration": "4:04",
+          "durationMs": 244684,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Justice, Tame Impala, SZA, Grand Theft Auto VI, King Gizzard & The Lizard Wizard - Flower In A Hurricane (feat. Tame Impala, SZA, King Gizzard & the Lizard Wizard) [from GTAVI]",
-          "previewUrl": "https://p.scdn.co/mp3-preview/cb0328e37a27c1825db0ae890ec249f1ec42adbd",
-          "spotifyUri": "spotify:track:4HCOHRCSQelz2GPX8iTamO"
+          "query": "One Of The Girls The Weeknd",
+          "previewUrl": "https://p.scdn.co/mp3-preview/e5bb7776aff44435b938eb084b2eca23e6c7f5ed",
+          "spotifyUri": "spotify:track:7CyPwkp0oE8Ro9Dd5CUDjW"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_42",
-          "title": "Dai Dai",
-          "artist": "Shakira, Burna Boy",
-          "duration": "3:43",
-          "durationMs": 223448,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Shakira, Burna Boy - Dai Dai",
-          "previewUrl": "https://p.scdn.co/mp3-preview/a6955a6725dcf614e9915396987847ea0b509580",
-          "spotifyUri": "spotify:track:0kosUz0jePvjiz4ctmR6wL"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_43",
-          "title": "Sign of the Times",
-          "artist": "Harry Styles",
-          "duration": "5:40",
-          "durationMs": 340706,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Harry Styles - Sign of the Times",
-          "previewUrl": "https://p.scdn.co/mp3-preview/3f677086b8a90e1b9affde439d2ba55c77044799",
-          "spotifyUri": "spotify:track:5Ohxk2dO5COHF1krpoPigN"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_44",
           "title": "drop dead",
           "artist": "Olivia Rodrigo",
           "duration": "3:44",
           "durationMs": 224998,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Olivia Rodrigo - drop dead",
+          "query": "drop dead Olivia Rodrigo",
           "previewUrl": "https://p.scdn.co/mp3-preview/4acb20a0f0bbca4a57a351dd94674a27b8c7714e",
           "spotifyUri": "spotify:track:3fRCAPMMZ8l8P9YKI6OCzD"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_45",
-          "title": "Risk It All",
-          "artist": "Bruno Mars",
-          "duration": "3:24",
-          "durationMs": 204068,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Bruno Mars - Risk It All",
-          "previewUrl": "https://p.scdn.co/mp3-preview/2467ff71a7508c57a62112ee5beb996bd6b9e957",
-          "spotifyUri": "spotify:track:6skX6In6VpLzev9epAUnpp"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_46",
-          "title": "Creep",
-          "artist": "Radiohead",
-          "duration": "3:58",
-          "durationMs": 238640,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Radiohead - Creep",
-          "previewUrl": "https://p.scdn.co/mp3-preview/f3d864283774529a2378100c912bfacb614db751",
-          "spotifyUri": "spotify:track:70LcF31zb1H0PyJoS1Sx1r"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_47",
-          "title": "Rein Me In (with Olivia Dean)",
-          "artist": "Sam Fender, Olivia Dean",
-          "duration": "5:39",
-          "durationMs": 339893,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Sam Fender, Olivia Dean - Rein Me In (with Olivia Dean)",
-          "previewUrl": "https://p.scdn.co/mp3-preview/826953e5b1a52ee3954dc4dbea2ea8797c28df3d",
-          "spotifyUri": "spotify:track:0MUXBhPUDF8or0kfQ0EHwV"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_48",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_43",
           "title": "Every Breath You Take",
           "artist": "The Police",
           "duration": "4:13",
           "durationMs": 253920,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "The Police - Every Breath You Take",
+          "query": "Every Breath You Take The Police",
           "previewUrl": "https://p.scdn.co/mp3-preview/92d7997134bb18b99eb5fdc65926e4ef613f9781",
           "spotifyUri": "spotify:track:1JSTJqkT5qHq8MDJnJbRE1"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_49",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_44",
+          "title": "Risk It All",
+          "artist": "Bruno Mars",
+          "duration": "3:24",
+          "durationMs": 204068,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Risk It All Bruno Mars",
+          "previewUrl": "https://p.scdn.co/mp3-preview/2467ff71a7508c57a62112ee5beb996bd6b9e957",
+          "spotifyUri": "spotify:track:5y2ijHECwFYWqcAHKTZgzD"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_45",
           "title": "The Fate of Ophelia",
           "artist": "Taylor Swift",
           "duration": "3:46",
           "durationMs": 226073,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Taylor Swift - The Fate of Ophelia",
+          "query": "The Fate of Ophelia Taylor Swift",
           "previewUrl": "https://p.scdn.co/mp3-preview/08d084852368db5ef64c30ae9281d66a610b0605",
           "spotifyUri": "spotify:track:53iuhJlwXhSER5J2IYYv1W"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_50",
-          "title": "Yellow",
-          "artist": "Coldplay",
-          "duration": "4:26",
-          "durationMs": 266773,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_46",
+          "title": "Animal",
+          "artist": "KATSEYE",
+          "duration": "2:38",
+          "durationMs": 158494,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Coldplay - Yellow",
-          "previewUrl": "https://p.scdn.co/mp3-preview/c0d9119dc69cae75baf6463e21e43f433fdf5ff4",
-          "spotifyUri": "spotify:track:3AJwUDP919kvQ9QcozQPxg"
+          "query": "Animal KATSEYE",
+          "previewUrl": "https://p.scdn.co/mp3-preview/65040556453e4f1c76bcefebf54a718521588331",
+          "spotifyUri": "spotify:track:3ouNEk0tv5TTi8VWMe1xbX"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_47",
+          "title": "Sign of the Times",
+          "artist": "Harry Styles",
+          "duration": "5:40",
+          "durationMs": 340706,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Sign of the Times Harry Styles",
+          "previewUrl": "https://p.scdn.co/mp3-preview/3f677086b8a90e1b9affde439d2ba55c77044799",
+          "spotifyUri": "spotify:track:5Ohxk2dO5COHF1krpoPigN"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_48",
+          "title": "Rein Me In (with Olivia Dean)",
+          "artist": "Sam Fender, Olivia Dean",
+          "duration": "5:39",
+          "durationMs": 339893,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Rein Me In Sam Fender",
+          "previewUrl": "https://p.scdn.co/mp3-preview/826953e5b1a52ee3954dc4dbea2ea8797c28df3d",
+          "spotifyUri": "spotify:track:0MUXBhPUDF8or0kfQ0EHwV"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_49",
+          "title": "So Easy (To Fall In Love)",
+          "artist": "Olivia Dean",
+          "duration": "2:49",
+          "durationMs": 169000,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "So Easy Olivia Dean",
+          "previewUrl": "https://p.scdn.co/mp3-preview/e0ea7353932017364bdb12dc776e89b360abac42",
+          "spotifyUri": "spotify:track:6sGIMrtIzQjdzNndVxe397"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_50",
+          "title": "Creep",
+          "artist": "Radiohead",
+          "duration": "3:58",
+          "durationMs": 238640,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Creep Radiohead",
+          "previewUrl": "https://p.scdn.co/mp3-preview/f3d864283774529a2378100c912bfacb614db751",
+          "spotifyUri": "spotify:track:70LcF31zb1H0PyJoS1Sx1r"
         }
       ],
       "badge": "📈 Worldwide Daily Chart",
       "genre": "charts",
-      "lastImported": 1792315532401
+      "lastImported": 1792403749969
     }
   ],
   "topTracks": [
@@ -3009,11 +3011,11 @@
     {
       "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_1",
       "title": "Aarzu",
-      "artist": "Noor, Khan, Madhurxo",
+      "artist": "Noor, Khan, Madhurxo",
       "duration": "3:07",
       "durationMs": 187567,
       "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-      "query": "Noor, Khan, Madhurxo - Aarzu",
+      "query": "Aarzu Noor",
       "previewUrl": "https://p.scdn.co/mp3-preview/888988ab8ca9568918ab71dfff99a31337de9db9",
       "spotifyUri": "spotify:track:0wHYuCTWPntEgWiUVED4wB",
       "playlistName": "Indie India Chill",
@@ -3027,7 +3029,7 @@
       "duration": "4:56",
       "durationMs": 296222,
       "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-      "query": "Navjot Ahuja - Khat",
+      "query": "Khat Navjot Ahuja",
       "previewUrl": "https://p.scdn.co/mp3-preview/2cb7664ce439bff8761a123188e55e2a3f6476a8",
       "spotifyUri": "spotify:track:3gixnmepHSsyAuho34rprN",
       "playlistName": "Indie India Chill",
@@ -3037,11 +3039,11 @@
     {
       "id": "sp_37i9dQZF1DX5q67ZpWyRrZ_3",
       "title": "Dooron Dooron",
-      "artist": "Paresh Pahuja, Shiv Tandan, Meghdeep Bose",
+      "artist": "Paresh Pahuja, Shiv Tandan, Meghdeep Bose",
       "duration": "3:35",
       "durationMs": 215946,
       "artworkUrl": "https://i.scdn.co/image/ab67706f00000002656f14776fbb39aa2ae900f0",
-      "query": "Paresh Pahuja, Shiv Tandan, Meghdeep Bose - Dooron Dooron",
+      "query": "Dooron Dooron Paresh Pahuja",
       "previewUrl": "https://p.scdn.co/mp3-preview/9fea25c3db6c7e1615c912c4e95aa1db14bf27e5",
       "spotifyUri": "spotify:track:0q5e5KtUOhYQujmhLP0pKd",
       "playlistName": "Indie India Chill",
@@ -3051,11 +3053,11 @@
     {
       "id": "sp_37i9dQZF1DXcBWIGoYBM5M_1",
       "title": "expectations (feat. Chappell Roan)",
-      "artist": "Olivia Rodrigo, Chappell Roan",
+      "artist": "Olivia Rodrigo, Chappell Roan",
       "duration": "3:43",
       "durationMs": 223935,
       "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-      "query": "Olivia Rodrigo, Chappell Roan - expectations (feat. Chappell Roan)",
+      "query": "expectations Olivia Rodrigo",
       "previewUrl": "https://p.scdn.co/mp3-preview/cc5b59142bd150799f61068e522f8aaa120d28c9",
       "spotifyUri": "spotify:track:3XmwAZpIMNpTJy8faw3ajD",
       "playlistName": "Today's Top Hits",
@@ -3069,7 +3071,7 @@
       "duration": "3:01",
       "durationMs": 181270,
       "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-      "query": "ADÉLA - Nicole Kidman",
+      "query": "Nicole Kidman ADÉLA",
       "previewUrl": "https://p.scdn.co/mp3-preview/68bc3cb0611cfe6569ce56eeb025359233168a69",
       "spotifyUri": "spotify:track:70cHKK8bHAfJrOGVnfRG9J",
       "playlistName": "Today's Top Hits",
@@ -3083,7 +3085,7 @@
       "duration": "3:18",
       "durationMs": 198840,
       "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-      "query": "Ashe - Stop The Wedding!",
+      "query": "Stop The Wedding! Ashe",
       "previewUrl": "https://p.scdn.co/mp3-preview/8a374e33d78679e1143d7a07797ddfa0225f8586",
       "spotifyUri": "spotify:track:3zOYmiNOuyDL0ClxJcEJ0T",
       "playlistName": "Today's Top Hits",
@@ -3097,7 +3099,7 @@
       "duration": "3:45",
       "durationMs": 225868,
       "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-      "query": "Taylor Swift - Patient Zero",
+      "query": "Patient Zero Taylor Swift",
       "previewUrl": "https://p.scdn.co/mp3-preview/3b622221c4b4a6c28ef70ed256b47ef825108142",
       "spotifyUri": "spotify:track:11hcBLPtbMp4aQI6zGQLub",
       "playlistName": "Today's Top Hits",
@@ -3111,7 +3113,7 @@
       "duration": "2:31",
       "durationMs": 151500,
       "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-      "query": "Malcolm Todd - Earrings",
+      "query": "Earrings Malcolm Todd",
       "previewUrl": "https://p.scdn.co/mp3-preview/20a1469df9f65a51878811bbe49979c418abc1b7",
       "spotifyUri": "spotify:track:0eAuGrXyGFYwur9ARUe7LJ",
       "playlistName": "Today's Top Hits",
@@ -3121,11 +3123,11 @@
     {
       "id": "sp_37i9dQZF1DXcBWIGoYBM5M_6",
       "title": "BbY WOW",
-      "artist": "KAROL G, Judeline, rusowsky",
+      "artist": "KAROL G, Judeline, rusowsky",
       "duration": "3:45",
       "durationMs": 225834,
       "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
-      "query": "KAROL G, Judeline, rusowsky - BbY WOW",
+      "query": "BbY WOW KAROL G",
       "previewUrl": "https://p.scdn.co/mp3-preview/f6ab45a8375c5bcf6f03161edd9f44c1fad501c8",
       "spotifyUri": "spotify:track:3h5T5JypYU7huFiVYhv1dr",
       "playlistName": "Today's Top Hits",

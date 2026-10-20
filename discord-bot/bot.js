@@ -158,6 +158,66 @@ function decryptSaavnMediaUrl(encUrl) {
   return null;
 }
 
+function isJioSaavnResultRelevant(query, saavnTitle, expectedTitle = "", expectedArtist = "") {
+  if (!saavnTitle) return false;
+  const cleanStr = (s) => (s || "")
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const stopWords = new Set(["the", "a", "an", "and", "or", "in", "on", "of", "to", "for", "with", "feat", "ft", "official", "video", "audio", "song", "lyrics", "full", "remix", "version", "original", "coke", "studio", "season", "ost", "from"]);
+  const getTokens = (s) => cleanStr(s).split(" ").filter(w => w.length >= 2 && !stopWords.has(w));
+
+  const candTitleTokens = getTokens(saavnTitle);
+  const candSet = new Set(candTitleTokens);
+
+  let target = (expectedTitle || "").trim();
+  if (!target) {
+    let q = (query || "").trim();
+    if (q.includes(" - ")) {
+      target = q.split(" - ")[0].trim();
+    } else if (expectedArtist) {
+      const artTokens = getTokens(expectedArtist);
+      const parts = q.split(/\s+/).filter(w => !artTokens.includes(w.toLowerCase()));
+      if (parts.length > 0) target = parts.join(" ");
+      else target = q;
+    } else {
+      target = q;
+    }
+  }
+
+  const targetTokens = getTokens(target);
+  if (targetTokens.length === 0) return true;
+
+  if (targetTokens.length >= 2) {
+    const leadTokens = targetTokens.slice(0, Math.min(3, Math.ceil(targetTokens.length / 2)));
+    const hasLeadMatch = leadTokens.some(lt => 
+      candSet.has(lt) || candTitleTokens.some(ct => (lt.length >= 4 && ct.includes(lt)) || (ct.length >= 4 && lt.includes(ct)))
+    );
+    if (!hasLeadMatch) return false;
+  }
+
+  let matches = 0;
+  for (const tok of targetTokens) {
+    if (candSet.has(tok)) {
+      matches++;
+    } else {
+      for (const ct of candTitleTokens) {
+        if ((tok.length >= 4 && ct.includes(tok)) || (ct.length >= 4 && tok.includes(ct))) {
+          matches++;
+          break;
+        }
+      }
+    }
+  }
+
+  if (targetTokens.length === 1) return matches >= 1;
+  const ratio = matches / targetTokens.length;
+  return matches >= 2 || ratio >= 0.5;
+}
+
 // Fast JioSaavn Song Search (Instant ~150ms response, 320kbps audio)
 async function searchJioSaavn(query, limit = 10) {
   try {
@@ -317,6 +377,43 @@ async function searchPlaylistsMulti(query, limit = 5) {
   });
 }
 
+function executeYtDlp(args, options, callback) {
+  const localBinary = path.join(__dirname, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
+  if (fs.existsSync(localBinary)) {
+    return execFile(localBinary, args, options, callback);
+  }
+  const pythonCmd = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
+  execFile(pythonCmd, ["-m", "yt_dlp", ...args], options, (err, stdout, stderr) => {
+    if (err && (err.code === "ENOENT" || err.message?.includes("ENOENT"))) {
+      return execFile("yt-dlp", args, options, (err2, stdout2, stderr2) => {
+        if (err2 && process.platform !== "win32") {
+          return execFile("python", ["-m", "yt_dlp", ...args], options, callback);
+        }
+        callback(err2, stdout2, stderr2);
+      });
+    }
+    callback(err, stdout, stderr);
+  });
+}
+
+function extractYouTubePlaylistId(urlOrId) {
+  if (!urlOrId || typeof urlOrId !== "string") return null;
+  const s = urlOrId.trim();
+  const listMatch = s.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
+  if (listMatch) return listMatch[1];
+  const plMatch = s.match(/(?:youtube\.com|youtu\.be)\/playlist\/?\?list=([a-zA-Z0-9_-]+)/i);
+  if (plMatch) return plMatch[1];
+  if (/^(?:PL|OLAK5uy_|RD|UU|LL|FL|TL|CL)[a-zA-Z0-9_-]{10,}$/.test(s)) return s;
+  return null;
+}
+
+function isYouTubeUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  const s = url.trim();
+  return /^(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?|shorts\/|playlist\?|embed\/)|youtu\.be\/)/i.test(s) ||
+         Boolean(extractYouTubePlaylistId(s));
+}
+
 // In-memory cache for full playlist tracks resolver
 const playlistTracksCache = new Map();
 async function resolvePlaylistTracks(playlistUrlOrId, limit = 50) {
@@ -432,36 +529,57 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50) {
   }
 
   // Case 3B: YouTube Playlist via yt-dlp
-  const url = clean.startsWith("http") ? clean : `https://www.youtube.com/playlist?list=${clean}`;
+  const ytPlaylistId = extractYouTubePlaylistId(clean);
+  let url = clean;
+  if (ytPlaylistId) {
+    url = `https://www.youtube.com/playlist?list=${ytPlaylistId}`;
+  } else if (!clean.startsWith("http")) {
+    url = `https://www.youtube.com/playlist?list=${clean}`;
+  }
+
   return new Promise((resolve) => {
-    execFile(
-      "python",
-      ["-m", "yt_dlp", "--flat-playlist", "-J", "--playlist-end", String(limit), url],
-      { timeout: 14000, maxBuffer: 15 * 1024 * 1024 },
+    executeYtDlp(
+      [
+        "--flat-playlist",
+        "-J",
+        "--no-warnings",
+        "--yes-playlist",
+        "--extractor-args", "youtube:player_client=ios,android,web",
+        "--playlist-end", String(Math.max(limit, 1000)),
+        url
+      ],
+      { timeout: 35000, maxBuffer: 50 * 1024 * 1024 },
       (err, stdout) => {
         if (err || !stdout) return resolve(null);
         try {
           const data = JSON.parse(stdout);
-          const entries = (data.entries || []).filter(e => e && e.title && !e.id?.startsWith("UC"));
+          const entries = (data.entries || []).filter(e => e && e.title && e.title !== "[Deleted video]" && e.title !== "[Private video]" && !e.id?.startsWith("UC"));
           const tracks = entries.map((e, idx) => ({
-            id: e.id,
+            id: e.id || `yt_${idx}`,
             title: e.title,
             artist: e.uploader || e.channel || data.title || "YouTube Music",
-            duration: Math.round((e.duration || 0) * 1000),
+            author: e.uploader || e.channel || data.title || "YouTube Music",
+            duration: Math.round((e.duration || 0) * 1000) || 180000,
+            durationMs: Math.round((e.duration || 0) * 1000) || 180000,
             artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
-            url: (e.url && e.url.startsWith("http")) ? e.url : `https://www.youtube.com/watch?v=${e.id}`,
+            url: e.id ? `https://www.youtube.com/watch?v=${e.id}` : ((e.url && e.url.startsWith("http")) ? e.url.split("&list=")[0].split("?list=")[0] : `https://www.youtube.com/watch?v=${e.id}`),
+            query: e.id ? `https://www.youtube.com/watch?v=${e.id}` : `${e.title} ${e.uploader || ""}`.trim(),
             source: "youtube"
           }));
           const result = {
-            id: data.id || clean,
+            id: data.id || ytPlaylistId || `yt_${Date.now()}`,
+            name: data.title || "YouTube Playlist",
             title: data.title || "YouTube Playlist",
             author: data.uploader || data.channel || "YouTube",
             description: data.description || `Playlist with ${tracks.length} songs`,
             artworkUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
+            coverUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
             tracks: tracks,
             trackCount: tracks.length
           };
-          playlistTracksCache.set(cacheKey, { time: Date.now(), data: result });
+          if (tracks.length > 0) {
+            playlistTracksCache.set(cacheKey, { time: Date.now(), data: result });
+          }
           resolve(result);
         } catch(e) {
           resolve(null);
@@ -524,14 +642,17 @@ async function resolveSpotifyLink(url) {
     const tracks = rawTracks.map((t, idx) => {
       const name = t.name || t.title || `Track ${idx + 1}`;
       const artist = t.artist || preview.artist || "Spotify Artist";
+      const spotifyTrackId = (t.uri && t.uri.startsWith("spotify:track:")) ? t.uri.split(":").pop() : null;
+      const canonicalTrackUrl = spotifyTrackId ? `https://open.spotify.com/track/${spotifyTrackId}` : (t.url || cleanUrl);
       return {
-        id: `sp_${Date.now()}_${idx + 1}`,
+        id: spotifyTrackId ? `sp_${spotifyTrackId}` : `sp_${Date.now()}_${idx + 1}`,
         title: name,
         artist: artist,
         duration: t.duration || 180000,
         artworkUrl: preview.image || "logo.png",
         query: `${artist} - ${name}`,
         previewUrl: t.previewUrl || preview.audio || null,
+        url: canonicalTrackUrl,
         uri: t.uri || cleanUrl
       };
     });
@@ -641,37 +762,70 @@ async function extractYouTubeStream(queryOrUrl) {
 
   let streamMeta = null;
   let target = (queryOrUrl || "").trim();
-  const isUrl = target.startsWith("http://") || target.startsWith("https://");
+  let isUrl = target.startsWith("http://") || target.startsWith("https://");
+
+  if (isSpotifyUrl(target) || (isUrl && target.includes("spotify.com"))) {
+    try {
+      const spData = await resolveSpotifyLink(target);
+      if (spData && spData.tracks && spData.tracks.length > 0) {
+        const first = spData.tracks[0];
+        target = first.query || `${first.title} ${first.artist}`.trim();
+      }
+    } catch (_) {}
+    isUrl = target.startsWith("http://") || target.startsWith("https://");
+  }
+
   if (!isUrl) {
     try {
-      const searchRes = await searchYouTubeMulti(queryOrUrl, 1);
+      const searchRes = await searchYouTubeMulti(target, 1);
       if (searchRes && searchRes.length > 0 && searchRes[0].url) {
         streamMeta = searchRes[0];
         target = streamMeta.url;
       } else {
-        target = `ytsearch1:${queryOrUrl}`;
+        target = `ytsearch1:${target}`;
       }
     } catch(e) {
-      target = `ytsearch1:${queryOrUrl}`;
+      target = `ytsearch1:${target}`;
     }
   }
 
   return new Promise((resolve) => {
-    // Ultra-Fast path: direct audio stream extraction with android client (enables ratebypass=yes for instant, unthrottled streaming)
-    execFile(
-      "python",
-      ["-m", "yt_dlp", "-g", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
+    executeYtDlp(
+      ["-g", "--get-title", "--get-duration", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
       { timeout: 15000 },
       (err, stdout) => {
         if (!err && stdout && stdout.trim()) {
-          const directUrl = stdout.trim().split("\n")[0].trim();
-          if (directUrl.startsWith("http")) {
+          const lines = stdout.trim().split("\n").map(l => l.trim()).filter(Boolean);
+          let directUrl = null;
+          let detectedDuration = 0;
+          let detectedTitle = null;
+
+          for (const line of lines) {
+            if (line.startsWith("http://") || line.startsWith("https://")) {
+              directUrl = line;
+            } else if (/^(\d+:)?\d+:\d+$/.test(line)) {
+              const parts = line.split(":").map(p => parseInt(p, 10));
+              if (parts.length === 2) {
+                detectedDuration = (parts[0] * 60 + parts[1]) * 1000;
+              } else if (parts.length === 3) {
+                detectedDuration = (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+              }
+            } else if (/^\d+(\.\d+)?$/.test(line)) {
+              detectedDuration = Math.round(parseFloat(line) * 1000);
+            } else if (!detectedTitle) {
+              detectedTitle = line;
+            }
+          }
+
+          if (directUrl) {
+            const vMatch = target.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || target.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
+            const derivedThumb = (vMatch && vMatch[1]) ? `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg` : null;
             const data = {
-              title: streamMeta?.title || "YouTube Audio",
-              author: streamMeta?.author || "Trending Music",
-              duration: streamMeta?.duration || 0,
+              title: streamMeta?.title || detectedTitle || "YouTube Audio",
+              author: streamMeta?.author || "YouTube Music",
+              duration: detectedDuration || streamMeta?.duration || 0,
               streamUrl: directUrl,
-              artworkUrl: streamMeta?.artworkUrl || "logo.png"
+              artworkUrl: streamMeta?.artworkUrl || derivedThumb || "logo.png"
             };
             directStreamCache.set(cacheKey, { time: Date.now(), data });
             return resolve(data);
@@ -679,9 +833,8 @@ async function extractYouTubeStream(queryOrUrl) {
         }
 
         // Fallback: full JSON extraction if -g failed
-        execFile(
-          "python",
-          ["-m", "yt_dlp", "-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
+        executeYtDlp(
+          ["-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
           { maxBuffer: 15 * 1024 * 1024, timeout: 25000 },
           (err2, stdout2) => {
             if (err2 || !stdout2) return resolve(null);
@@ -692,7 +845,7 @@ async function extractYouTubeStream(queryOrUrl) {
                 const data = {
                   title: streamMeta?.title || info.title || "YouTube Audio",
                   author: streamMeta?.author || info.uploader || info.channel || "YouTube",
-                  duration: streamMeta?.duration || Math.round((info.duration || 0) * 1000),
+                  duration: Math.round((info.duration || 0) * 1000) || streamMeta?.duration || 0,
                   streamUrl: info.url,
                   artworkUrl: streamMeta?.artworkUrl || info.thumbnail || "logo.png"
                 };
@@ -1958,8 +2111,21 @@ client.on("messageCreate", async (message) => {
 
           await statusMsg.edit({ content: "", embeds: [embed] }).catch(() => {});
 
-          // Resolve & Play Track 1 Immediately
-          const first = spotifyData.tracks[0];
+          let startIdx = 0;
+          const indexMatch = query.match(/[?&]index=(\d+)/i);
+          if (indexMatch && indexMatch[1]) {
+            const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+            if (parsedIdx >= 0 && parsedIdx < spotifyData.tracks.length) startIdx = parsedIdx;
+          }
+          const spTrackMatch = query.match(/\/track\/([a-zA-Z0-9]+)/i) || query.match(/spotify:track:([a-zA-Z0-9]+)/i);
+          if (spTrackMatch && spTrackMatch[1]) {
+            const tId = spTrackMatch[1];
+            const fIdx = spotifyData.tracks.findIndex(t => (t.url && t.url.includes(tId)) || (t.id && t.id.includes(tId)));
+            if (fIdx >= 0) startIdx = fIdx;
+          }
+
+          // Resolve & Play chosen track immediately
+          const first = spotifyData.tracks[startIdx] || spotifyData.tracks[0];
           try {
             const tr = await resolveLavalinkTrack(player, first.query, message.author, mode);
             if (tr) {
@@ -1975,15 +2141,110 @@ client.on("messageCreate", async (message) => {
               }
             }
           } catch(e) {
-            console.error("Spotify track 1 stream resolution error:", e);
+            console.error("Spotify stream resolution error:", e);
+          }
+
+          // Background enqueue remaining tracks (startIdx+1 to end, then 0 to startIdx)
+          (async () => {
+            const queueIndices = [];
+            for (let i = startIdx + 1; i < spotifyData.tracks.length; i++) queueIndices.push(i);
+            for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+            for (const i of queueIndices) {
+              const spTrack = spotifyData.tracks[i];
+              try {
+                const tr = await resolveLavalinkTrack(player, spTrack.query, message.author, mode);
+                if (tr) {
+                  tr.userData = { filterMode: mode, requester: message.author };
+                  player.queue.add(tr);
+                  if (!player.playing && player.queue.tracks.length === 1) {
+                    await player.play();
+                  }
+                }
+              } catch(e) {}
+            }
+          })().catch(() => {});
+
+          return;
+        }
+
+        // Direct YouTube playlist / mix resolution
+        const ytPlaylistId = extractYouTubePlaylistId(query);
+        if (ytPlaylistId) {
+          const announceChanId = getAnnouncementChannelId(message.guild.id, message.channel.id);
+          const announceChan = client.channels.cache.get(announceChanId) || message.channel;
+          const statusMsg = await message.channel.send(`⏳ **Fetching YouTube playlist tracks...**`);
+
+          const ytData = await resolvePlaylistTracks(query, 500);
+          if (!ytData || !ytData.tracks?.length) {
+            return statusMsg.edit(`⚠️ **Could not resolve YouTube playlist.** Please make sure the playlist is public.`);
+          }
+
+          const embed = new EmbedBuilder()
+            .setColor(0xff0000)
+            .setTitle(`🔴 YouTube Playlist: ${ytData.title || ytData.name}`)
+            .setDescription(
+              `🎵 **${ytData.trackCount || ytData.tracks.length} Tracks** loaded.\n` +
+              `• **Author / Channel:** ${ytData.author || "YouTube"}\n` +
+              `• **Voice Channel:** <#${vc.id}>\n` +
+              `• **Announcements:** <#${announceChanId}>\n` +
+              `• **Play Mode:** ${isPlayNow ? "⚡ **Playing Now (Immediate Play)**" : "▶️ Enqueued"}\n` +
+              `• **Web Client:** [Open Web Player](http://localhost:3050)`
+            )
+            .setThumbnail(ytData.artworkUrl || ytData.coverUrl || "logo.png")
+            .setFooter({ text: "Spy Sec Music YouTube Engine • cyber_spy.404" })
+            .setTimestamp();
+
+          await statusMsg.edit({ content: "", embeds: [embed] }).catch(() => {});
+
+          let startIdx = 0;
+          const indexMatch = query.match(/[?&]index=(\d+)/i);
+          if (indexMatch && indexMatch[1]) {
+            const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+            if (parsedIdx >= 0 && parsedIdx < ytData.tracks.length) startIdx = parsedIdx;
+          }
+          const vMatch = query.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
+          let fIdx = -1;
+          if (vMatch && vMatch[1]) {
+            fIdx = ytData.tracks.findIndex(t => t.id === vMatch[1] || (t.url && t.url.includes(vMatch[1])));
+            if (fIdx >= 0) startIdx = fIdx;
+          }
+
+          let firstQ = null;
+          if (vMatch && vMatch[1] && fIdx === -1) {
+            firstQ = `https://www.youtube.com/watch?v=${vMatch[1]}`;
+          } else {
+            const first = ytData.tracks[startIdx] || ytData.tracks[0];
+            firstQ = first.url || (first.id ? `https://www.youtube.com/watch?v=${first.id}` : first.query);
+          }
+          try {
+            const tr = await resolveLavalinkTrack(player, firstQ, message.author, mode);
+            if (tr) {
+              tr.userData = { filterMode: mode, requester: message.author };
+              if (isPlayNow) {
+                if (player.queue.current) addToHistory(message.guild.id, player.queue.current);
+                if (player.paused) await player.resume();
+                await player.play({ clientTrack: tr });
+              } else {
+                player.queue.add(tr);
+                if (player.paused) await player.resume();
+                if (!player.playing) await player.play();
+              }
+            }
+          } catch(e) {
+            console.error("YouTube playlist track 1 stream resolution error:", e);
           }
 
           // Background enqueue remaining tracks
           (async () => {
-            for (let i = 1; i < spotifyData.tracks.length; i++) {
-              const spTrack = spotifyData.tracks[i];
+            const queueIndices = [];
+            for (let i = startIdx + 1; i < ytData.tracks.length; i++) queueIndices.push(i);
+            for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+
+            for (const idx of queueIndices) {
+              const item = ytData.tracks[idx];
               try {
-                const tr = await resolveLavalinkTrack(player, spTrack.query, message.author, mode);
+                const itemQ = item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : item.query);
+                const tr = await resolveLavalinkTrack(player, itemQ, message.author, mode);
                 if (tr) {
                   tr.userData = { filterMode: mode, requester: message.author };
                   player.queue.add(tr);
@@ -2231,7 +2492,7 @@ const systemChannels = {
  * Resolves any song query, Spotify track title, or Surah into a playable direct media track
  * for local system channels (Browser & Mobile App) without affecting the Discord bot.
  */
-async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null) {
+async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, expectedTitle = "", expectedArtist = "") {
   const { mode: detectedMode, query } = parseQueryFilter(queryOrUrl);
   const filterMode = (detectedMode !== "filterless") ? detectedMode : (forcedFilterMode || "filterless");
   const isUrl = query.startsWith("http://") || query.startsWith("https://");
@@ -2269,44 +2530,72 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null) {
     };
   }
 
-  // Spotify Link Resolution (Extract single track or first track of playlist/album)
+  // Spotify Link Resolution (Extract single track or specific track of playlist/album)
   const spotifyUrl = extractSpotifyUrl(query);
   if (spotifyUrl) {
     try {
       const spData = await resolveSpotifyLink(spotifyUrl);
       if (spData && spData.tracks && spData.tracks.length > 0) {
-        const topTrack = spData.tracks[0];
-        const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
-        const saavnMatch = await searchJioSaavn(searchQ, 3);
-        if (saavnMatch.length > 0 && saavnMatch[0].streamUrl) {
-          const matched = saavnMatch[0];
-          return {
-            title: topTrack.title || matched.title,
-            author: topTrack.artist || matched.author,
-            duration: topTrack.duration || matched.duration,
-            streamUrl: matched.streamUrl,
-            rawStreamUrl: matched.streamUrl,
-            artworkUrl: topTrack.artworkUrl || matched.artworkUrl || "logo.png",
-            filterMode
-          };
+        let chosenIdx = 0;
+        const indexMatch = query.match(/[?&]index=(\d+)/i);
+        if (indexMatch && indexMatch[1]) {
+          const parsed = parseInt(indexMatch[1], 10) - 1;
+          if (parsed >= 0 && parsed < spData.tracks.length) chosenIdx = parsed;
         }
+        const spTrackMatch = query.match(/\/track\/([a-zA-Z0-9]+)/i) || query.match(/spotify:track:([a-zA-Z0-9]+)/i);
+        if (spTrackMatch && spTrackMatch[1]) {
+          const fIdx = spData.tracks.findIndex(t => (t.url && t.url.includes(spTrackMatch[1])) || (t.id && t.id.includes(spTrackMatch[1])));
+          if (fIdx >= 0) chosenIdx = fIdx;
+        }
+        if (expectedTitle) {
+          const cleanExp = expectedTitle.toLowerCase().trim();
+          const fIdx = spData.tracks.findIndex(t => t.title && t.title.toLowerCase().includes(cleanExp));
+          if (fIdx >= 0) chosenIdx = fIdx;
+        }
+
+        for (let i = chosenIdx; i < Math.min(spData.tracks.length, chosenIdx + 5); i++) {
+          const topTrack = spData.tracks[i];
+          const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
+          const saavnMatch = await searchJioSaavn(searchQ, 5);
+          const relevantMatch = (saavnMatch || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(searchQ, r.title, topTrack.title, topTrack.artist));
+          if (relevantMatch && relevantMatch.streamUrl) {
+            return {
+              title: topTrack.title || relevantMatch.title,
+              author: topTrack.artist || relevantMatch.author,
+              duration: topTrack.duration || relevantMatch.duration,
+              streamUrl: relevantMatch.streamUrl,
+              rawStreamUrl: relevantMatch.streamUrl,
+              artworkUrl: topTrack.artworkUrl || relevantMatch.artworkUrl || "logo.png",
+              filterMode
+            };
+          }
+        }
+        const targetTrack = spData.tracks[chosenIdx] || spData.tracks[0];
+        query = targetTrack.query || `${targetTrack.title} ${targetTrack.artist}`.trim();
       }
     } catch (e) {}
+    if (isSpotifyUrl(query) || (query.startsWith("http") && query.includes("spotify.com"))) {
+      if (expectedTitle) {
+        query = expectedArtist ? `${expectedTitle} ${expectedArtist}`.trim() : expectedTitle.trim();
+      }
+    }
   }
 
+  const isDirectAudioUrl = query.startsWith("http://") || query.startsWith("https://");
+
   // Fast Path 1: Check JioSaavn first for instant (~100ms) 320kbps CD-quality audio stream!
-  if (!isUrl) {
+  if (!isDirectAudioUrl) {
     try {
-      const saavnResults = await searchJioSaavn(query, 3);
-      if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
-        const top = saavnResults[0];
+      const saavnResults = await searchJioSaavn(query, 5);
+      const relevantMatch = (saavnResults || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(query, r.title, expectedTitle, expectedArtist));
+      if (relevantMatch && relevantMatch.streamUrl) {
         return {
-          title: top.title,
-          author: top.author,
-          duration: top.duration,
-          streamUrl: top.streamUrl,
-          rawStreamUrl: top.streamUrl,
-          artworkUrl: top.artworkUrl,
+          title: relevantMatch.title,
+          author: relevantMatch.author,
+          duration: relevantMatch.duration,
+          streamUrl: relevantMatch.streamUrl,
+          rawStreamUrl: relevantMatch.streamUrl,
+          artworkUrl: relevantMatch.artworkUrl,
           filterMode
         };
       }
@@ -2487,7 +2776,19 @@ async function handleLocalChannelAction(chanKey, action, value, bodyObj = {}) {
       const spotifyData = await resolveSpotifyLink(rawQ);
       if (spotifyData && spotifyData.tracks?.length > 0) {
         const tracks = spotifyData.tracks;
-        const first = tracks[0];
+        let startIdx = 0;
+        const indexMatch = rawQ.match(/[?&]index=(\d+)/i);
+        if (indexMatch && indexMatch[1]) {
+          const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+          if (parsedIdx >= 0 && parsedIdx < tracks.length) startIdx = parsedIdx;
+        }
+        const spTrackMatch = rawQ.match(/\/track\/([a-zA-Z0-9]+)/i) || rawQ.match(/spotify:track:([a-zA-Z0-9]+)/i);
+        if (spTrackMatch && spTrackMatch[1]) {
+          const tId = spTrackMatch[1];
+          const fIdx = tracks.findIndex(t => (t.url && t.url.includes(tId)) || (t.id && t.id.includes(tId)));
+          if (fIdx >= 0) startIdx = fIdx;
+        }
+        const first = tracks[startIdx] || tracks[0];
         const firstResolved = await resolveMediaTrack(first.query, "filterless");
         if (firstResolved) {
           if (chan.current) chan.history.push(chan.current);
@@ -2498,7 +2799,10 @@ async function handleLocalChannelAction(chanKey, action, value, bodyObj = {}) {
           if (firstResolved.duration) chan.duration = firstResolved.duration;
         }
         (async () => {
-          for (let i = 1; i < tracks.length; i++) {
+          const queueIndices = [];
+          for (let i = startIdx + 1; i < tracks.length; i++) queueIndices.push(i);
+          for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+          for (const i of queueIndices) {
             try {
               const tr = await resolveMediaTrack(tracks[i].query, "filterless");
               if (tr) chan.queue.push(tr);
@@ -2506,6 +2810,56 @@ async function handleLocalChannelAction(chanKey, action, value, bodyObj = {}) {
           }
         })().catch(() => {});
         return `${isImmediate ? "⚡ Playing now" : "Imported"} Spotify ${spotifyData.type} "${spotifyData.title}" (${spotifyData.trackCount} tracks) on ${chan.name}`;
+      }
+    }
+
+    const ytPlaylistId = extractYouTubePlaylistId(rawQ);
+    if (ytPlaylistId) {
+      const ytData = await resolvePlaylistTracks(rawQ, 500);
+      if (ytData && ytData.tracks?.length > 0) {
+        const tracks = ytData.tracks;
+        let startIdx = 0;
+        const indexMatch = rawQ.match(/[?&]index=(\d+)/i);
+        if (indexMatch && indexMatch[1]) {
+          const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+          if (parsedIdx >= 0 && parsedIdx < tracks.length) startIdx = parsedIdx;
+        }
+        const vMatch = rawQ.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
+        let fIdx = -1;
+        if (vMatch && vMatch[1]) {
+          fIdx = tracks.findIndex(t => t.id === vMatch[1] || (t.url && t.url.includes(vMatch[1])));
+          if (fIdx >= 0) startIdx = fIdx;
+        }
+        let firstQ = null;
+        if (vMatch && vMatch[1] && fIdx === -1) {
+          firstQ = `https://www.youtube.com/watch?v=${vMatch[1]}`;
+        } else {
+          const first = tracks[startIdx] || tracks[0];
+          firstQ = first.url || (first.id ? `https://www.youtube.com/watch?v=${first.id}` : first.query);
+        }
+        const firstResolved = await resolveMediaTrack(firstQ, forcedMode || "filterless");
+        if (firstResolved) {
+          if (chan.current) chan.history.push(chan.current);
+          chan.current = firstResolved;
+          chan.isPlaying = true;
+          chan.isPaused = false;
+          chan.position = 0;
+          if (firstResolved.duration) chan.duration = firstResolved.duration;
+        }
+        (async () => {
+          const queueIndices = [];
+          for (let i = startIdx + 1; i < tracks.length; i++) queueIndices.push(i);
+          for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+          for (const idx of queueIndices) {
+            try {
+              const item = tracks[idx];
+              const itemQ = item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : item.query);
+              const tr = await resolveMediaTrack(itemQ, forcedMode || "filterless");
+              if (tr) chan.queue.push(tr);
+            } catch(e) {}
+          }
+        })().catch(() => {});
+        return `${isImmediate ? "⚡ Playing now" : "Imported"} YouTube Playlist "${ytData.title || ytData.name}" (${ytData.trackCount} tracks) on ${chan.name}`;
       }
     }
 
@@ -2529,14 +2883,17 @@ async function handleLocalChannelAction(chanKey, action, value, bodyObj = {}) {
 
 
   if (action === "play_playlist") {
-    const tracks = bodyObj.tracks || [];
+    const rawTracks = bodyObj.tracks || [];
     const playlistName = bodyObj.name || "Trending Playlist";
     const isImmediate = bodyObj.immediate === true;
     (async () => {
       let isFirst = isImmediate || !chan.isPlaying || !chan.current;
-      for (const q of tracks) {
+      for (const item of rawTracks) {
         try {
-          const tr = await resolveMediaTrack(q, "filterless");
+          const q = (typeof item === "string") ? item : (item.url || item.query || `${item.title || ""} ${item.artist || ""}`.trim());
+          const expTitle = (typeof item === "object" && item) ? (item.title || "") : "";
+          const expArtist = (typeof item === "object" && item) ? (item.artist || item.author || "") : "";
+          const tr = await resolveMediaTrack(q, "filterless", expTitle, expArtist);
           if (tr) {
             if (isFirst) {
               if (chan.current) chan.history.push(chan.current);
@@ -2544,6 +2901,7 @@ async function handleLocalChannelAction(chanKey, action, value, bodyObj = {}) {
               chan.isPlaying = true;
               chan.isPaused = false;
               chan.position = 0;
+              if (tr.duration) chan.duration = tr.duration;
               isFirst = false;
             } else {
               chan.queue.push(tr);
@@ -2552,7 +2910,7 @@ async function handleLocalChannelAction(chanKey, action, value, bodyObj = {}) {
         } catch(e) {}
       }
     })().catch(() => {});
-    return `${isImmediate ? "⚡ Playing now" : "Enqueued"} ${tracks.length} tracks from "${playlistName}" on ${chan.name}`;
+    return `${isImmediate ? "⚡ Playing now" : "Enqueued"} ${rawTracks.length} tracks from "${playlistName}" on ${chan.name}`;
   }
 
   return "Action executed on local system channel";
@@ -2591,7 +2949,10 @@ const webServer = http.createServer(async (req, res) => {
   }
 
   const parsedUrl = new URL(req.url, "http://localhost:3050");
-  const pathname = parsedUrl.pathname;
+  let pathname = parsedUrl.pathname;
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    pathname = pathname.replace(/\/+$/, "");
+  }
   // Android APK Download Link & Info Endpoint
   if (pathname === "/api/apk-link") {
     const apkUrl = (process.env.APK_DOWNLOAD_URL || "").trim();
@@ -2733,7 +3094,7 @@ const webServer = http.createServer(async (req, res) => {
     }
 
     try {
-      const plData = await resolvePlaylistTracks(targetUrl, 30);
+      const plData = await resolvePlaylistTracks(targetUrl, 500);
       if (plData && plData.tracks && plData.tracks.length > 0) {
         res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ success: true, playlist: plData }));
@@ -2748,7 +3109,8 @@ const webServer = http.createServer(async (req, res) => {
   }
 
   // User Profile & Authentication Endpoints
-  if (pathname === "/api/user/me") {
+  const isMeRoute = pathname === "/api/user/me" || pathname === "/api/me" || pathname === "/api/auth/me";
+  if (isMeRoute) {
     const user = getSessionUser(req);
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     if (user) {
@@ -2774,7 +3136,8 @@ const webServer = http.createServer(async (req, res) => {
   }
 
   // Customer Account Registration Endpoint (Email & Password)
-  if (pathname === "/api/user/register" && req.method === "POST") {
+  const isRegisterRoute = pathname === "/api/user/register" || pathname === "/api/register" || pathname === "/api/auth/register";
+  if (isRegisterRoute && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
@@ -2801,7 +3164,8 @@ const webServer = http.createServer(async (req, res) => {
   }
 
   // Customer Login Endpoint (Email & Password)
-  if (pathname === "/api/user/login" && req.method === "POST") {
+  const isLoginRoute = pathname === "/api/user/login" || pathname === "/api/login" || pathname === "/api/auth/login";
+  if (isLoginRoute && req.method === "POST") {
     let body = "";
     req.on("data", chunk => body += chunk);
     req.on("end", () => {
@@ -2892,7 +3256,8 @@ const webServer = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname === "/api/user/logout" && (req.method === "POST" || req.method === "GET")) {
+  const isLogoutRoute = pathname === "/api/user/logout" || pathname === "/api/logout" || pathname === "/api/auth/logout";
+  if (isLogoutRoute && (req.method === "POST" || req.method === "GET")) {
     const authHeader = req.headers["authorization"];
     let token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
     if (!token && req.headers.cookie) {
@@ -3141,11 +3506,55 @@ const webServer = http.createServer(async (req, res) => {
     }
   }
 
+  // Dedicated Endpoint: Resolve YouTube Playlists, Mixes & Radios into playable track collections
+  if (pathname === "/api/youtube-playlist") {
+    let urlParam = parsedUrl.searchParams.get("url") || parsedUrl.searchParams.get("link") || parsedUrl.searchParams.get("id") || parsedUrl.searchParams.get("q");
+    const listParam = parsedUrl.searchParams.get("list");
+    if (listParam && (!urlParam || !urlParam.includes("list="))) {
+      urlParam = urlParam ? (urlParam.includes("?") ? `${urlParam}&list=${listParam}` : `${urlParam}?list=${listParam}`) : `https://www.youtube.com/playlist?list=${listParam}`;
+    }
+
+    if (!urlParam && req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      await new Promise(r => req.on("end", r));
+      try {
+        const b = JSON.parse(body);
+        urlParam = b.url || b.link || b.id || b.query;
+      } catch(e) {}
+    }
+
+    if (!urlParam) {
+      res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Please provide a valid YouTube playlist URL or ID" }));
+    }
+
+    try {
+      const plData = await resolvePlaylistTracks(urlParam, 500);
+      if (!plData || !plData.tracks?.length) {
+        res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ success: false, error: "Could not fetch tracks for this YouTube playlist. Please ensure it is public." }));
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: true, playlist: plData }));
+    } catch(err) {
+      res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+  }
+
   // Instant Track Resolver for Direct Browser & App Playback
   if (pathname === "/api/resolve-track") {
-    const q = parsedUrl.searchParams.get("q") || "";
+    let q = parsedUrl.searchParams.get("q") || "";
+    const listParam = parsedUrl.searchParams.get("list");
+    if (listParam && !q.includes("list=")) {
+      q += (q.includes("?") ? "&" : "?") + "list=" + listParam;
+    }
     const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
     const targetChannel = parsedUrl.searchParams.get("channel") || "browser";
+    const titleParam = parsedUrl.searchParams.get("title") || "";
+    const artistParam = parsedUrl.searchParams.get("artist") || "";
 
     if (!q) {
       res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
@@ -3153,7 +3562,166 @@ const webServer = http.createServer(async (req, res) => {
     }
 
     try {
-      const track = await resolveMediaTrack(q, filterMode);
+      // 1. Direct Spotify link resolution (tracks or playlists)
+      const spotifyUrl = extractSpotifyUrl(q);
+      if (spotifyUrl) {
+        try {
+          const spData = await resolveSpotifyLink(spotifyUrl);
+          if (spData && spData.tracks && spData.tracks.length > 0) {
+            let chosenIndex = 0;
+            const indexMatch = q.match(/[?&]index=(\d+)/i);
+            if (indexMatch && indexMatch[1]) {
+              const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+              if (parsedIdx >= 0 && parsedIdx < spData.tracks.length) {
+                chosenIndex = parsedIdx;
+              }
+            }
+            const spTrackMatch = q.match(/\/track\/([a-zA-Z0-9]+)/i) || q.match(/spotify:track:([a-zA-Z0-9]+)/i);
+            if (spTrackMatch && spTrackMatch[1]) {
+              const tId = spTrackMatch[1];
+              const fIdx = spData.tracks.findIndex(t => (t.url && t.url.includes(tId)) || (t.id && t.id.includes(tId)));
+              if (fIdx >= 0) chosenIndex = fIdx;
+            }
+            if (titleParam) {
+              const cleanTParam = titleParam.toLowerCase().trim();
+              const fIdx = spData.tracks.findIndex(t => t.title && t.title.toLowerCase().includes(cleanTParam));
+              if (fIdx >= 0) chosenIndex = fIdx;
+            }
+
+            let resolvedFirst = null;
+            const maxAttempts = Math.min(spData.tracks.length, chosenIndex + 5);
+            for (let i = chosenIndex; i < maxAttempts; i++) {
+              const cand = spData.tracks[i];
+              const candQ = cand.query || `${cand.title} ${cand.artist}`;
+              resolvedFirst = await resolveMediaTrack(candQ, filterMode, cand.title, cand.artist);
+              if (resolvedFirst) {
+                chosenIndex = i;
+                break;
+              }
+            }
+            if (!resolvedFirst && chosenIndex > 0) {
+              for (let i = 0; i < Math.min(chosenIndex, 5); i++) {
+                const cand = spData.tracks[i];
+                const candQ = cand.query || `${cand.title} ${cand.artist}`;
+                resolvedFirst = await resolveMediaTrack(candQ, filterMode, cand.title, cand.artist);
+                if (resolvedFirst) {
+                  chosenIndex = i;
+                  break;
+                }
+              }
+            }
+            if (resolvedFirst) {
+              res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+              return res.end(JSON.stringify({
+                success: true,
+                channel: targetChannel,
+                isPlaylist: spData.type !== "track",
+                playlist: spData,
+                startIndex: chosenIndex,
+                track: {
+                  ...resolvedFirst,
+                  proxyStreamUrl: resolvedFirst.streamUrl ? `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(resolvedFirst.streamUrl)}` : null
+                }
+              }));
+            }
+          }
+        } catch (e) {}
+      }
+
+      const isYtUrl = isYouTubeUrl(q);
+      const ytPlaylistId = extractYouTubePlaylistId(q);
+      const isYtPlaylist = Boolean(ytPlaylistId || q.includes("playlist?list=") || q.includes("&list=") || q.includes("?list="));
+
+      if (isYtPlaylist) {
+        const plData = await resolvePlaylistTracks(q, 1000);
+        if (plData && plData.tracks && plData.tracks.length > 0) {
+          let chosenIndex = 0;
+          const vMatch = q.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || q.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || q.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
+          let foundIdx = -1;
+          if (vMatch && vMatch[1]) {
+            foundIdx = plData.tracks.findIndex(t => t.id === vMatch[1] || (t.url && t.url.includes(vMatch[1])));
+            if (foundIdx >= 0) chosenIndex = foundIdx;
+          }
+          if (foundIdx === -1) {
+            const indexMatch = q.match(/[?&]index=(\d+)/i);
+            if (indexMatch && indexMatch[1]) {
+              const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+              if (parsedIdx >= 0 && parsedIdx < plData.tracks.length) {
+                chosenIndex = parsedIdx;
+              }
+            }
+          }
+          let resolvedFirst = null;
+
+          // If video ID was requested but not found in playlist entries, resolve the specific video directly!
+          if (vMatch && vMatch[1] && foundIdx === -1) {
+            try {
+              const directTrack = await resolveMediaTrack(`https://www.youtube.com/watch?v=${vMatch[1]}`, filterMode, titleParam, artistParam);
+              if (directTrack) {
+                resolvedFirst = directTrack;
+                plData.tracks.unshift({
+                  id: vMatch[1],
+                  title: directTrack.title,
+                  artist: directTrack.author,
+                  author: directTrack.author,
+                  duration: directTrack.duration,
+                  durationMs: directTrack.duration,
+                  streamUrl: directTrack.streamUrl,
+                  artworkUrl: directTrack.artworkUrl,
+                  url: `https://www.youtube.com/watch?v=${vMatch[1]}`,
+                  source: "youtube"
+                });
+                chosenIndex = 0;
+              }
+            } catch (e) {}
+          }
+
+          if (!resolvedFirst) {
+            const maxAttempts = Math.min(plData.tracks.length, chosenIndex + 5);
+            for (let i = chosenIndex; i < maxAttempts; i++) {
+              const cand = plData.tracks[i];
+              const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
+              const candQ = candUrl || cand.query || `${cand.title} ${cand.artist}`;
+              resolvedFirst = await resolveMediaTrack(candQ, filterMode, cand.title, cand.artist);
+              if (resolvedFirst) {
+                chosenIndex = i;
+                break;
+              }
+            }
+          }
+          if (!resolvedFirst && plData.tracks.length > 0) {
+            const cand = plData.tracks[chosenIndex] || plData.tracks[0];
+            const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
+            const candThumb = cand.id ? `https://i.ytimg.com/vi/${cand.id}/hqdefault.jpg` : null;
+            resolvedFirst = {
+              id: cand.id,
+              title: cand.title,
+              author: cand.artist || cand.author || "YouTube",
+              artist: cand.artist || cand.author || "YouTube",
+              duration: cand.duration || 180000,
+              streamUrl: candUrl || q,
+              artworkUrl: cand.artworkUrl || candThumb || plData.artworkUrl || "logo.png",
+              source: "youtube"
+            };
+          }
+          if (resolvedFirst) {
+            res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+            return res.end(JSON.stringify({
+              success: true,
+              channel: targetChannel,
+              isPlaylist: true,
+              playlist: plData,
+              startIndex: chosenIndex,
+              track: {
+                ...resolvedFirst,
+                proxyStreamUrl: resolvedFirst.streamUrl ? `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(resolvedFirst.streamUrl)}` : null
+              }
+            }));
+          }
+        }
+      }
+
+      const track = await resolveMediaTrack(q, filterMode, titleParam, artistParam);
       if (track) {
         const shouldSet = parsedUrl.searchParams.get("set") === "true";
         if (shouldSet && systemChannels[targetChannel]) {
@@ -3564,8 +4132,9 @@ const webServer = http.createServer(async (req, res) => {
 
           (async () => {
             let isFirst = true;
-            for (const q of tracks) {
+            for (const item of tracks) {
               try {
+                const q = (typeof item === "string") ? item : (item.url || item.query || `${item.title || ""} ${item.artist || ""}`.trim());
                 const tr = await resolveLavalinkTrack(player, q, { username: "LiquidGlassWeb" }, "filterless");
                 if (tr) {
                   tr.userData = {
@@ -3622,7 +4191,19 @@ const webServer = http.createServer(async (req, res) => {
             const spotifyData = await resolveSpotifyLink(query);
             if (spotifyData && spotifyData.tracks?.length > 0) {
               const tracks = spotifyData.tracks;
-              const first = tracks[0];
+              let startIdx = 0;
+              const indexMatch = query.match(/[?&]index=(\d+)/i);
+              if (indexMatch && indexMatch[1]) {
+                const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+                if (parsedIdx >= 0 && parsedIdx < tracks.length) startIdx = parsedIdx;
+              }
+              const spTrackMatch = query.match(/\/track\/([a-zA-Z0-9]+)/i) || query.match(/spotify:track:([a-zA-Z0-9]+)/i);
+              if (spTrackMatch && spTrackMatch[1]) {
+                const tId = spTrackMatch[1];
+                const fIdx = tracks.findIndex(t => (t.url && t.url.includes(tId)) || (t.id && t.id.includes(tId)));
+                if (fIdx >= 0) startIdx = fIdx;
+              }
+              const first = tracks[startIdx] || tracks[0];
               try {
                 const tr = await resolveLavalinkTrack(player, first.query, { username: "LiquidGlassWeb" }, mode);
                 if (tr) {
@@ -3641,7 +4222,10 @@ const webServer = http.createServer(async (req, res) => {
 
               // Background queue remaining tracks
               (async () => {
-                for (let i = 1; i < tracks.length; i++) {
+                const queueIndices = [];
+                for (let i = startIdx + 1; i < tracks.length; i++) queueIndices.push(i);
+                for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+                for (const i of queueIndices) {
                   try {
                     const tr = await resolveLavalinkTrack(player, tracks[i].query, { username: "LiquidGlassWeb" }, mode);
                     if (tr) {
@@ -3653,6 +4237,70 @@ const webServer = http.createServer(async (req, res) => {
               })().catch(() => {});
 
               resultMsg = `${isPlayNow ? "⚡ Playing now" : "Imported"} Spotify ${spotifyData.type}: ${spotifyData.title} (${spotifyData.trackCount} tracks on Discord Bot)`;
+              res.writeHead(200, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ success: true, channel: "bot", message: resultMsg }));
+            }
+          }
+
+          const ytPlaylistId = extractYouTubePlaylistId(query);
+          if (ytPlaylistId) {
+            const ytData = await resolvePlaylistTracks(query, 500);
+            if (ytData && ytData.tracks?.length > 0) {
+              const tracks = ytData.tracks;
+              let startIdx = 0;
+              const indexMatch = query.match(/[?&]index=(\d+)/i);
+              if (indexMatch && indexMatch[1]) {
+                const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+                if (parsedIdx >= 0 && parsedIdx < tracks.length) startIdx = parsedIdx;
+              }
+              const vMatch = query.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
+              let fIdx = -1;
+              if (vMatch && vMatch[1]) {
+                fIdx = tracks.findIndex(t => t.id === vMatch[1] || (t.url && t.url.includes(vMatch[1])));
+                if (fIdx >= 0) startIdx = fIdx;
+              }
+              let firstQ = null;
+              if (vMatch && vMatch[1] && fIdx === -1) {
+                firstQ = `https://www.youtube.com/watch?v=${vMatch[1]}`;
+              } else {
+                const first = tracks[startIdx] || tracks[0];
+                firstQ = first.url || (first.id ? `https://www.youtube.com/watch?v=${first.id}` : first.query);
+              }
+              try {
+                const tr = await resolveLavalinkTrack(player, firstQ, { username: "LiquidGlassWeb" }, mode);
+                if (tr) {
+                  tr.userData = { filterMode: mode, requester: { username: "LiquidGlassWeb" } };
+                  if (isPlayNow) {
+                    if (player.queue.current) addToHistory(guild.id, player.queue.current);
+                    if (player.paused) await player.resume();
+                    await player.play({ clientTrack: tr });
+                  } else {
+                    player.queue.add(tr);
+                    if (player.paused) await player.resume();
+                    if (!player.playing) await player.play();
+                  }
+                }
+              } catch(e) {}
+
+              // Background queue remaining tracks
+              (async () => {
+                const queueIndices = [];
+                for (let i = startIdx + 1; i < tracks.length; i++) queueIndices.push(i);
+                for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+                for (const idx of queueIndices) {
+                  try {
+                    const item = tracks[idx];
+                    const itemQ = item.url || (item.id ? `https://www.youtube.com/watch?v=${item.id}` : item.query);
+                    const tr = await resolveLavalinkTrack(player, itemQ, { username: "LiquidGlassWeb" }, mode);
+                    if (tr) {
+                      tr.userData = { filterMode: mode, requester: { username: "LiquidGlassWeb" } };
+                      player.queue.add(tr);
+                    }
+                  } catch(e) {}
+                }
+              })().catch(() => {});
+
+              resultMsg = `${isPlayNow ? "⚡ Playing now" : "Imported"} YouTube Playlist: ${ytData.title || ytData.name} (${ytData.trackCount} tracks on Discord Bot)`;
               res.writeHead(200, { "Content-Type": "application/json" });
               return res.end(JSON.stringify({ success: true, channel: "bot", message: resultMsg }));
             }

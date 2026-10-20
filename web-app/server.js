@@ -165,14 +165,16 @@ async function resolveSpotifyLink(url) {
       const cleanTitle = name.replace(/\(.*?\)|\[.*?\]/g, "").trim();
       const primaryArtist = artist.split(/[,&x/]|feat\.|ft\./i)[0].trim();
       const cleanQ = primaryArtist ? `${cleanTitle} ${primaryArtist}` : `${cleanTitle} ${artist}`.trim();
+      const spotifyTrackId = (t.uri && t.uri.startsWith("spotify:track:")) ? t.uri.split(":").pop() : null;
+      const canonicalTrackUrl = spotifyTrackId ? `https://open.spotify.com/track/${spotifyTrackId}` : (t.url || null);
       return {
-        id: `sp_${Date.now()}_${idx + 1}`,
+        id: spotifyTrackId ? `sp_${spotifyTrackId}` : `sp_${Date.now()}_${idx + 1}`,
         title: name,
         artist: artist,
         duration: t.duration || 180000,
         artworkUrl: preview.image || "logo.png",
         query: cleanQ,
-        url: (t.uri && !t.uri.includes(":playlist:")) ? t.uri : null,
+        url: canonicalTrackUrl,
         previewUrl: t.previewUrl || (idx === 0 ? preview.audio : null),
         source: "spotify"
       };
@@ -350,6 +352,66 @@ function cleanMusicQuery(q) {
   return clean.replace(/[,;&]/g, " ").replace(/\s+/g, " ").trim();
 }
 
+function isJioSaavnResultRelevant(query, saavnTitle, expectedTitle = "", expectedArtist = "") {
+  if (!saavnTitle) return false;
+  const cleanStr = (s) => (s || "")
+    .toLowerCase()
+    .replace(/\(.*?\)|\[.*?\]/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const stopWords = new Set(["the", "a", "an", "and", "or", "in", "on", "of", "to", "for", "with", "feat", "ft", "official", "video", "audio", "song", "lyrics", "full", "remix", "version", "original", "coke", "studio", "season", "ost", "from"]);
+  const getTokens = (s) => cleanStr(s).split(" ").filter(w => w.length >= 2 && !stopWords.has(w));
+
+  const candTitleTokens = getTokens(saavnTitle);
+  const candSet = new Set(candTitleTokens);
+
+  let target = (expectedTitle || "").trim();
+  if (!target) {
+    let q = (query || "").trim();
+    if (q.includes(" - ")) {
+      target = q.split(" - ")[0].trim();
+    } else if (expectedArtist) {
+      const artTokens = getTokens(expectedArtist);
+      const parts = q.split(/\s+/).filter(w => !artTokens.includes(w.toLowerCase()));
+      if (parts.length > 0) target = parts.join(" ");
+      else target = q;
+    } else {
+      target = q;
+    }
+  }
+
+  const targetTokens = getTokens(target);
+  if (targetTokens.length === 0) return true;
+
+  if (targetTokens.length >= 2) {
+    const leadTokens = targetTokens.slice(0, Math.min(3, Math.ceil(targetTokens.length / 2)));
+    const hasLeadMatch = leadTokens.some(lt => 
+      candSet.has(lt) || candTitleTokens.some(ct => (lt.length >= 4 && ct.includes(lt)) || (ct.length >= 4 && lt.includes(ct)))
+    );
+    if (!hasLeadMatch) return false;
+  }
+
+  let matches = 0;
+  for (const tok of targetTokens) {
+    if (candSet.has(tok)) {
+      matches++;
+    } else {
+      for (const ct of candTitleTokens) {
+        if ((tok.length >= 4 && ct.includes(tok)) || (ct.length >= 4 && tok.includes(ct))) {
+          matches++;
+          break;
+        }
+      }
+    }
+  }
+
+  if (targetTokens.length === 1) return matches >= 1;
+  const ratio = matches / targetTokens.length;
+  return matches >= 2 || ratio >= 0.5;
+}
+
 // Fast JioSaavn Search (Instant ~150ms response, zero datacenter IP bans, 320kbps audio)
 async function searchJioSaavn(query, limit = 10, signal = null) {
   if (signal?.aborted) return [];
@@ -369,9 +431,9 @@ async function searchJioSaavn(query, limit = 10, signal = null) {
       rawList = await fetchResults(query);
     }
     if ((!rawList || rawList.length === 0) && cleanQ) {
-      const parts = cleanQ.split(" ");
-      if (parts.length > 1) {
-        rawList = await fetchResults(parts[0]);
+      const stripped = cleanQ.replace(/\b(live|remix|official|video|audio|lyrics|hd|4k|extended|version|mix)\b/gi, "").trim();
+      if (stripped && stripped !== cleanQ) {
+        rawList = await fetchResults(stripped);
       }
     }
     if (signal?.aborted) return [];
@@ -876,16 +938,30 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
 
   // Case 4: YouTube Playlist via Lavalink or yt-dlp
   const ytPlaylistId = extractYouTubePlaylistId(clean);
-  const url = ytPlaylistId ? `https://www.youtube.com/playlist?list=${ytPlaylistId}` : (clean.startsWith("http") ? clean : `https://www.youtube.com/playlist?list=${clean}`);
+  let url = clean;
+  if (ytPlaylistId) {
+    url = `https://www.youtube.com/playlist?list=${ytPlaylistId}`;
+  } else if (!clean.startsWith("http")) {
+    url = `https://www.youtube.com/playlist?list=${clean}`;
+  }
+
   return new Promise((resolve) => {
     executeYtDlp(
-      ["--flat-playlist", "-J", "--no-warnings", "--yes-playlist", "--playlist-end", String(Math.max(limit, 100)), url],
-      { timeout: 18000, maxBuffer: 25 * 1024 * 1024, signal },
+      [
+        "--flat-playlist",
+        "-J",
+        "--no-warnings",
+        "--yes-playlist",
+        "--extractor-args", "youtube:player_client=ios,android,web",
+        "--playlist-end", String(Math.max(limit, 1000)),
+        url
+      ],
+      { timeout: 35000, maxBuffer: 50 * 1024 * 1024, signal },
       (err, stdout) => {
         if (err || !stdout) return resolve(null);
         try {
           const data = JSON.parse(stdout);
-          const entries = (data.entries || []).filter(e => e && e.title && !e.id?.startsWith("UC"));
+          const entries = (data.entries || []).filter(e => e && e.title && e.title !== "[Deleted video]" && e.title !== "[Private video]" && !e.id?.startsWith("UC"));
           const tracks = entries.map((e, idx) => ({
             id: e.id || `yt_${idx}`,
             title: e.title,
@@ -902,8 +978,8 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
             id: data.id || ytPlaylistId || `yt_${Date.now()}`,
             name: data.title || "YouTube Playlist",
             title: data.title || "YouTube Playlist",
-            description: data.description || `YouTube Playlist (${tracks.length} tracks)`,
             author: data.uploader || data.channel || "YouTube",
+            description: data.description || `Playlist with ${tracks.length} songs`,
             artworkUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
             coverUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
             tracks: tracks,
@@ -939,7 +1015,7 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
 
   let streamMeta = null;
   let target = (queryOrUrl || "").trim();
-  const isUrl = target.startsWith("http://") || target.startsWith("https://");
+  let isUrl = target.startsWith("http://") || target.startsWith("https://");
 
   // Fast Path 1: Direct CDN / Saavn URLs
   if (isUrl && (target.includes("saavncdn.com") || target.match(/\.(mp3|m4a|mp4|webm|aac|ogg)(\?.*)?$/i))) {
@@ -954,7 +1030,19 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
     return data;
   }
 
-  // Fast Path 2: Instant YouTube oEmbed metadata extraction + JioSaavn direct CDN stream (~150ms, zero bot detection)
+  // Fast Path 1.5: Spotify URL normalization (yt-dlp does not support open.spotify.com)
+  if (isSpotifyUrl(target) || (isUrl && target.includes("spotify.com"))) {
+    try {
+      const spData = await resolveSpotifyLink(target);
+      if (spData && spData.tracks && spData.tracks.length > 0) {
+        const first = spData.tracks[0];
+        target = first.query || `${first.title} ${first.artist}`.trim();
+      }
+    } catch (_) {}
+    isUrl = target.startsWith("http://") || target.startsWith("https://");
+  }
+
+  // Fast Path 2: Instant YouTube oEmbed metadata extraction (<100ms) for high-accuracy title & author
   if (isUrl && (target.includes("youtube.com") || target.includes("youtu.be"))) {
     try {
       const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(target)}&format=json`;
@@ -962,24 +1050,10 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
       if (oeRes.ok) {
         const oeData = await oeRes.json();
         if (oeData && oeData.title) {
-          const ytTitle = (oeData.title || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+          const ytTitle = (oeData.title || "").trim();
           const ytAuthor = (oeData.author_name || "").replace(/ - Topic$/i, "").trim();
-          const q = ytAuthor ? `${ytTitle} ${ytAuthor}` : ytTitle;
-          const saavnMatch = await searchJioSaavn(q, 3, signal);
-          if (saavnMatch.length > 0 && saavnMatch[0].streamUrl) {
-            const top = saavnMatch[0];
-            const data = {
-              title: oeData.title || top.title,
-              author: ytAuthor || top.author,
-              duration: top.duration || 0,
-              streamUrl: top.streamUrl,
-              artworkUrl: oeData.thumbnail_url || top.artworkUrl || "logo.png"
-            };
-            directStreamCache.set(cleanKey, { time: Date.now(), data });
-            return data;
-          }
           streamMeta = {
-            title: oeData.title,
+            title: ytTitle,
             author: ytAuthor,
             duration: 0,
             artworkUrl: oeData.thumbnail_url
@@ -989,32 +1063,11 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
     } catch (e) {}
   }
 
-  // Fast Path 3: If query is plain text, check JioSaavn first (~150ms instant CD-quality 320kbps stream!)
-  if (!isUrl) {
-    try {
-      if (signal?.aborted) return null;
-      const saavnResults = await searchJioSaavn(target, 3, signal);
-      if (signal?.aborted) return null;
-      if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
-        const top = saavnResults[0];
-        const data = {
-          title: top.title,
-          author: top.author,
-          duration: top.duration,
-          streamUrl: top.streamUrl,
-          artworkUrl: top.artworkUrl
-        };
-        directStreamCache.set(cleanKey, { time: Date.now(), data });
-        return data;
-      }
-    } catch (e) {}
-  }
-
   if (signal?.aborted) return null;
 
   // Fast Path 4: Single-step yt-dlp android extraction
   if (!isUrl) {
-    const cachedSearch = searchCache.get(cleanKey);
+    const cachedSearch = searchCache.get(target.toLowerCase());
     if (cachedSearch && Array.isArray(cachedSearch.results) && cachedSearch.results.length > 0) {
       streamMeta = cachedSearch.results[0];
       target = streamMeta.url || `https://www.youtube.com/watch?v=${streamMeta.id}`;
@@ -1026,19 +1079,40 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve(null);
     executeYtDlp(
-      ["-g", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
-      { timeout: 12000, signal },
+      ["-g", "--get-title", "--get-duration", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
+      { timeout: 15000, signal },
       async (err, stdout) => {
         if (signal?.aborted) return resolve(null);
         if (!err && stdout && stdout.trim()) {
-          const directUrl = stdout.trim().split("\n")[0].trim();
-          if (directUrl.startsWith("http")) {
+          const lines = stdout.trim().split("\n").map(l => l.trim()).filter(Boolean);
+          let directUrl = null;
+          let detectedDuration = 0;
+          let detectedTitle = null;
+
+          for (const line of lines) {
+            if (line.startsWith("http://") || line.startsWith("https://")) {
+              directUrl = line;
+            } else if (/^(\d+:)?\d+:\d+$/.test(line)) {
+              const parts = line.split(":").map(p => parseInt(p, 10));
+              if (parts.length === 2) {
+                detectedDuration = (parts[0] * 60 + parts[1]) * 1000;
+              } else if (parts.length === 3) {
+                detectedDuration = (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+              }
+            } else if (/^\d+(\.\d+)?$/.test(line)) {
+              detectedDuration = Math.round(parseFloat(line) * 1000);
+            } else if (!detectedTitle) {
+              detectedTitle = line;
+            }
+          }
+
+          if (directUrl) {
             const vMatch = target.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || target.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
             const derivedThumb = (vMatch && vMatch[1]) ? `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg` : null;
             const data = {
-              title: streamMeta?.title || "Audio Track",
-              author: streamMeta?.author || "Trending Music",
-              duration: streamMeta?.duration || 0,
+              title: streamMeta?.title || detectedTitle || "YouTube Audio",
+              author: streamMeta?.author || "YouTube Music",
+              duration: detectedDuration || streamMeta?.duration || 0,
               streamUrl: directUrl,
               artworkUrl: streamMeta?.artworkUrl || derivedThumb || "logo.png"
             };
@@ -1051,33 +1125,35 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
         }
 
         if (signal?.aborted) return resolve(null);
-        // If yt-dlp extraction failed (e.g. YouTube datacenter IP block on Render),
-        // fallback to searching JioSaavn for the clean query/title so audio NEVER drops!
-        const searchQuery = streamMeta?.title || queryOrUrl.replace(/^https?:\/\/[^\s]+/i, "").trim() || queryOrUrl;
-        if (searchQuery && searchQuery.length > 1) {
-          try {
-            const saavnFallback = await searchJioSaavn(searchQuery, 3, signal);
-            if (signal?.aborted) return resolve(null);
-            if (saavnFallback.length > 0 && saavnFallback[0].streamUrl) {
-              const top = saavnFallback[0];
-              const data = {
-                title: streamMeta?.title || top.title,
-                author: streamMeta?.author || top.author,
-                duration: streamMeta?.duration || top.duration,
-                streamUrl: top.streamUrl,
-                artworkUrl: streamMeta?.artworkUrl || top.artworkUrl
-              };
-              directStreamCache.set(cleanKey, { time: Date.now(), data });
-              return resolve(data);
-            }
-          } catch (e) {}
+        // Only fallback to JioSaavn if target was a plain text search query.
+        // Direct YouTube URLs should NEVER be substituted with an unrelated short 2-3 minute cut.
+        if (!isUrl) {
+          const searchQuery = streamMeta?.title || queryOrUrl.replace(/^https?:\/\/[^\s]+/i, "").trim() || queryOrUrl;
+          if (searchQuery && searchQuery.length > 1) {
+            try {
+              const saavnFallback = await searchJioSaavn(searchQuery, 3, signal);
+              if (signal?.aborted) return resolve(null);
+              const relevantSaavn = (saavnFallback || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(searchQuery, r.title, streamMeta?.title || "", streamMeta?.author || ""));
+              if (relevantSaavn) {
+                const data = {
+                  title: streamMeta?.title || relevantSaavn.title,
+                  author: streamMeta?.author || relevantSaavn.author,
+                  duration: streamMeta?.duration || relevantSaavn.duration,
+                  streamUrl: relevantSaavn.streamUrl,
+                  artworkUrl: streamMeta?.artworkUrl || relevantSaavn.artworkUrl
+                };
+                directStreamCache.set(cleanKey, { time: Date.now(), data });
+                return resolve(data);
+              }
+            } catch (e) {}
+          }
         }
 
         if (signal?.aborted) return resolve(null);
-        // Final Fallback: JSON metadata extraction
+        // Final Fallback: full JSON metadata extraction with yt-dlp
         executeYtDlp(
-          ["-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=android", target],
-          { maxBuffer: 15 * 1024 * 1024, timeout: 12000, signal },
+          ["-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
+          { maxBuffer: 15 * 1024 * 1024, timeout: 15000, signal },
           (err2, stdout2) => {
             if (signal?.aborted) return resolve(null);
             if (err2 || !stdout2) return resolve(null);
@@ -1087,9 +1163,9 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
                 const vMatch = target.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || target.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
                 const derivedThumb = (vMatch && vMatch[1]) ? `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg` : null;
                 const data = {
-                  title: streamMeta?.title || info.title || "Audio Track",
+                  title: streamMeta?.title || info.title || "YouTube Audio",
                   author: streamMeta?.author || info.uploader || info.channel || "YouTube",
-                  duration: streamMeta?.duration || Math.round((info.duration || 0) * 1000),
+                  duration: Math.round((info.duration || 0) * 1000) || streamMeta?.duration || 0,
                   streamUrl: info.url,
                   artworkUrl: streamMeta?.artworkUrl || info.thumbnail || derivedThumb || "logo.png"
                 };
@@ -1106,7 +1182,7 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
 }
 
 // Media Track Resolver
-async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = null) {
+async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = null, expectedTitle = "", expectedArtist = "") {
   if (signal?.aborted) return null;
   let query = (queryOrUrl || "").trim();
   let filterMode = forcedFilterMode || "filterless";
@@ -1150,43 +1226,66 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
     try {
       const spData = await resolveSpotifyLink(spotifyUrl);
       if (spData && spData.tracks && spData.tracks.length > 0) {
-        for (let i = 0; i < Math.min(spData.tracks.length, 5); i++) {
+        let chosenIdx = 0;
+        const indexMatch = query.match(/[?&]index=(\d+)/i);
+        if (indexMatch && indexMatch[1]) {
+          const parsed = parseInt(indexMatch[1], 10) - 1;
+          if (parsed >= 0 && parsed < spData.tracks.length) chosenIdx = parsed;
+        }
+        const spTrackMatch = query.match(/\/track\/([a-zA-Z0-9]+)/i) || query.match(/spotify:track:([a-zA-Z0-9]+)/i);
+        if (spTrackMatch && spTrackMatch[1]) {
+          const fIdx = spData.tracks.findIndex(t => (t.url && t.url.includes(spTrackMatch[1])) || (t.id && t.id.includes(spTrackMatch[1])));
+          if (fIdx >= 0) chosenIdx = fIdx;
+        }
+        if (expectedTitle) {
+          const cleanExp = expectedTitle.toLowerCase().trim();
+          const fIdx = spData.tracks.findIndex(t => t.title && t.title.toLowerCase().includes(cleanExp));
+          if (fIdx >= 0) chosenIdx = fIdx;
+        }
+
+        for (let i = chosenIdx; i < Math.min(spData.tracks.length, chosenIdx + 5); i++) {
           const topTrack = spData.tracks[i];
           const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
           const saavnMatch = await searchJioSaavn(searchQ, 3, signal);
-          if (saavnMatch.length > 0 && saavnMatch[0].streamUrl) {
-            const matched = saavnMatch[0];
+          const relevantSpotifyMatch = (saavnMatch || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(searchQ, r.title, topTrack.title, topTrack.artist));
+          if (relevantSpotifyMatch && relevantSpotifyMatch.streamUrl) {
             return {
-              title: topTrack.title || matched.title,
-              author: topTrack.artist || matched.author,
-              duration: topTrack.duration || matched.duration,
-              streamUrl: matched.streamUrl,
-              rawStreamUrl: matched.streamUrl,
-              artworkUrl: topTrack.artworkUrl || matched.artworkUrl || "logo.png",
+              title: topTrack.title || relevantSpotifyMatch.title,
+              author: topTrack.artist || relevantSpotifyMatch.author,
+              duration: topTrack.duration || relevantSpotifyMatch.duration,
+              streamUrl: relevantSpotifyMatch.streamUrl,
+              rawStreamUrl: relevantSpotifyMatch.streamUrl,
+              artworkUrl: topTrack.artworkUrl || relevantSpotifyMatch.artworkUrl || "logo.png",
               filterMode
             };
           }
         }
-        query = spData.tracks[0].query || `${spData.tracks[0].title} ${spData.tracks[0].artist}`.trim();
+        const targetTrack = spData.tracks[chosenIdx] || spData.tracks[0];
+        query = targetTrack.query || `${targetTrack.title} ${targetTrack.artist}`.trim();
       }
     } catch (e) {}
+    if (isSpotifyUrl(query) || (query.startsWith("http") && query.includes("spotify.com"))) {
+      if (expectedTitle) {
+        query = expectedArtist ? `${expectedTitle} ${expectedArtist}`.trim() : expectedTitle.trim();
+      }
+    }
   }
 
   // Fast Path 1: Check JioSaavn first for instant (~100ms) 320kbps CD-quality audio stream!
   if (!query.startsWith("http://") && !query.startsWith("https://")) {
     try {
       if (signal?.aborted) return null;
-      const saavnResults = await searchJioSaavn(query, 3, signal);
+      const saavnResults = await searchJioSaavn(query, 5, signal);
       if (signal?.aborted) return null;
-      if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
-        const top = saavnResults[0];
+      const relevantMatch = (saavnResults || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(query, r.title, expectedTitle, expectedArtist));
+      if (relevantMatch && relevantMatch.streamUrl) {
         return {
-          title: top.title,
-          author: top.author,
-          duration: top.duration,
-          streamUrl: top.streamUrl,
-          rawStreamUrl: top.streamUrl,
-          artworkUrl: top.artworkUrl,
+          title: relevantMatch.title,
+          author: relevantMatch.author,
+          duration: relevantMatch.duration,
+          streamUrl: relevantMatch.streamUrl,
+          rawStreamUrl: relevantMatch.streamUrl,
+          artworkUrl: relevantMatch.artworkUrl,
           filterMode
         };
       }
@@ -1803,11 +1902,17 @@ const server = http.createServer(async (req, res) => {
   // --------------------------------------------------------------------------
   if (pathname === "/api/resolve-track") {
     if (abortController?.signal?.aborted || res.headersSent) return;
-    const q = parsedUrl.searchParams.get("q") || "";
+    let q = parsedUrl.searchParams.get("q") || "";
+    const listParam = parsedUrl.searchParams.get("list");
+    if (listParam && !q.includes("list=")) {
+      q = q ? (q.includes("?") ? `${q}&list=${listParam}` : `${q}?list=${listParam}`) : `https://www.youtube.com/playlist?list=${listParam}`;
+    }
     const filterMode = parsedUrl.searchParams.get("filterMode") || "filterless";
     const defaultPlatform = getClientPlatform(req, parsedUrl);
     const targetChannel = parsedUrl.searchParams.get("channel") || defaultPlatform;
     const forceSaavn = parsedUrl.searchParams.get("forceSaavn") === "true";
+    const titleParam = parsedUrl.searchParams.get("title") || "";
+    const artistParam = parsedUrl.searchParams.get("artist") || "";
 
     if (!q) {
       res.writeHead(400, { "Content-Type": "application/json" });
@@ -1821,16 +1926,52 @@ const server = http.createServer(async (req, res) => {
         try {
           const spData = await resolveSpotifyLink(spotifyUrl);
           if (spData && spData.tracks && spData.tracks.length > 0) {
-            let resolvedFirst = null;
             let chosenIndex = 0;
-            const maxAttempts = Math.min(spData.tracks.length, 5);
-            for (let i = 0; i < maxAttempts; i++) {
+
+            // Check if URL specifies index parameter (&index=15)
+            const indexMatch = q.match(/[?&]index=(\d+)/i);
+            if (indexMatch && indexMatch[1]) {
+              const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+              if (parsedIdx >= 0 && parsedIdx < spData.tracks.length) {
+                chosenIndex = parsedIdx;
+              }
+            }
+
+            // Check if URL specifies a track ID (open.spotify.com/track/ID or spotify:track:ID)
+            const spTrackMatch = q.match(/\/track\/([a-zA-Z0-9]+)/i) || q.match(/spotify:track:([a-zA-Z0-9]+)/i);
+            if (spTrackMatch && spTrackMatch[1]) {
+              const tId = spTrackMatch[1];
+              const fIdx = spData.tracks.findIndex(t => (t.url && t.url.includes(tId)) || (t.id && t.id.includes(tId)));
+              if (fIdx >= 0) chosenIndex = fIdx;
+            }
+
+            // Check if titleParam / artistParam was provided
+            if (titleParam) {
+              const cleanTParam = titleParam.toLowerCase().trim();
+              const fIdx = spData.tracks.findIndex(t => t.title && t.title.toLowerCase().includes(cleanTParam));
+              if (fIdx >= 0) chosenIndex = fIdx;
+            }
+
+            let resolvedFirst = null;
+            const maxAttempts = Math.min(spData.tracks.length, chosenIndex + 5);
+            for (let i = chosenIndex; i < maxAttempts; i++) {
               const cand = spData.tracks[i];
               const candQ = cand.query || `${cand.title} ${cand.artist}`;
-              resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal);
+              resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal, cand.title, cand.artist);
               if (resolvedFirst) {
                 chosenIndex = i;
                 break;
+              }
+            }
+            if (!resolvedFirst && chosenIndex > 0) {
+              for (let i = 0; i < Math.min(chosenIndex, 5); i++) {
+                const cand = spData.tracks[i];
+                const candQ = cand.query || `${cand.title} ${cand.artist}`;
+                resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal, cand.title, cand.artist);
+                if (resolvedFirst) {
+                  chosenIndex = i;
+                  break;
+                }
               }
             }
             if (resolvedFirst) {
@@ -1864,23 +2005,60 @@ const server = http.createServer(async (req, res) => {
           const isYtPlaylist = Boolean(ytPlaylistId || ytUrl.includes("playlist?list=") || ytUrl.includes("&list=") || ytUrl.includes("?list="));
 
           if (isYtPlaylist) {
-            const plData = await resolvePlaylistTracks(ytUrl, 100, abortController?.signal);
+            const plData = await resolvePlaylistTracks(ytUrl, 500, abortController?.signal);
             if (plData && plData.tracks && plData.tracks.length > 0) {
               let chosenIndex = 0;
+              const indexMatch = ytUrl.match(/[?&]index=(\d+)/i);
+              if (indexMatch && indexMatch[1]) {
+                const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+                if (parsedIdx >= 0 && parsedIdx < plData.tracks.length) {
+                  chosenIndex = parsedIdx;
+                }
+              }
+
+              let foundIdx = -1;
               if (hasVideoId && vMatch[1]) {
-                const foundIdx = plData.tracks.findIndex(t => t.id === vMatch[1] || (t.url && t.url.includes(vMatch[1])));
+                foundIdx = plData.tracks.findIndex(t => t.id === vMatch[1] || (t.url && t.url.includes(vMatch[1])));
                 if (foundIdx >= 0) chosenIndex = foundIdx;
               }
+
               let resolvedFirst = null;
-              const maxAttempts = Math.min(plData.tracks.length, chosenIndex + 5);
-              for (let i = chosenIndex; i < maxAttempts; i++) {
-                const cand = plData.tracks[i];
-                const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
-                const candQ = candUrl || cand.query || `${cand.title} ${cand.artist}`;
-                resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal);
-                if (resolvedFirst) {
-                  chosenIndex = i;
-                  break;
+
+              // If a specific video ID was requested but not found in the playlist tracks (e.g. beyond limit or unlisted track),
+              // resolve the specific video directly rather than falling back to Track 0!
+              if (hasVideoId && vMatch[1] && foundIdx === -1) {
+                try {
+                  const directTrack = await resolveMediaTrack(`https://www.youtube.com/watch?v=${vMatch[1]}`, filterMode, abortController?.signal, titleParam, artistParam);
+                  if (directTrack) {
+                    resolvedFirst = directTrack;
+                    plData.tracks.unshift({
+                      id: vMatch[1],
+                      title: directTrack.title,
+                      artist: directTrack.author,
+                      author: directTrack.author,
+                      duration: directTrack.duration,
+                      durationMs: directTrack.duration,
+                      streamUrl: directTrack.streamUrl,
+                      artworkUrl: directTrack.artworkUrl,
+                      url: `https://www.youtube.com/watch?v=${vMatch[1]}`,
+                      source: "youtube"
+                    });
+                    chosenIndex = 0;
+                  }
+                } catch (e) {}
+              }
+
+              if (!resolvedFirst) {
+                const maxAttempts = Math.min(plData.tracks.length, chosenIndex + 5);
+                for (let i = chosenIndex; i < maxAttempts; i++) {
+                  const cand = plData.tracks[i];
+                  const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
+                  const candQ = candUrl || cand.query || `${cand.title} ${cand.artist}`;
+                  resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal, cand.title, cand.artist);
+                  if (resolvedFirst) {
+                    chosenIndex = i;
+                    break;
+                  }
                 }
               }
               if (!resolvedFirst && chosenIndex > 0) {
@@ -1888,7 +2066,7 @@ const server = http.createServer(async (req, res) => {
                   const cand = plData.tracks[i];
                   const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
                   const candQ = candUrl || cand.query || `${cand.title} ${cand.artist}`;
-                  resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal);
+                  resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal, cand.title, cand.artist);
                   if (resolvedFirst) {
                     chosenIndex = i;
                     break;
@@ -1930,7 +2108,7 @@ const server = http.createServer(async (req, res) => {
 
           // Single video track: use canonical video URL to avoid parameter contamination
           const singleTrackTarget = (hasVideoId && vMatch[1]) ? `https://www.youtube.com/watch?v=${vMatch[1]}` : ytUrl;
-          const ytTrack = await resolveMediaTrack(singleTrackTarget, filterMode, abortController?.signal);
+          const ytTrack = await resolveMediaTrack(singleTrackTarget, filterMode, abortController?.signal, titleParam, artistParam);
           if (ytTrack) {
             const shouldSet = parsedUrl.searchParams.get("set") === "true";
             if (shouldSet && systemChannels[targetChannel]) {
@@ -1955,22 +2133,30 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      // 3. Fast JioSaavn Check (<100ms instant 320kbps CD-quality audio)
+      // 3. Fast JioSaavn Check (<100ms instant 320kbps CD-quality audio) with relevance verification
       try {
         if (abortController?.signal?.aborted || res.headersSent) return;
-        const saavnResults = await searchJioSaavn(q, 3, abortController?.signal);
+        const saavnResults = await searchJioSaavn(q, 5, abortController?.signal);
         if (abortController?.signal?.aborted || res.headersSent) return;
-        if (saavnResults.length > 0 && saavnResults[0].streamUrl) {
-          const top = saavnResults[0];
+        const relevantMatch = (saavnResults || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(q, r.title, titleParam, artistParam));
+        if (relevantMatch && relevantMatch.streamUrl) {
           const track = {
-            title: top.title,
-            author: top.author,
-            duration: top.duration,
-            streamUrl: top.streamUrl,
-            rawStreamUrl: top.streamUrl,
-            artworkUrl: top.artworkUrl,
+            title: relevantMatch.title,
+            author: relevantMatch.author,
+            duration: relevantMatch.duration,
+            streamUrl: relevantMatch.streamUrl,
+            rawStreamUrl: relevantMatch.streamUrl,
+            artworkUrl: relevantMatch.artworkUrl,
             filterMode
           };
+          const shouldSet = parsedUrl.searchParams.get("set") === "true";
+          if (shouldSet && systemChannels[targetChannel]) {
+            systemChannels[targetChannel].current = track;
+            systemChannels[targetChannel].isPlaying = true;
+            systemChannels[targetChannel].isPaused = false;
+            systemChannels[targetChannel].position = 0;
+            if (track.duration) systemChannels[targetChannel].duration = track.duration;
+          }
           res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
           return res.end(JSON.stringify({
             success: true,
@@ -1984,7 +2170,7 @@ const server = http.createServer(async (req, res) => {
       } catch (e) {}
 
       if (abortController?.signal?.aborted || res.headersSent) return;
-      const track = await resolveMediaTrack(q, filterMode, abortController?.signal);
+      const track = await resolveMediaTrack(q, filterMode, abortController?.signal, titleParam, artistParam);
       if (abortController?.signal?.aborted || res.headersSent) return;
       if (track) {
         const shouldSet = parsedUrl.searchParams.get("set") === "true";
@@ -2087,9 +2273,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      let plData = await resolvePlaylistTracks(primaryTarget, 50, abortController?.signal);
+      let plData = await resolvePlaylistTracks(primaryTarget, 500, abortController?.signal);
       if ((!plData || !plData.tracks || plData.tracks.length === 0) && targetId && targetId !== primaryTarget) {
-        plData = await resolvePlaylistTracks(targetId, 50, abortController?.signal);
+        plData = await resolvePlaylistTracks(targetId, 500, abortController?.signal);
       }
       if (abortController?.signal?.aborted || res.headersSent) return;
       if (plData && plData.tracks && plData.tracks.length > 0) {
@@ -2153,6 +2339,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname === "/api/youtube-playlist") {
     if (abortController?.signal?.aborted || res.headersSent) return;
     let urlParam = parsedUrl.searchParams.get("url") || parsedUrl.searchParams.get("link") || parsedUrl.searchParams.get("id") || parsedUrl.searchParams.get("q");
+    const listParam = parsedUrl.searchParams.get("list");
+    if (listParam && (!urlParam || !urlParam.includes("list="))) {
+      urlParam = urlParam ? (urlParam.includes("?") ? `${urlParam}&list=${listParam}` : `${urlParam}?list=${listParam}`) : `https://www.youtube.com/playlist?list=${listParam}`;
+    }
 
     if (!urlParam && req.method === "POST") {
       let body = "";
@@ -2170,7 +2360,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      const plData = await resolvePlaylistTracks(urlParam, 100, abortController?.signal);
+      const plData = await resolvePlaylistTracks(urlParam, 500, abortController?.signal);
       if (!plData || !plData.tracks?.length) {
         res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ success: false, error: "Could not fetch tracks for this YouTube playlist. Please ensure it is public." }));

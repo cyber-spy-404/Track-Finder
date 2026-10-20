@@ -322,7 +322,7 @@ const SPOTIFY_INDIAN_PLAYLISTS = [
     tracksCount: 7,
     tags: ["Sufi", "Qawwali", "Spiritual"],
     tracks: [
-      { title: "Dam Mast Qalandar", artist: "Nusrat Fateh Ali Khan", duration: "08:15" },
+      { title: "Dam Mast Qalandar", artist: "Nusrat Fateh Ali Khan", duration: "08:15", query: "https://www.youtube.com/watch?v=SKZAiWSquA0", url: "https://www.youtube.com/watch?v=SKZAiWSquA0", source: "youtube" },
       { title: "Afreen Afreen", artist: "Rahat Fateh Ali Khan & Momina Mustehsan", duration: "06:45" },
       { title: "Kun Faya Kun", artist: "A.R. Rahman, Javed Ali & Mohit Chauhan", duration: "07:53" },
       { title: "Khwaja Mere Khwaja", artist: "A.R. Rahman (Jodhaa Akbar)", duration: "06:56" },
@@ -793,15 +793,30 @@ const BrowserPlayer = {
           const vMatch = rawYt.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) ||
                          rawYt.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) ||
                          rawYt.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
-          query = vMatch ? `https://www.youtube.com/watch?v=${vMatch[1]}` : rawYt;
+          if (vMatch && vMatch[1]) {
+            query = `https://www.youtube.com/watch?v=${vMatch[1]}`;
+          } else {
+            const listId = extractYouTubePlaylistId(rawYt);
+            if (listId) {
+              query = `https://www.youtube.com/playlist?list=${listId}`;
+            } else {
+              query = rawYt;
+            }
+          }
+        } else if (track.url && (track.url.startsWith("http://") || track.url.startsWith("https://")) && !track.url.includes("spotify.com") && !track.url.includes("/playlist/") && !track.url.includes(":playlist:")) {
+          query = track.url;
+        } else if (track.query && (track.query.startsWith("http://") || track.query.startsWith("https://")) && !track.query.includes("spotify.com") && !track.query.includes("/playlist/") && !track.query.includes(":playlist:")) {
+          query = track.query;
         } else {
           const rawTitle = track.title || "";
           const rawArtist = track.author || track.artist || "";
           const cleanTitle = rawTitle.replace(/\u00A0/g, " ").replace(/\(.*?\)|\[.*?\]/g, "").trim();
           const cleanArtist = rawArtist.replace(/\u00A0/g, " ").split(/[,&x/]|feat\.|ft\./i)[0].trim();
-          query = (cleanArtist ? `${cleanTitle} ${cleanArtist}` : (track.query || track.url || rawTitle)).trim();
+          query = (track.query && !track.query.includes("/playlist/") && !track.query.includes("spotify.com") ? track.query : (cleanArtist ? `${cleanTitle} ${cleanArtist}` : (cleanTitle || rawTitle))).trim();
         }
-        const resolveUrl = resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=true`);
+        const expT = encodeURIComponent(track.title || "");
+        const expA = encodeURIComponent(track.artist || track.author || "");
+        const resolveUrl = resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&title=${expT}&artist=${expA}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=true`);
         const res = await fetch(resolveUrl);
         const data = await res.json();
 
@@ -824,44 +839,51 @@ const BrowserPlayer = {
             data.success = true;
           }
 
-          // Preserve previous queue with higher preference, and add remaining playlist tracks with less preference
-          const previousQueue = (Array.isArray(this.queue) && this.queue.length > 0)
-            ? this.queue.filter(t => !t.isRadio && !plTracks.some(pt => pt.id && (pt.id === t.id || pt.id === t.query)))
-            : [];
-
+          const isSpotifyPl = Boolean(data.playlist.id?.startsWith("spotify") || data.playlist.type === "spotify" || (data.playlist.url && data.playlist.url.includes("spotify.com")));
           const remainingPlaylistTracks = [];
-          for (let i = startIdx + 1; i < plTracks.length; i++) {
+          const queueIndices = [];
+          for (let i = startIdx + 1; i < plTracks.length; i++) queueIndices.push(i);
+          for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+
+          for (const i of queueIndices) {
             const pt = plTracks[i];
             const rawT = (pt.title || `Track ${i + 1}`).replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
-            const rawA = (pt.artist || pt.author || pt.uploader || data.playlist.uploader || "YouTube").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
-            const videoId = (pt.id && !pt.id.startsWith("yt_")) ? pt.id : (pt.url ? (pt.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || pt.url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || [])[1] : null);
-            const trackUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : (pt.url && !pt.url.includes("playlist?list=") ? pt.url.split("&list=")[0].split("?list=")[0] : null);
+            const rawA = (pt.artist || pt.author || pt.uploader || data.playlist.uploader || (isSpotifyPl ? "Spotify Artist" : "YouTube")).replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+            const cleanT = rawT.replace(/\(.*?\)|\[.*?\]/g, "").trim();
+            const cleanA = rawA.split(/[,&x/]|feat\.|ft\./i)[0].trim();
+            const videoId = (!isSpotifyPl && pt.id && !pt.id.startsWith("yt_")) ? pt.id : (pt.url ? (pt.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || pt.url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || [])[1] : null);
+            const trackUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : (!isSpotifyPl && pt.url && !pt.url.includes("playlist?list=") && !pt.url.includes("spotify.com") ? pt.url.split("&list=")[0].split("?list=")[0] : null);
             const ytThumb = videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
             const ptArt = (pt.artworkUrl && pt.artworkUrl !== data.playlist.coverUrl && pt.artworkUrl !== "logo.png")
               ? pt.artworkUrl
-              : (ytThumb || pt.artworkUrl || "logo.png");
+              : (ytThumb || pt.artworkUrl || data.playlist.artworkUrl || data.playlist.coverUrl || "logo.png");
+            
             remainingPlaylistTracks.push({
-              id: videoId ? `yt-${videoId}` : `yt-${i}-${Date.now()}`,
+              id: isSpotifyPl ? (pt.id || `sp-${i}-${Date.now()}`) : (videoId ? `yt-${videoId}` : `yt-${i}-${Date.now()}`),
               title: rawT,
               artist: rawA,
               author: rawA,
               duration: pt.duration || 180000,
               durationMs: pt.durationMs || (pt.duration ? pt.duration * 1000 : 180000),
-              query: trackUrl || `${rawT} ${rawA}`.trim(),
+              query: trackUrl || (cleanA ? `${cleanT} ${cleanA}` : `${rawT} ${rawA}`).trim(),
               url: trackUrl,
-              source: "youtube",
+              source: isSpotifyPl ? "spotify" : "youtube",
               artworkUrl: ptArt,
               filterMode: "filterless"
             });
           }
 
           if (remainingPlaylistTracks.length > 0) {
-            // Previous queue has higher preference; playlist tracks added with less preference
-            this.queue = [...previousQueue, ...remainingPlaylistTracks];
-            renderQueueView();
-            renderSidebarLibrary("queue");
-            if (typeof saveUserQueue === "function") saveUserQueue();
-            showToast(`Added ${remainingPlaylistTracks.length} YouTube tracks to queue`);
+            const curQ = Array.isArray(this.queue) ? this.queue : [];
+            const existingIds = new Set(curQ.map(t => t.id || t.query));
+            const toAdd = remainingPlaylistTracks.filter(t => !existingIds.has(t.id) && !existingIds.has(t.query));
+            if (toAdd.length > 0) {
+              this.queue = [...toAdd, ...curQ.filter(t => !t.isRadio)];
+              renderQueueView();
+              renderSidebarLibrary("queue");
+              if (typeof saveUserQueue === "function") saveUserQueue();
+              showToast(`Added ${toAdd.length} ${isSpotifyPl ? "Spotify" : "YouTube"} playlist tracks to queue`);
+            }
           }
         }
 
@@ -1110,6 +1132,50 @@ const BrowserPlayer = {
         return;
       }
       if (data.success && data.track) {
+        if (data.isPlaylist && data.playlist && Array.isArray(data.playlist.tracks) && data.playlist.tracks.length > 1) {
+          const plTracks = data.playlist.tracks;
+          const startIdx = Math.max(0, Math.min(data.startIndex || 0, plTracks.length - 1));
+          const remaining = [];
+          const queueIndices = [];
+          for (let i = startIdx + 1; i < plTracks.length; i++) queueIndices.push(i);
+          for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+
+          for (const i of queueIndices) {
+            const pt = plTracks[i];
+            const ptId = (pt.id && !pt.id.startsWith("yt_")) ? pt.id : (pt.url ? (pt.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || pt.url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || [])[1] : null);
+            const ptUrl = ptId ? `https://www.youtube.com/watch?v=${ptId}` : (pt.url && !pt.url.includes("playlist?list=") ? pt.url.split("&list=")[0].split("?list=")[0] : null);
+            const ptQuery = ptUrl || `${pt.title} ${pt.artist || pt.uploader || ""}`.trim();
+            const ytThumb = ptId ? `https://i.ytimg.com/vi/${ptId}/hqdefault.jpg` : null;
+            remaining.push({
+              id: ptId ? `yt-${ptId}` : `yt-${i}-${Date.now()}`,
+              title: pt.title,
+              author: pt.artist || pt.author || pt.uploader || "YouTube",
+              artist: pt.artist || pt.author || pt.uploader || "YouTube",
+              duration: pt.duration || 180000,
+              durationMs: pt.durationMs || (pt.duration ? pt.duration * 1000 : 180000),
+              query: ptQuery,
+              url: ptUrl,
+              source: "youtube",
+              artworkUrl: pt.artworkUrl || ytThumb || "logo.png",
+              filterMode: "filterless"
+            });
+          }
+          if (immediate || isCurrentlySilent) {
+            this.queue = [...remaining];
+            renderQueueView();
+            renderSidebarLibrary("queue");
+            if (typeof saveUserQueue === "function") saveUserQueue();
+            await this.playTrack(data.track);
+          } else {
+            this.queue = [...(this.queue || []), data.track, ...remaining];
+            showToast(`Queued ${plTracks.length} playlist tracks in Browser`);
+            renderQueueView();
+            renderSidebarLibrary("queue");
+            if (typeof saveUserQueue === "function") saveUserQueue();
+          }
+          return;
+        }
+
         if (immediate || isCurrentlySilent) {
           if (!data.track.isRadio) {
             this.isRadioActive = false;
@@ -1170,7 +1236,8 @@ const BrowserPlayer = {
     this.prime();
     this._consecutiveSkipCount = 0;
     const tracks = playlist.tracks;
-    const safeIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
+    const numericStart = (typeof startIndex === "number" && !isNaN(startIndex)) ? Math.floor(startIndex) : 0;
+    const safeIndex = Math.max(0, Math.min(numericStart, tracks.length - 1));
     showToast(`Starting ${playlist.name || playlist.title}...`);
 
     this.isRadioActive = false;
@@ -1191,15 +1258,16 @@ const BrowserPlayer = {
       const rawA = (item.artist || item.author || playlist.name || "Artist").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
       const primaryA = rawA.split(/[,&x/]|feat\.|ft\./i)[0].trim();
       const cleanTitle = rawT.replace(/\(.*?\)|\[.*?\]/g, "").trim();
-      const rawUrl = item.url || item.uri || null;
+      const rawUrl = item.url || item.uri || (typeof item.query === "string" && (item.query.startsWith("http://") || item.query.startsWith("https://")) ? item.query : null);
+      const isSpotifyItem = Boolean(item.source === "spotify" || (rawUrl && rawUrl.includes("spotify.com")) || (playlist.id && String(playlist.id).startsWith("spotify")) || (playlist.type === "spotify"));
       let safeUrl = null;
-      if (rawUrl && !rawUrl.includes("/playlist/") && !rawUrl.includes(":playlist:")) {
+      if (!isSpotifyItem && rawUrl && !rawUrl.includes("/playlist/") && !rawUrl.includes(":playlist:")) {
         const vMatch = rawUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) ||
                        rawUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) ||
                        rawUrl.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
-        safeUrl = vMatch ? `https://www.youtube.com/watch?v=${vMatch[1]}` : rawUrl;
+        safeUrl = vMatch ? `https://www.youtube.com/watch?v=${vMatch[1]}` : (isYouTubeUrl(rawUrl) ? rawUrl : null);
       }
-      const query = (safeUrl && isYouTubeUrl(safeUrl)) ? safeUrl : (primaryA ? `${cleanTitle} ${primaryA}` : (item.query || `${cleanTitle} ${rawA}`)).trim();
+      const query = (safeUrl && isYouTubeUrl(safeUrl)) ? safeUrl : (item.query && !item.query.includes("spotify.com") ? item.query : (primaryA ? `${cleanTitle} ${primaryA}` : `${cleanTitle} ${rawA}`)).trim();
       const durMs = item.durationMs || parseDurationMs(item.duration);
       let itemArt = item.artworkUrl || item.coverUrl || item.image || item.thumbnail;
       const vMatch = (safeUrl ? (safeUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || safeUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i)) : null) ||
@@ -1226,7 +1294,7 @@ const BrowserPlayer = {
         streamUrl: item.streamUrl || null,
         rawStreamUrl: item.rawStreamUrl || null,
         filterMode: "filterless",
-        source: item.source || (safeUrl && isYouTubeUrl(safeUrl) ? "youtube" : undefined)
+        source: isSpotifyItem ? "spotify" : (item.source || (safeUrl && isYouTubeUrl(safeUrl) ? "youtube" : undefined))
       };
     };
 
@@ -1237,14 +1305,17 @@ const BrowserPlayer = {
 
     const currentTrack = sanitizePlaylistItem(tracks[safeIndex]);
 
-    // Subsequent songs from playlist
+    // Subsequent songs from playlist (then wrap-around preceding songs if started mid-playlist)
     const playlistUpcoming = [];
     for (let i = safeIndex + 1; i < tracks.length; i++) {
       playlistUpcoming.push(sanitizePlaylistItem(tracks[i]));
     }
+    for (let i = 0; i < safeIndex; i++) {
+      playlistUpcoming.push(sanitizePlaylistItem(tracks[i]));
+    }
 
-    // Previous queue songs retain higher preference; playlist upcoming tracks added behind them with less preference
-    this.queue = [...previousQueue, ...playlistUpcoming];
+    // Upcoming playlist tracks take immediate priority in the queue, followed by any previous queue
+    this.queue = [...playlistUpcoming, ...previousQueue];
 
     renderQueueView();
     renderSidebarLibrary("queue");
@@ -3032,7 +3103,7 @@ async function importAndPlaySpotifyLink(url, target = activeSystemChannel) {
       tracksCount: pl.trackCount,
       coverUrl: pl.image,
       tags: ["Spotify", pl.type, pl.artist],
-      tracks: pl.tracks.map(t => {
+      tracks: pl.tracks.map((t, idx) => {
         const rawT = (t.title || "").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
         const rawA = (t.artist || pl.artist || "Artist").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
         const primaryA = rawA.split(/[,&x/]|feat\.|ft\./i)[0].trim();
@@ -3041,13 +3112,17 @@ async function importAndPlaySpotifyLink(url, target = activeSystemChannel) {
         const rawUrl = t.url || null;
         const safeUrl = (rawUrl && !rawUrl.includes("/playlist/") && !rawUrl.includes(":playlist:")) ? rawUrl : null;
         return {
+          id: t.id || `sp-${idx + 1}-${Date.now()}`,
           title: rawT,
           artist: rawA,
+          author: rawA,
           duration: typeof t.duration === "number" ? formatTime(t.duration) : (t.duration || "3:30"),
+          durationMs: typeof t.duration === "number" ? t.duration : parseDurationMs(t.duration),
           query: safeQuery,
           url: safeUrl,
           previewUrl: t.previewUrl || null,
-          artworkUrl: t.artworkUrl || pl.image || "logo.png"
+          artworkUrl: t.artworkUrl || pl.image || "logo.png",
+          source: "spotify"
         };
       })
     };
@@ -3062,8 +3137,23 @@ async function importAndPlaySpotifyLink(url, target = activeSystemChannel) {
 
     showToast(`Loaded Spotify Playlist: ${pl.title} (${pl.trackCount} tracks)!`);
 
+    let startIdx = 0;
+    const indexMatch = cleanUrl.match(/[?&]index=(\d+)/i);
+    if (indexMatch && indexMatch[1]) {
+      const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+      if (parsedIdx >= 0 && parsedIdx < customPl.tracks.length) {
+        startIdx = parsedIdx;
+      }
+    }
+    const trackMatch = cleanUrl.match(/\/track\/([a-zA-Z0-9]+)/i) || cleanUrl.match(/spotify:track:([a-zA-Z0-9]+)/i);
+    if (trackMatch && trackMatch[1]) {
+      const tId = trackMatch[1];
+      const matchedIdx = customPl.tracks.findIndex(t => (t.url && t.url.includes(tId)) || (t.id && t.id.includes(tId)));
+      if (matchedIdx >= 0) startIdx = matchedIdx;
+    }
+
     if (target === "browser" || target === "all") {
-      BrowserPlayer.playPlaylist(customPl);
+      BrowserPlayer.playPlaylistAtIndex(customPl, startIdx, true);
     }
     if (target === "bot" || target === "all") {
       sendAction("play_now", cleanUrl, { targetChannel: "bot", immediate: true });
@@ -3153,18 +3243,40 @@ async function playYouTubeLink(url, immediate = true, target = activeSystemChann
           showToast(`Loaded YouTube Playlist: ${customPl.name} (${customPl.tracks.length} tracks)!`);
 
           if (isLocalPlayer) {
-            // Check if URL has a specific video v= ID to start from that index
+            // Check if URL has a specific video v= ID or index= to start from that index
             let startIdx = 0;
+            const indexMatch = cleanUrl.match(/[?&]index=(\d+)/i);
+            if (indexMatch && indexMatch[1]) {
+              const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+              if (parsedIdx >= 0 && parsedIdx < customPl.tracks.length) {
+                startIdx = parsedIdx;
+              }
+            }
             const vMatch = cleanUrl.match(/[?&]v=([a-zA-Z0-9_-]+)/i);
             if (vMatch && vMatch[1]) {
               const matchedIdx = customPl.tracks.findIndex(t => t.id === `yt-${vMatch[1]}` || (t.url && t.url.includes(vMatch[1])));
-              if (matchedIdx >= 0) startIdx = matchedIdx;
+              if (matchedIdx >= 0) {
+                startIdx = matchedIdx;
+              } else {
+                const videoTrack = {
+                  id: `yt-${vMatch[1]}`,
+                  title: "Loading Track...",
+                  artist: customPl.author || "YouTube",
+                  author: customPl.author || "YouTube",
+                  duration: 180000,
+                  durationMs: 180000,
+                  query: `https://www.youtube.com/watch?v=${vMatch[1]}`,
+                  url: `https://www.youtube.com/watch?v=${vMatch[1]}`,
+                  source: "youtube",
+                  artworkUrl: `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg`,
+                  filterMode: "filterless"
+                };
+                customPl.tracks.unshift(videoTrack);
+                startIdx = 0;
+              }
             }
 
-            const hasExistingQueue = Array.isArray(BrowserPlayer.queue) && BrowserPlayer.queue.length > 0;
-            const isCurrentlyPlaying = BrowserPlayer.isPlaying();
-
-            if (immediate && (!isCurrentlyPlaying || !hasExistingQueue)) {
+            if (immediate) {
               BrowserPlayer.playPlaylistAtIndex(customPl, startIdx, true);
             } else {
               const previousQueue = Array.isArray(BrowserPlayer.queue) ? BrowserPlayer.queue.filter(t => !t.isRadio) : [];
@@ -3172,7 +3284,7 @@ async function playYouTubeLink(url, immediate = true, target = activeSystemChann
               renderQueueView();
               renderSidebarLibrary("queue");
               if (typeof saveUserQueue === "function") saveUserQueue();
-              showToast(`Queued ${customPl.tracks.length} YouTube tracks behind previous queue`);
+              showToast(`Queued ${customPl.tracks.length} YouTube tracks`);
             }
           }
 
@@ -3257,15 +3369,12 @@ async function playYouTubeLink(url, immediate = true, target = activeSystemChann
           })
         };
 
-        const hasExistingQueue = Array.isArray(BrowserPlayer.queue) && BrowserPlayer.queue.length > 0;
-        const isCurrentlyPlaying = BrowserPlayer.isPlaying();
-
-        if (immediate && (!isCurrentlyPlaying || !hasExistingQueue)) {
+        if (immediate) {
           BrowserPlayer.playPlaylistAtIndex(customPl, data.startIndex || 0, true);
         } else {
           const previousQueue = Array.isArray(BrowserPlayer.queue) ? BrowserPlayer.queue.filter(t => !t.isRadio) : [];
           BrowserPlayer.queue = [...previousQueue, ...customPl.tracks];
-          showToast(`Queued ${plTracks.length} YouTube tracks behind previous queue`);
+          showToast(`Queued ${plTracks.length} YouTube tracks`);
           renderQueueView();
           renderSidebarLibrary("queue");
           if (typeof saveUserQueue === "function") saveUserQueue();
@@ -4509,14 +4618,14 @@ function dispatchPlayPlaylist(playlistOrId, immediate = true) {
       targetChannel: "bot",
       name: pl.name || pl.title || "Playlist",
       immediate,
-      tracks: (pl.tracks || []).map(t => `${t.title} ${t.artist || t.author || ""}`.trim())
+      tracks: (pl.tracks || []).map(t => (t.url && (t.url.startsWith("http://") || t.url.startsWith("https://"))) ? t.url : (t.query || `${t.title} ${t.artist || t.author || ""}`.trim()))
     });
   } else if (!isLocalPlayer) {
     sendAction("play_playlist", null, {
       targetChannel: activeSystemChannel,
       name: pl.name || pl.title || "Playlist",
       immediate,
-      tracks: (pl.tracks || []).map(t => `${t.title} ${t.artist || t.author || ""}`.trim())
+      tracks: (pl.tracks || []).map(t => (t.url && (t.url.startsWith("http://") || t.url.startsWith("https://"))) ? t.url : (t.query || `${t.title} ${t.artist || t.author || ""}`.trim()))
     });
   }
 }
@@ -7330,6 +7439,182 @@ function initEventListeners() {
         playYouTubeLink(url, true, activeSystemChannel);
       }
     }
+  });
+
+  // ==========================================================================
+  // GLASS AI BUTTON & MATRIX INTERFACE (Rule: glass-ui-design.md)
+  // ==========================================================================
+  const btnGlassAi = document.getElementById("btnGlassAi");
+  const glassAiModal = document.getElementById("glassAiModal");
+  const btnCloseGlassAi = document.getElementById("btnCloseGlassAiModal");
+  const glassAiInput = document.getElementById("glassAiInput");
+  const btnGlassAiPaste = document.getElementById("btnGlassAiPaste");
+  const btnGlassAiPlay = document.getElementById("btnGlassAiGenerateNow");
+  const btnGlassAiQueue = document.getElementById("btnGlassAiQueueFlow");
+  const glassAiCanvas = document.getElementById("glassAiParticleCanvas");
+
+  // Particle Burst on Activation (Embedded HTML5 Canvas Particle System)
+  const triggerGlassParticleBurst = () => {
+    if (!glassAiCanvas) return;
+    const ctx = glassAiCanvas.getContext("2d");
+    if (!ctx) return;
+    const width = glassAiCanvas.width = 130;
+    const height = glassAiCanvas.height = 36;
+    const particles = [];
+    const colors = ["#38bdf8", "#60a5fa", "#93c5fd", "#ffffff", "#3b82f6"];
+
+    for (let i = 0; i < 28; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.2 + Math.random() * 2.8;
+      particles.push({
+        x: width * 0.2, // origin around galaxy orb
+        y: height * 0.5,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: 0.8 + Math.random() * 1.8,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        life: 0,
+        maxLife: 25 + Math.random() * 20
+      });
+    }
+
+    let animFrame = null;
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+      let alive = false;
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life++;
+        p.alpha = Math.max(0, 1 - (p.life / p.maxLife));
+        if (p.alpha > 0) {
+          alive = true;
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 4;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+      if (alive) {
+        animFrame = requestAnimationFrame(render);
+      } else {
+        ctx.clearRect(0, 0, width, height);
+        cancelAnimationFrame(animFrame);
+      }
+    };
+    render();
+  };
+
+  // 3D Tilt on Pointer Hover
+  if (btnGlassAi) {
+    btnGlassAi.addEventListener("mousemove", (e) => {
+      const rect = btnGlassAi.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      const tiltX = (y / (rect.height / 2)) * -6;
+      const tiltY = (x / (rect.width / 2)) * 6;
+      btnGlassAi.style.transform = `perspective(400px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.03)`;
+    });
+    btnGlassAi.addEventListener("mouseleave", () => {
+      btnGlassAi.style.transform = "";
+    });
+  }
+
+  const openGlassAiModal = () => {
+    triggerGlassParticleBurst();
+    if (!glassAiModal) return;
+    glassAiModal.classList.remove("hidden");
+    glassAiModal.style.display = "flex";
+    if (glassAiInput) {
+      glassAiInput.value = "";
+      glassAiInput.focus();
+    }
+  };
+
+  const closeGlassAiModal = () => {
+    if (glassAiModal) {
+      glassAiModal.classList.add("hidden");
+      glassAiModal.style.display = "none";
+    }
+  };
+
+  btnGlassAi?.addEventListener("click", openGlassAiModal);
+  btnCloseGlassAi?.addEventListener("click", closeGlassAiModal);
+  glassAiModal?.addEventListener("click", (e) => {
+    if (e.target === glassAiModal) closeGlassAiModal();
+  });
+
+  btnGlassAiPaste?.addEventListener("click", async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && glassAiInput) {
+          glassAiInput.value = text.trim();
+          showToast("Pasted into Glass AI Matrix");
+        }
+      }
+    } catch (_) {
+      showToast("Clipboard access restricted");
+    }
+  });
+
+  // Preset quick selections
+  document.querySelectorAll(".btn-glass-preset").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const prompt = btn.getAttribute("data-ai-prompt");
+      if (prompt && glassAiInput) {
+        glassAiInput.value = prompt;
+        btnGlassAiPlay?.click();
+      }
+    });
+  });
+
+  const executeGlassAiAction = (immediate = true) => {
+    const rawVal = glassAiInput?.value?.trim();
+    if (!rawVal) return showToast("Please enter a prompt or playlist link");
+    closeGlassAiModal();
+
+    if (isSpotifyUrl(rawVal)) {
+      showToast(immediate ? "Glass AI: Streaming Spotify Playlist..." : "Glass AI: Enqueuing Spotify Playlist...");
+      return importAndPlaySpotifyLink(rawVal, activeSystemChannel);
+    }
+    if (isYouTubeUrl(rawVal)) {
+      showToast(immediate ? "Glass AI: Streaming YouTube Playlist..." : "Glass AI: Enqueuing YouTube Playlist...");
+      return playYouTubeLink(rawVal, immediate, activeSystemChannel);
+    }
+
+    // Natural Language Prompt or AI Mood Flow
+    showToast(`Glass AI: Generating neural flow for "${rawVal}"...`);
+    const aiTrack = {
+      id: `ai-${Date.now()}`,
+      title: rawVal,
+      artist: "Glass AI GPT 6 Sol",
+      author: "Glass AI GPT 6 Sol",
+      duration: 180000,
+      query: rawVal,
+      artworkUrl: "logo.png",
+      filterMode: currentFilterMode || "filterless",
+      source: "ai"
+    };
+
+    if (immediate) {
+      BrowserPlayer.playTrack(aiTrack);
+    } else {
+      BrowserPlayer.enqueue(aiTrack);
+      showToast(`Added "${rawVal}" to flow queue`);
+    }
+  };
+
+  btnGlassAiPlay?.addEventListener("click", () => executeGlassAiAction(true));
+  btnGlassAiQueue?.addEventListener("click", () => executeGlassAiAction(false));
+  glassAiInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") executeGlassAiAction(true);
   });
 
   searchInput?.addEventListener("input", (e) => {

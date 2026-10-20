@@ -448,7 +448,7 @@ const MASTER_GENRE_CATALOG = {
   ],
   sufi: [
     { title: "Tajdar-e-Haram", artist: "Atif Aslam (Coke Studio)", duration: "10:28", artworkUrl: "covers/atif_aslam.jpg", query: "Tajdar e Haram Atif Aslam Coke Studio" },
-    { title: "Dam Mast Qalandar", artist: "Nusrat Fateh Ali Khan", duration: "08:15", artworkUrl: "covers/sufi_mystics.jpg", query: "Dam Mast Qalandar Nusrat Fateh Ali Khan" },
+    { title: "Dam Mast Qalandar", artist: "Nusrat Fateh Ali Khan", duration: "08:15", artworkUrl: "covers/sufi_mystics.jpg", query: "https://www.youtube.com/watch?v=SKZAiWSquA0", url: "https://www.youtube.com/watch?v=SKZAiWSquA0", source: "youtube" },
     { title: "Afreen Afreen", artist: "Rahat Fateh Ali Khan & Momina", duration: "06:45", artworkUrl: "covers/sufi_mystics.jpg", query: "Afreen Afreen Rahat Fateh Ali Khan" },
     { title: "Kun Faya Kun", artist: "A.R. Rahman, Javed Ali & Mohit Chauhan", duration: "07:53", artworkUrl: "covers/sufi_mystics.jpg", query: "Kun Faya Kun Rockstar A.R. Rahman" },
     { title: "Khwaja Mere Khwaja", artist: "A.R. Rahman", duration: "06:56", artworkUrl: "covers/sufi_mystics.jpg", query: "Khwaja Mere Khwaja Jodhaa Akbar" },

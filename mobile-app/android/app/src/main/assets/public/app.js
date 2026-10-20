@@ -322,7 +322,7 @@ const SPOTIFY_INDIAN_PLAYLISTS = [
     tracksCount: 7,
     tags: ["Sufi", "Qawwali", "Spiritual"],
     tracks: [
-      { title: "Dam Mast Qalandar", artist: "Nusrat Fateh Ali Khan", duration: "08:15" },
+      { title: "Dam Mast Qalandar", artist: "Nusrat Fateh Ali Khan", duration: "08:15", query: "https://www.youtube.com/watch?v=SKZAiWSquA0", url: "https://www.youtube.com/watch?v=SKZAiWSquA0", source: "youtube" },
       { title: "Afreen Afreen", artist: "Rahat Fateh Ali Khan & Momina Mustehsan", duration: "06:45" },
       { title: "Kun Faya Kun", artist: "A.R. Rahman, Javed Ali & Mohit Chauhan", duration: "07:53" },
       { title: "Khwaja Mere Khwaja", artist: "A.R. Rahman (Jodhaa Akbar)", duration: "06:56" },
@@ -417,11 +417,28 @@ function isSpotifyUrl(url) {
          /spotify:(playlist|album|track|artist):([a-zA-Z0-9]+)/i.test(url);
 }
 
+function extractYouTubePlaylistId(urlOrId) {
+  if (!urlOrId || typeof urlOrId !== "string") return null;
+  const s = urlOrId.trim();
+  // 1. URL with list= query parameter (watch?v=...&list=... or playlist?list=...)
+  const listMatch = s.match(/[?&]list=([a-zA-Z0-9_-]+)/i);
+  if (listMatch) return listMatch[1];
+  // 2. Direct playlist URL: youtube.com/playlist?list=... or youtube.com/playlist/...
+  const plMatch = s.match(/(?:youtube\.com|youtu\.be)\/playlist\/?\?list=([a-zA-Z0-9_-]+)/i);
+  if (plMatch) return plMatch[1];
+  // 3. Raw Playlist ID: PL..., OLAK5uy_..., RD..., UU..., LL..., FL..., TL..., CL...
+  if (/^(?:PL|OLAK5uy_|RD|UU|LL|FL|TL|CL)[a-zA-Z0-9_-]{10,}$/.test(s)) {
+    return s;
+  }
+  return null;
+}
+
 function isYouTubeUrl(url) {
   if (!url || typeof url !== "string") return false;
   const s = url.trim();
   return /^(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?|shorts\/|playlist\?|embed\/)|youtu\.be\/)/i.test(s) ||
-         /(?:youtube\.com\/watch\?v=[a-zA-Z0-9_-]+|youtu\.be\/[a-zA-Z0-9_-]+|youtube\.com\/shorts\/[a-zA-Z0-9_-]+|youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+)/i.test(s);
+         /(?:youtube\.com\/watch\?v=[a-zA-Z0-9_-]+|youtu\.be\/[a-zA-Z0-9_-]+|youtube\.com\/shorts\/[a-zA-Z0-9_-]+|youtube\.com\/playlist\?list=[a-zA-Z0-9_-]+)/i.test(s) ||
+         Boolean(extractYouTubePlaylistId(s));
 }
 
 function extractYouTubeUrl(str) {
@@ -429,6 +446,7 @@ function extractYouTubeUrl(str) {
   const match = str.match(/https?:\/\/(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?[^\s]+|shorts\/[^\s]+|playlist\?[^\s]+|embed\/[^\s]+)|youtu\.be\/[^\s]+)/i);
   return match ? match[0] : null;
 }
+window.extractYouTubePlaylistId = extractYouTubePlaylistId;
 window.isYouTubeUrl = isYouTubeUrl;
 window.extractYouTubeUrl = extractYouTubeUrl;
 
@@ -437,6 +455,49 @@ window.extractYouTubeUrl = extractYouTubeUrl;
 if (typeof window !== "undefined") {
   window.isMobileApp = isMobileAppEnvironment;
 }
+
+// Unified track artwork resolver supporting all streaming providers (Saavn, YouTube, Lavalink, Spotify)
+function getTrackArtwork(track) {
+  if (!track) return "logo.png";
+  let art = track.artworkUrl ||
+            track.coverUrl ||
+            track.cover ||
+            track.image ||
+            track.thumbnail ||
+            track.thumbnailUrl ||
+            track.albumArt ||
+            track.info?.artworkUrl ||
+            track.info?.thumbnail ||
+            track.info?.image;
+
+  // Derive YouTube video thumbnail if artwork is default or missing
+  if (!art || art === "logo.png" || art === "/logo.png" || art === "public/logo.png") {
+    let ytId = null;
+    if (typeof track.id === "string") {
+      const cleanId = track.id.replace(/^yt-/, "");
+      if (cleanId.length === 11 && !cleanId.startsWith("saavn") && !cleanId.startsWith("sp_")) {
+        ytId = cleanId;
+      }
+    }
+    if (!ytId && track.url) {
+      const match = track.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) ||
+                    track.url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) ||
+                    track.url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
+      if (match && match[1]) ytId = match[1];
+    }
+    if (!ytId && track.query) {
+      const match = track.query.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) ||
+                    track.query.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
+      if (match && match[1]) ytId = match[1];
+    }
+    if (ytId) {
+      art = `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
+    }
+  }
+
+  return art || "logo.png";
+}
+window.getTrackArtwork = getTrackArtwork;
 
 // ==========================================================================
 // BULLETPROOF DIRECT NATIVE BROWSER AUDIO ENGINE
@@ -462,9 +523,29 @@ const BrowserPlayer = {
 
   setBuffering(buffering) {
     buffering = Boolean(buffering);
+    if (this._bufferingWatchdog) {
+      clearTimeout(this._bufferingWatchdog);
+      this._bufferingWatchdog = null;
+    }
     if (this.isBuffering === buffering) return;
     this.isBuffering = buffering;
     console.log(`[Audio Engine] Buffering state changed: ${buffering}`);
+
+    // Safety Watchdog: Prevent player from getting stuck continuously buffering if network or stream stalls
+    if (buffering) {
+      this._bufferingWatchdog = setTimeout(() => {
+        if (this.isBuffering && (!this.audio || this.audio.paused || this.audio.readyState < 2)) {
+          console.warn("[Audio Engine] Buffering watchdog triggered: clearing stuck buffering state after 10s.");
+          this.setBuffering(false);
+          this._isChangingTrack = false;
+          if (this.queue && this.queue.length > 0 && (this._consecutiveSkipCount || 0) < 4) {
+            this._consecutiveSkipCount = (this._consecutiveSkipCount || 0) + 1;
+            showToast(`Buffering timed out for "${this.currentTrack?.title || 'track'}". Skipping to next...`);
+            this.next();
+          }
+        }
+      }, 10000);
+    }
 
     updatePlayPauseIcons(!this.audio?.paused);
 
@@ -572,7 +653,7 @@ const BrowserPlayer = {
     const title = track.title || track.info?.title || "Spy Sec Music";
     const artist = track.author || track.artist || track.info?.author || "CyberSpy 404";
     const album = track.album || "Lossless Sovereign Audio";
-    let art = track.artworkUrl || track.info?.artworkUrl || "logo.png";
+    let art = getTrackArtwork(track);
     if (art.startsWith("/")) art = art.substring(1);
     const fullArtUrl = (art.startsWith("http://") || art.startsWith("https://")) ? art : new URL(art, window.location.href).href;
 
@@ -605,12 +686,12 @@ const BrowserPlayer = {
           artist: artist,
           album: album,
           artwork: [
-            { src: fullArtUrl, sizes: "96x96", type: "image/png" },
-            { src: fullArtUrl, sizes: "128x128", type: "image/png" },
-            { src: fullArtUrl, sizes: "192x192", type: "image/png" },
-            { src: fullArtUrl, sizes: "256x256", type: "image/png" },
-            { src: fullArtUrl, sizes: "384x384", type: "image/png" },
-            { src: fullArtUrl, sizes: "512x512", type: "image/png" }
+            { src: fullArtUrl, sizes: "96x96" },
+            { src: fullArtUrl, sizes: "128x128" },
+            { src: fullArtUrl, sizes: "192x192" },
+            { src: fullArtUrl, sizes: "256x256" },
+            { src: fullArtUrl, sizes: "384x384" },
+            { src: fullArtUrl, sizes: "512x512" }
           ]
         });
         navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
@@ -664,12 +745,22 @@ const BrowserPlayer = {
       track.duration = parseDurationMs(track.duration);
     }
 
-    this.setBuffering(true);
-    window._vivoCapsuleDismissed = false; // Reset Vivo OriginOS capsule notification visibility on new track
-
-    // Immediately reflect selected track in UI so user gets instant visual confirmation
+    // Immediately switch currentTrack so UI and notification bar display the new song and thumbnail instantly
+    track.artworkUrl = getTrackArtwork(track);
     this.currentTrack = track;
     updateUIWithTrack(track, false);
+
+    // Pre-warm the Android image downloader ASAP so thumbnail is ready when updateMediaState arrives
+    if (window.AndroidAudioBridge && typeof window.AndroidAudioBridge.preloadCover === "function") {
+      const artForPreload = track.artworkUrl;
+      if (artForPreload && artForPreload !== "logo.png" && (artForPreload.startsWith("http://") || artForPreload.startsWith("https://"))) {
+        try { window.AndroidAudioBridge.preloadCover(artForPreload); } catch (_) {}
+      }
+    }
+
+    this.updateMediaSession(track, false, true);
+    this.setBuffering(true);
+
     if (typeof updateAllQueueBadges === "function") updateAllQueueBadges();
     if (typeof updateHeartButtonStatus === "function") updateHeartButtonStatus();
 
@@ -693,8 +784,39 @@ const BrowserPlayer = {
     if (!hasPlayableStream) {
       showToast(`Resolving audio: ${track.title}...`);
       try {
-        const query = (track.query || track.url || `${track.title} ${track.author || track.artist || ""}`).trim();
-        const resolveUrl = resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=true`);
+        let query = "";
+        const rawYt = (track.url && isYouTubeUrl(track.url)) ? track.url.trim() :
+                      ((track.query && isYouTubeUrl(track.query)) ? track.query.trim() :
+                      ((track.uri && isYouTubeUrl(track.uri)) ? track.uri.trim() : null));
+
+        if (rawYt) {
+          const vMatch = rawYt.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) ||
+                         rawYt.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) ||
+                         rawYt.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
+          if (vMatch && vMatch[1]) {
+            query = `https://www.youtube.com/watch?v=${vMatch[1]}`;
+          } else {
+            const listId = extractYouTubePlaylistId(rawYt);
+            if (listId) {
+              query = `https://www.youtube.com/playlist?list=${listId}`;
+            } else {
+              query = rawYt;
+            }
+          }
+        } else if (track.url && (track.url.startsWith("http://") || track.url.startsWith("https://")) && !track.url.includes("spotify.com") && !track.url.includes("/playlist/") && !track.url.includes(":playlist:")) {
+          query = track.url;
+        } else if (track.query && (track.query.startsWith("http://") || track.query.startsWith("https://")) && !track.query.includes("spotify.com") && !track.query.includes("/playlist/") && !track.query.includes(":playlist:")) {
+          query = track.query;
+        } else {
+          const rawTitle = track.title || "";
+          const rawArtist = track.author || track.artist || "";
+          const cleanTitle = rawTitle.replace(/\u00A0/g, " ").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+          const cleanArtist = rawArtist.replace(/\u00A0/g, " ").split(/[,&x/]|feat\.|ft\./i)[0].trim();
+          query = (track.query && !track.query.includes("/playlist/") && !track.query.includes("spotify.com") ? track.query : (cleanArtist ? `${cleanTitle} ${cleanArtist}` : (cleanTitle || rawTitle))).trim();
+        }
+        const expT = encodeURIComponent(track.title || "");
+        const expA = encodeURIComponent(track.artist || track.author || "");
+        const resolveUrl = resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&title=${expT}&artist=${expA}&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}&channel=${encodeURIComponent(activeSystemChannel)}&set=true`);
         const res = await fetch(resolveUrl);
         const data = await res.json();
 
@@ -709,15 +831,76 @@ const BrowserPlayer = {
           this.setBuffering(false);
           return;
         }
+        if (data.isPlaylist && data.playlist && data.playlist.tracks?.length > 0) {
+          const plTracks = data.playlist.tracks;
+          const startIdx = Math.max(0, Math.min(data.startIndex || 0, plTracks.length - 1));
+          if (!data.track && plTracks[startIdx]) {
+            data.track = plTracks[startIdx];
+            data.success = true;
+          }
+
+          const isSpotifyPl = Boolean(data.playlist.id?.startsWith("spotify") || data.playlist.type === "spotify" || (data.playlist.url && data.playlist.url.includes("spotify.com")));
+          const remainingPlaylistTracks = [];
+          const queueIndices = [];
+          for (let i = startIdx + 1; i < plTracks.length; i++) queueIndices.push(i);
+          for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+
+          for (const i of queueIndices) {
+            const pt = plTracks[i];
+            const rawT = (pt.title || `Track ${i + 1}`).replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+            const rawA = (pt.artist || pt.author || pt.uploader || data.playlist.uploader || (isSpotifyPl ? "Spotify Artist" : "YouTube")).replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+            const cleanT = rawT.replace(/\(.*?\)|\[.*?\]/g, "").trim();
+            const cleanA = rawA.split(/[,&x/]|feat\.|ft\./i)[0].trim();
+            const videoId = (!isSpotifyPl && pt.id && !pt.id.startsWith("yt_")) ? pt.id : (pt.url ? (pt.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || pt.url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || [])[1] : null);
+            const trackUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : (!isSpotifyPl && pt.url && !pt.url.includes("playlist?list=") && !pt.url.includes("spotify.com") ? pt.url.split("&list=")[0].split("?list=")[0] : null);
+            const ytThumb = videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
+            const ptArt = (pt.artworkUrl && pt.artworkUrl !== data.playlist.coverUrl && pt.artworkUrl !== "logo.png")
+              ? pt.artworkUrl
+              : (ytThumb || pt.artworkUrl || data.playlist.artworkUrl || data.playlist.coverUrl || "logo.png");
+            
+            remainingPlaylistTracks.push({
+              id: isSpotifyPl ? (pt.id || `sp-${i}-${Date.now()}`) : (videoId ? `yt-${videoId}` : `yt-${i}-${Date.now()}`),
+              title: rawT,
+              artist: rawA,
+              author: rawA,
+              duration: pt.duration || 180000,
+              durationMs: pt.durationMs || (pt.duration ? pt.duration * 1000 : 180000),
+              query: trackUrl || (cleanA ? `${cleanT} ${cleanA}` : `${rawT} ${rawA}`).trim(),
+              url: trackUrl,
+              source: isSpotifyPl ? "spotify" : "youtube",
+              artworkUrl: ptArt,
+              filterMode: "filterless"
+            });
+          }
+
+          if (remainingPlaylistTracks.length > 0) {
+            const curQ = Array.isArray(this.queue) ? this.queue : [];
+            const existingIds = new Set(curQ.map(t => t.id || t.query));
+            const toAdd = remainingPlaylistTracks.filter(t => !existingIds.has(t.id) && !existingIds.has(t.query));
+            if (toAdd.length > 0) {
+              this.queue = [...toAdd, ...curQ.filter(t => !t.isRadio)];
+              renderQueueView();
+              renderSidebarLibrary("queue");
+              if (typeof saveUserQueue === "function") saveUserQueue();
+              showToast(`Added ${toAdd.length} ${isSpotifyPl ? "Spotify" : "YouTube"} playlist tracks to queue`);
+            }
+          }
+        }
+
         if (data.success && data.track) {
+          const resolvedArt = data.track.artworkUrl || data.track.image || data.track.thumbnail || data.track.info?.artworkUrl;
+          const finalArt = (resolvedArt && resolvedArt !== "logo.png") ? resolvedArt : getTrackArtwork(data.track || track);
           track = {
             ...track,
             ...data.track,
-            title: track.title && track.title !== "YouTube Audio" ? track.title : data.track.title,
-            author: track.author && track.author !== "Trending Music" ? track.author : (data.track.author || "YouTube Music"),
+            title: (data.track.title && data.track.title !== "YouTube Audio") ? data.track.title : (track.title || data.track.title),
+            author: (data.track.author && data.track.author !== "Trending Music") ? data.track.author : (track.author || data.track.author),
             duration: (data.track.duration && data.track.duration > 0) ? parseDurationMs(data.track.duration) : (track.duration || 0),
-            artworkUrl: track.artworkUrl && track.artworkUrl !== "logo.png" ? track.artworkUrl : (data.track.artworkUrl || "logo.png")
+            artworkUrl: finalArt
           };
+          this.currentTrack = track;
+          updateUIWithTrack(track, false);
+          this.updateMediaSession(track, false, true);
         }
       } catch (err) {
         console.error("Auto stream resolve error:", err);
@@ -728,8 +911,8 @@ const BrowserPlayer = {
       // Secondary client-side fallback if server resolution yielded no playable stream
       if (!track.streamUrl || !isDirectPlayableAudioUrl(track.streamUrl)) {
         try {
-          const cleanTitle = (track.title || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
-          const cleanArtist = (track.author || track.artist || "").split(/[,&x/]|feat\.|ft\./i)[0].trim();
+          const cleanTitle = (track.title || "").replace(/\u00A0/g, " ").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+          const cleanArtist = (track.author || track.artist || "").replace(/\u00A0/g, " ").split(/[,&x/]|feat\.|ft\./i)[0].trim();
           const fallbackQuery = cleanArtist ? `${cleanTitle} ${cleanArtist}` : cleanTitle;
           const searchRes = await fetch(resolveApiUrl(`/api/search?q=${encodeURIComponent(fallbackQuery)}&type=tracks&filterMode=${encodeURIComponent(track.filterMode || currentFilterMode)}`));
           const searchData = await searchRes.json();
@@ -739,7 +922,11 @@ const BrowserPlayer = {
             track.streamUrl = match.streamUrl;
             track.proxyStreamUrl = match.proxyStreamUrl || `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(match.streamUrl)}`;
             if (!track.duration && match.duration) track.duration = parseDurationMs(match.duration);
-            if ((!track.artworkUrl || track.artworkUrl === "logo.png") && match.artworkUrl) track.artworkUrl = match.artworkUrl;
+            const matchArt = match.artworkUrl || match.image || match.thumbnail;
+            if (matchArt && matchArt !== "logo.png") track.artworkUrl = matchArt;
+            this.currentTrack = track;
+            updateUIWithTrack(track, false);
+            this.updateMediaSession(track, false, true);
           }
         } catch (e) {
           console.warn("Client fallback resolve error:", e);
@@ -768,9 +955,20 @@ const BrowserPlayer = {
     if (!src) {
       this._isChangingTrack = false;
       this.setBuffering(false);
+
+      // Resilient Queue Auto-Advance: If track has no available stream, don't freeze the entire playlist!
+      if (this.queue && this.queue.length > 0 && (this._consecutiveSkipCount || 0) < 4) {
+        this._consecutiveSkipCount = (this._consecutiveSkipCount || 0) + 1;
+        showToast(`Skipped unavailable: "${track.title}". Starting next...`);
+        setTimeout(() => {
+          if (!this.isPlaying()) {
+            this.next();
+          }
+        }, 300);
+        return;
+      }
+      this._consecutiveSkipCount = 0;
       showToast(`Could not play "${track.title}" - audio stream unavailable. Tap Next to continue.`);
-      // IMPORTANT: Do NOT auto-skip to this.next() here!
-      // Recursive skipping on missing stream is what previously emptied the playlist queue down to the last track!
       return;
     }
 
@@ -797,6 +995,7 @@ const BrowserPlayer = {
       playPromise.then(() => {
         if (this._playRequestId !== currentReqId) return;
         this._isChangingTrack = false;
+        this._consecutiveSkipCount = 0;
         this.setBuffering(false);
         if (typeof EqualizerEngine !== "undefined" && EqualizerEngine.isEnabled) {
           EqualizerEngine.resume();
@@ -933,6 +1132,50 @@ const BrowserPlayer = {
         return;
       }
       if (data.success && data.track) {
+        if (data.isPlaylist && data.playlist && Array.isArray(data.playlist.tracks) && data.playlist.tracks.length > 1) {
+          const plTracks = data.playlist.tracks;
+          const startIdx = Math.max(0, Math.min(data.startIndex || 0, plTracks.length - 1));
+          const remaining = [];
+          const queueIndices = [];
+          for (let i = startIdx + 1; i < plTracks.length; i++) queueIndices.push(i);
+          for (let i = 0; i < startIdx; i++) queueIndices.push(i);
+
+          for (const i of queueIndices) {
+            const pt = plTracks[i];
+            const ptId = (pt.id && !pt.id.startsWith("yt_")) ? pt.id : (pt.url ? (pt.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || pt.url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || [])[1] : null);
+            const ptUrl = ptId ? `https://www.youtube.com/watch?v=${ptId}` : (pt.url && !pt.url.includes("playlist?list=") ? pt.url.split("&list=")[0].split("?list=")[0] : null);
+            const ptQuery = ptUrl || `${pt.title} ${pt.artist || pt.uploader || ""}`.trim();
+            const ytThumb = ptId ? `https://i.ytimg.com/vi/${ptId}/hqdefault.jpg` : null;
+            remaining.push({
+              id: ptId ? `yt-${ptId}` : `yt-${i}-${Date.now()}`,
+              title: pt.title,
+              author: pt.artist || pt.author || pt.uploader || "YouTube",
+              artist: pt.artist || pt.author || pt.uploader || "YouTube",
+              duration: pt.duration || 180000,
+              durationMs: pt.durationMs || (pt.duration ? pt.duration * 1000 : 180000),
+              query: ptQuery,
+              url: ptUrl,
+              source: "youtube",
+              artworkUrl: pt.artworkUrl || ytThumb || "logo.png",
+              filterMode: "filterless"
+            });
+          }
+          if (immediate || isCurrentlySilent) {
+            this.queue = [...remaining];
+            renderQueueView();
+            renderSidebarLibrary("queue");
+            if (typeof saveUserQueue === "function") saveUserQueue();
+            await this.playTrack(data.track);
+          } else {
+            this.queue = [...(this.queue || []), data.track, ...remaining];
+            showToast(`Queued ${plTracks.length} playlist tracks in Browser`);
+            renderQueueView();
+            renderSidebarLibrary("queue");
+            if (typeof saveUserQueue === "function") saveUserQueue();
+          }
+          return;
+        }
+
         if (immediate || isCurrentlySilent) {
           if (!data.track.isRadio) {
             this.isRadioActive = false;
@@ -986,70 +1229,93 @@ const BrowserPlayer = {
     }
   },
 
-  playPlaylistAtIndex(playlistOrId, startIndex = 0) {
+  playPlaylistAtIndex(playlistOrId, startIndex = 0, preservePreviousQueue = true) {
     const playlist = (typeof resolvePlaylistObject === "function" ? resolvePlaylistObject(playlistOrId) : null) || playlistOrId;
     if (!playlist || !playlist.tracks || playlist.tracks.length === 0) return;
     currentActivePlaylist = playlist;
     this.prime();
+    this._consecutiveSkipCount = 0;
     const tracks = playlist.tracks;
-    const safeIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
+    const numericStart = (typeof startIndex === "number" && !isNaN(startIndex)) ? Math.floor(startIndex) : 0;
+    const safeIndex = Math.max(0, Math.min(numericStart, tracks.length - 1));
     showToast(`Starting ${playlist.name || playlist.title}...`);
 
     this.isRadioActive = false;
     this.activeRadioSeed = null;
-    this.queue = [];
-    this.history = [];
 
-    // Push preceding songs to history so user can navigate back
-    for (let i = 0; i < safeIndex; i++) {
-      const p = tracks[i];
-      const durMs = p.durationMs || parseDurationMs(p.duration);
-      this.history.push({
-        title: p.title,
-        author: p.artist || p.author || playlist.name,
-        artist: p.artist || p.author || playlist.name,
-        duration: durMs,
-        artworkUrl: p.artworkUrl || playlist.coverUrl || "logo.png",
-        query: p.query || `${p.title} ${p.artist || ""}`.trim(),
-        url: p.url || null,
-        streamUrl: p.streamUrl || null,
-        rawStreamUrl: p.rawStreamUrl || null,
-        filterMode: "filterless"
-      });
+    // Preserve previous queue so existing user songs retain higher preference
+    const previousQueue = (preservePreviousQueue && Array.isArray(this.queue) && this.queue.length > 0)
+      ? this.queue.filter(t => !t.isRadio && !tracks.some(tr => tr.id && (tr.id === t.id || tr.id === t.query)))
+      : [];
+
+    if (!Array.isArray(this.history)) this.history = [];
+    if (this.currentTrack && !this.history.some(h => h.id === this.currentTrack.id)) {
+      this.history.push(this.currentTrack);
     }
 
-    const cur = tracks[safeIndex];
-    const curDurMs = cur.durationMs || parseDurationMs(cur.duration);
-    const currentTrack = {
-      title: cur.title,
-      author: cur.artist || cur.author || playlist.name,
-      artist: cur.artist || cur.author || playlist.name,
-      duration: curDurMs,
-      artworkUrl: cur.artworkUrl || playlist.coverUrl || "logo.png",
-      query: cur.query || `${cur.title} ${cur.artist || ""}`.trim(),
-      url: cur.url || null,
-      streamUrl: cur.streamUrl || null,
-      rawStreamUrl: cur.rawStreamUrl || null,
-      filterMode: "filterless"
+    const sanitizePlaylistItem = (item) => {
+      const rawT = (item.title || "").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+      const rawA = (item.artist || item.author || playlist.name || "Artist").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+      const primaryA = rawA.split(/[,&x/]|feat\.|ft\./i)[0].trim();
+      const cleanTitle = rawT.replace(/\(.*?\)|\[.*?\]/g, "").trim();
+      const rawUrl = item.url || item.uri || (typeof item.query === "string" && (item.query.startsWith("http://") || item.query.startsWith("https://")) ? item.query : null);
+      const isSpotifyItem = Boolean(item.source === "spotify" || (rawUrl && rawUrl.includes("spotify.com")) || (playlist.id && String(playlist.id).startsWith("spotify")) || (playlist.type === "spotify"));
+      let safeUrl = null;
+      if (!isSpotifyItem && rawUrl && !rawUrl.includes("/playlist/") && !rawUrl.includes(":playlist:")) {
+        const vMatch = rawUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) ||
+                       rawUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) ||
+                       rawUrl.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
+        safeUrl = vMatch ? `https://www.youtube.com/watch?v=${vMatch[1]}` : (isYouTubeUrl(rawUrl) ? rawUrl : null);
+      }
+      const query = (safeUrl && isYouTubeUrl(safeUrl)) ? safeUrl : (item.query && !item.query.includes("spotify.com") ? item.query : (primaryA ? `${cleanTitle} ${primaryA}` : `${cleanTitle} ${rawA}`)).trim();
+      const durMs = item.durationMs || parseDurationMs(item.duration);
+      let itemArt = item.artworkUrl || item.coverUrl || item.image || item.thumbnail;
+      const vMatch = (safeUrl ? (safeUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || safeUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i)) : null) ||
+                     (item.id && typeof item.id === "string" ? item.id.match(/^yt-([a-zA-Z0-9_-]{11})/i) : null);
+      if (vMatch && vMatch[1]) {
+        const ytThumb = `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg`;
+        if (!itemArt || itemArt === "logo.png" || itemArt === playlist.coverUrl) {
+          itemArt = ytThumb;
+        }
+      }
+      if (!itemArt || itemArt === playlist.coverUrl) {
+        itemArt = item.artworkUrl || (playlist.coverUrl && !playlist.coverUrl.includes("i.ytimg.com") ? playlist.coverUrl : (item.artworkUrl || "logo.png"));
+      }
+      return {
+        id: item.id || `track-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        title: rawT,
+        author: rawA,
+        artist: rawA,
+        duration: durMs,
+        durationMs: durMs,
+        artworkUrl: itemArt,
+        query: query,
+        url: safeUrl,
+        streamUrl: item.streamUrl || null,
+        rawStreamUrl: item.rawStreamUrl || null,
+        filterMode: "filterless",
+        source: isSpotifyItem ? "spotify" : (item.source || (safeUrl && isYouTubeUrl(safeUrl) ? "youtube" : undefined))
+      };
     };
 
-    // Subsequent songs populate the Upcoming Queue
-    for (let i = safeIndex + 1; i < tracks.length; i++) {
-      const t = tracks[i];
-      const tDurMs = t.durationMs || parseDurationMs(t.duration);
-      this.queue.push({
-        title: t.title,
-        author: t.artist || t.author || playlist.name,
-        artist: t.artist || t.author || playlist.name,
-        duration: tDurMs,
-        artworkUrl: t.artworkUrl || playlist.coverUrl || "logo.png",
-        query: t.query || `${t.title} ${t.artist || ""}`.trim(),
-        url: t.url || null,
-        streamUrl: t.streamUrl || null,
-        rawStreamUrl: t.rawStreamUrl || null,
-        filterMode: "filterless"
-      });
+    // Push preceding songs from this playlist to history so user can navigate back
+    for (let i = 0; i < safeIndex; i++) {
+      this.history.push(sanitizePlaylistItem(tracks[i]));
     }
+
+    const currentTrack = sanitizePlaylistItem(tracks[safeIndex]);
+
+    // Subsequent songs from playlist (then wrap-around preceding songs if started mid-playlist)
+    const playlistUpcoming = [];
+    for (let i = safeIndex + 1; i < tracks.length; i++) {
+      playlistUpcoming.push(sanitizePlaylistItem(tracks[i]));
+    }
+    for (let i = 0; i < safeIndex; i++) {
+      playlistUpcoming.push(sanitizePlaylistItem(tracks[i]));
+    }
+
+    // Upcoming playlist tracks take immediate priority in the queue, followed by any previous queue
+    this.queue = [...playlistUpcoming, ...previousQueue];
 
     renderQueueView();
     renderSidebarLibrary("queue");
@@ -1498,7 +1764,7 @@ const BrowserPlayer = {
             const title = track.title || "Spy Sec Music";
             const artist = track.author || track.artist || "CyberSpy 404";
             const album = track.album || "Lossless Sovereign Audio";
-            let art = track.artworkUrl || "logo.png";
+            let art = getTrackArtwork(track);
             if (art.startsWith("/")) art = art.substring(1);
             const fullArtUrl = (art.startsWith("http://") || art.startsWith("https://")) ? art : new URL(art, window.location.href).href;
             const isPlaying = Boolean(this.audio && !this.audio.paused);
@@ -1525,6 +1791,8 @@ const BrowserPlayer = {
   },
 
   onPlay() {
+    this.setBuffering(false);
+    this._consecutiveSkipCount = 0;
     if ("mediaSession" in navigator && "playbackState" in navigator.mediaSession) {
       try { navigator.mediaSession.playbackState = "playing"; } catch (e) {}
     }
@@ -1550,6 +1818,10 @@ const BrowserPlayer = {
     if (typeof ReactiveVisualizerEngine !== "undefined") ReactiveVisualizerEngine.stop();
     this.reportState();
     if (typeof savePlaybackState === "function") savePlaybackState();
+  },
+
+  onTrackEnd() {
+    return this.onEnded();
   },
 
   onEnded() {
@@ -1584,16 +1856,25 @@ const BrowserPlayer = {
     }
 
     // Guard 2: If expected duration is known and significant (> 8s), guard against premature ends
-    // caused by mobile network stalls, chunk boundaries, or buffer underruns
+    // caused by mobile network stalls or buffer underruns.
+    // Allow at most 1 resume attempt, and if audio.ended is true or near expected end (within 15s), advance to next track.
     if (expectedDur > 8 && cur < (expectedDur - 5)) {
-      console.warn(`[Audio Engine] False premature ended event caught at ${cur.toFixed(1)}s / ${expectedDur.toFixed(1)}s. Resuming playback...`);
-      this.audio.play().catch(() => {});
-      return;
+      if (!this._prematureResumeAttempts) this._prematureResumeAttempts = 0;
+      if (this._prematureResumeAttempts < 1 && (expectedDur - cur) > 15) {
+        this._prematureResumeAttempts++;
+        console.warn(`[Audio Engine] Premature ended event caught at ${cur.toFixed(1)}s / ${expectedDur.toFixed(1)}s. Attempting resume...`);
+        this.audio.play().catch(() => {
+          this._prematureResumeAttempts = 0;
+          this.next();
+        });
+        return;
+      }
     }
+    this._prematureResumeAttempts = 0;
 
     // Debounce rapid duplicate ended events
     const now = Date.now();
-    if (this._lastEndedTimestamp && (now - this._lastEndedTimestamp) < 1500) {
+    if (this._lastEndedTimestamp && (now - this._lastEndedTimestamp) < 1200) {
       console.warn("[Audio Engine] Debounced rapid duplicate ended event.");
       return;
     }
@@ -1601,79 +1882,113 @@ const BrowserPlayer = {
 
     if (typeof SleepTimerEngine !== "undefined") SleepTimerEngine.checkTrackEnd();
 
+    // Custom lifecycle callback hook if consumer/plugin attached one
+    if (typeof this.onTrackFinished === "function") {
+      try { this.onTrackFinished(this.currentTrack); } catch (e) {}
+    }
+
+    // Dispatch custom DOM event for external listeners
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(new CustomEvent("audiotrackend", { detail: { track: this.currentTrack } }));
+      } catch (e) {}
+    }
+
     if (this.repeatMode === "track") {
       this.audio.currentTime = 0;
       this.audio.play().catch(() => {});
     } else {
+      console.log(`[Audio Engine] Track finished: "${this.currentTrack.title}". Auto-advancing to next track in queue (${this.queue.length} remaining)...`);
       this.next();
     }
   },
 
   onError(e) {
-    if (this._isChangingTrack || this.audio?.error?.code === 1) {
+    if (this.audio?.error?.code === 1) {
       // MEDIA_ERR_ABORTED (code 1): Track was intentionally interrupted/aborted by a fast skip or new track load.
       return;
     }
     console.error("Browser audio error:", e);
-    if (!this.currentTrack) return;
-
-    // Retry Strategy 1: Switch between proxy and direct CDN stream
-    if (this.audio?.src && this.audio.src.includes("/api/stream-audio") && this.currentTrack.streamUrl) {
-      console.log("Audio proxy failed or stalled, falling back to direct CDN stream without CORS restrictions...");
-      try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
-      this.audio.src = this.currentTrack.streamUrl;
-      this.audio.currentTime = 0;
-      this.audio.play().catch(() => {});
-      return;
-    } else if (this.audio?.src && !this.audio.src.includes("/api/stream-audio") && this.currentTrack.streamUrl) {
-      console.log("Direct stream failed, falling back to server audio proxy with fresh timestamp...");
-      try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
-      this.audio.src = resolveApiUrl(`/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(this.currentTrack.streamUrl)}&t=${Date.now()}`);
-      this.audio.currentTime = 0;
-      this.audio.play().catch(() => {});
+    if (!this.currentTrack) {
+      this._isChangingTrack = false;
+      this.setBuffering(false);
       return;
     }
 
-    // Retry Strategy 2: If primary failed, re-resolve via JioSaavn CDN
-    if (!this.currentTrack._fallbackAttempted) {
-      this.currentTrack._fallbackAttempted = true;
-      const cleanTitle = (this.currentTrack.title || "").replace(/\(.*?\)|\[.*?\]/g, "").trim();
-      const cleanArtist = (this.currentTrack.author || this.currentTrack.artist || "").split(/[,&x/]|feat\.|ft\./i)[0].trim();
+    const track = this.currentTrack;
+    track._errorRetryCount = (track._errorRetryCount || 0) + 1;
+
+    // Retry Strategy 1: Attempt alternate stream source ONCE only (switch between proxy and direct CDN)
+    if (track._errorRetryCount === 1) {
+      if (this.audio?.src && this.audio.src.includes("/api/stream-audio") && track.streamUrl) {
+        console.log("Audio proxy failed, attempting direct CDN stream...");
+        try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
+        this.audio.src = track.streamUrl;
+        this.audio.currentTime = 0;
+        this.audio.play().catch(() => {});
+        return;
+      } else if (this.audio?.src && !this.audio.src.includes("/api/stream-audio") && track.streamUrl) {
+        console.log("Direct stream failed, attempting server audio proxy...");
+        try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
+        this.audio.src = resolveApiUrl(`/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(track.streamUrl)}&t=${Date.now()}`);
+        this.audio.currentTime = 0;
+        this.audio.play().catch(() => {});
+        return;
+      }
+    }
+
+    // Retry Strategy 2: If primary failed, re-resolve with clean query once
+    if (!track._fallbackAttempted) {
+      track._fallbackAttempted = true;
+      const cleanTitle = (track.title || "").replace(/\u00A0/g, " ").replace(/\(.*?\)|\[.*?\]/g, "").trim();
+      const cleanArtist = (track.author || track.artist || "").replace(/\u00A0/g, " ").split(/[,&x/]|feat\.|ft\./i)[0].trim();
       const query = cleanArtist ? `${cleanTitle} ${cleanArtist}` : cleanTitle;
       console.log(`Re-resolving fallback audio for: ${query}`);
       fetch(resolveApiUrl(`/api/resolve-track?q=${encodeURIComponent(query)}&filterMode=filterless&channel=${encodeURIComponent(activeSystemChannel)}&forceSaavn=true`))
         .then(r => r.json())
         .then(d => {
           if (d.success && d.track?.streamUrl) {
-            this.currentTrack.streamUrl = d.track.streamUrl;
-            this.currentTrack.proxyStreamUrl = d.track.proxyStreamUrl;
+            track.streamUrl = d.track.streamUrl;
+            track.proxyStreamUrl = d.track.proxyStreamUrl;
             const chosenSrc = d.track.streamUrl || resolveApiUrl(d.track.proxyStreamUrl);
             try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
             this.audio.src = chosenSrc;
             this.audio.currentTime = 0;
             this.audio.play().catch(() => {});
           } else {
-            this._isChangingTrack = false;
-            this.setBuffering(false);
-            showToast(`Audio unavailable for "${this.currentTrack.title}". Tap Next to skip.`);
+            this.handlePlaybackFailure(track);
           }
         })
         .catch(() => {
-          this._isChangingTrack = false;
-          this.setBuffering(false);
-          showToast(`Audio unavailable for "${this.currentTrack.title}". Tap Next to skip.`);
+          this.handlePlaybackFailure(track);
         });
-    } else {
-      this._isChangingTrack = false;
-      this.setBuffering(false);
-      showToast(`Playback error for "${this.currentTrack.title}". Tap Next to skip.`);
+      return;
     }
+
+    this.handlePlaybackFailure(track);
+  },
+
+  handlePlaybackFailure(track) {
+    this._isChangingTrack = false;
+    this.setBuffering(false);
+    if (this.queue && this.queue.length > 0 && (this._consecutiveSkipCount || 0) < 4) {
+      this._consecutiveSkipCount = (this._consecutiveSkipCount || 0) + 1;
+      showToast(`Track "${track.title}" unavailable. Playing next...`);
+      setTimeout(() => {
+        if (!this.isPlaying()) {
+          this.next();
+        }
+      }, 300);
+      return;
+    }
+    this._consecutiveSkipCount = 0;
+    showToast(`Playback error for "${track.title}". Tap another track to continue.`);
   },
 
   reportState() {
     if (!this.audio) return;
     const targetChannel = activeSystemChannel || (isMobileAppEnvironment ? "app" : "browser");
-    fetch("/api/action", {
+    fetch(resolveApiUrl("/api/action"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2344,8 +2659,8 @@ const ReactiveVisualizerEngine = {
       const y2 = centerY + Math.sin(angle) * (radius + barHeight);
 
       const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-      grad.addColorStop(0, "rgba(30, 215, 96, 0.4)");
-      grad.addColorStop(1, "rgba(16, 185, 129, 0.95)");
+      grad.addColorStop(0, "rgba(255, 255, 255, 0.35)");
+      grad.addColorStop(1, "rgba(226, 232, 240, 0.95)");
 
       ctx.strokeStyle = grad;
       ctx.lineWidth = 3.5;
@@ -2471,6 +2786,12 @@ function switchView(viewName, addToHistory = true, isForward = false) {
 
   currentActiveView = viewName;
   updateNavButtonsState();
+
+  // Reset any custom playlist ambient gradient when navigating away from playlist
+  const ambientGrad = document.getElementById("stageAmbientGradient");
+  if (ambientGrad && viewName !== "playlist") {
+    ambientGrad.style.background = "";
+  }
 
   // Scroll to top of main stage
   const mainStage = document.getElementById("spotifyMainStage");
@@ -2778,18 +3099,32 @@ async function importAndPlaySpotifyLink(url, target = activeSystemChannel) {
       name: pl.title || "Imported Spotify Playlist",
       desc: pl.description || `Imported Spotify ${pl.type} • ${pl.artist}`,
       author: pl.artist || "Spotify Curated",
-      gradient: "linear-gradient(135deg, #1db954 0%, #121212 100%)",
+      gradient: "linear-gradient(145deg, #1C2028 0%, #0D0F14 100%)",
       tracksCount: pl.trackCount,
       coverUrl: pl.image,
       tags: ["Spotify", pl.type, pl.artist],
-      tracks: pl.tracks.map(t => ({
-        title: t.title,
-        artist: t.artist,
-        duration: formatTime(t.duration),
-        query: t.query || `${t.artist} - ${t.title}`,
-        previewUrl: t.previewUrl,
-        artworkUrl: t.artworkUrl
-      }))
+      tracks: pl.tracks.map((t, idx) => {
+        const rawT = (t.title || "").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+        const rawA = (t.artist || pl.artist || "Artist").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+        const primaryA = rawA.split(/[,&x/]|feat\.|ft\./i)[0].trim();
+        const cleanT = rawT.replace(/\(.*?\)|\[.*?\]/g, "").trim();
+        const safeQuery = (t.query || (primaryA ? `${cleanT} ${primaryA}` : `${cleanT} ${rawA}`)).trim();
+        const rawUrl = t.url || null;
+        const safeUrl = (rawUrl && !rawUrl.includes("/playlist/") && !rawUrl.includes(":playlist:")) ? rawUrl : null;
+        return {
+          id: t.id || `sp-${idx + 1}-${Date.now()}`,
+          title: rawT,
+          artist: rawA,
+          author: rawA,
+          duration: typeof t.duration === "number" ? formatTime(t.duration) : (t.duration || "3:30"),
+          durationMs: typeof t.duration === "number" ? t.duration : parseDurationMs(t.duration),
+          query: safeQuery,
+          url: safeUrl,
+          previewUrl: t.previewUrl || null,
+          artworkUrl: t.artworkUrl || pl.image || "logo.png",
+          source: "spotify"
+        };
+      })
     };
 
     customPlaylists.unshift(customPl);
@@ -2802,8 +3137,23 @@ async function importAndPlaySpotifyLink(url, target = activeSystemChannel) {
 
     showToast(`Loaded Spotify Playlist: ${pl.title} (${pl.trackCount} tracks)!`);
 
+    let startIdx = 0;
+    const indexMatch = cleanUrl.match(/[?&]index=(\d+)/i);
+    if (indexMatch && indexMatch[1]) {
+      const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+      if (parsedIdx >= 0 && parsedIdx < customPl.tracks.length) {
+        startIdx = parsedIdx;
+      }
+    }
+    const trackMatch = cleanUrl.match(/\/track\/([a-zA-Z0-9]+)/i) || cleanUrl.match(/spotify:track:([a-zA-Z0-9]+)/i);
+    if (trackMatch && trackMatch[1]) {
+      const tId = trackMatch[1];
+      const matchedIdx = customPl.tracks.findIndex(t => (t.url && t.url.includes(tId)) || (t.id && t.id.includes(tId)));
+      if (matchedIdx >= 0) startIdx = matchedIdx;
+    }
+
     if (target === "browser" || target === "all") {
-      BrowserPlayer.playPlaylist(customPl);
+      BrowserPlayer.playPlaylistAtIndex(customPl, startIdx, true);
     }
     if (target === "bot" || target === "all") {
       sendAction("play_now", cleanUrl, { targetChannel: "bot", immediate: true });
@@ -2822,8 +3172,6 @@ async function playYouTubeLink(url, immediate = true, target = activeSystemChann
   const cleanUrl = (url || "").trim();
   if (!cleanUrl) return;
 
-  showToast("Resolving YouTube audio stream...");
-
   // If playing through bot only
   if (target === "bot") {
     sendAction(immediate ? "play_now" : "play_query", cleanUrl, { targetChannel: "bot", immediate });
@@ -2832,6 +3180,126 @@ async function playYouTubeLink(url, immediate = true, target = activeSystemChann
   }
 
   const isLocalPlayer = target === "browser" || target === "app" || target === "all";
+
+  // Check if URL is or contains a YouTube playlist
+  const ytPlaylistId = extractYouTubePlaylistId(cleanUrl);
+  if (ytPlaylistId) {
+    showToast("Fetching YouTube playlist tracks...");
+    try {
+      const res = await fetch(resolveApiUrl(`/api/youtube-playlist?url=${encodeURIComponent(cleanUrl)}`));
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.playlist && Array.isArray(data.playlist.tracks) && data.playlist.tracks.length > 0) {
+          const pl = data.playlist;
+          const playlistId = `yt-${pl.id || ytPlaylistId || Date.now()}`;
+          const customPl = {
+            id: playlistId,
+            genre: "youtube-imported",
+            badge: "YouTube Playlist",
+            emblem: "",
+            name: pl.title || pl.name || "YouTube Playlist",
+            desc: `YouTube Playlist • ${pl.uploader || "YouTube"} • ${pl.tracks.length} tracks`,
+            author: pl.uploader || "YouTube",
+            gradient: "linear-gradient(135deg, #ff0000 0%, #282828 100%)",
+            tracksCount: pl.tracks.length,
+            coverUrl: pl.coverUrl || pl.artworkUrl || (pl.tracks[0] && pl.tracks[0].artworkUrl) || "logo.png",
+            tags: ["YouTube", "Playlist"],
+            tracks: pl.tracks.map((t, idx) => {
+              const rawT = (t.title || `Track ${idx + 1}`).replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+              const rawA = (t.artist || t.author || t.uploader || pl.uploader || "YouTube").replace(/\u00A0/g, " ").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&#039;/g, "'").trim();
+              const videoId = (t.id && !t.id.startsWith("yt_")) ? t.id : (t.url ? (t.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || t.url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || [])[1] : null);
+              const trackUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : (t.url && !t.url.includes("playlist?list=") ? t.url.split("&list=")[0].split("?list=")[0] : null);
+              const trackQuery = trackUrl || `${rawT} ${rawA}`.trim();
+              const durMs = t.durationMs || (typeof t.duration === "number" ? (t.duration > 1000 ? t.duration : t.duration * 1000) : parseDurationMs(t.duration));
+              const ytThumb = videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
+              const individualArt = (t.artworkUrl && t.artworkUrl !== pl.coverUrl && t.artworkUrl !== "logo.png")
+                ? t.artworkUrl
+                : (ytThumb || t.artworkUrl || "logo.png");
+              return {
+                id: videoId ? `yt-${videoId}` : `yt-${idx}-${Date.now()}`,
+                title: rawT,
+                artist: rawA,
+                author: rawA,
+                duration: durMs,
+                durationMs: durMs,
+                query: trackQuery,
+                url: trackUrl,
+                source: "youtube",
+                artworkUrl: individualArt,
+                filterMode: "filterless"
+              };
+            })
+          };
+
+          if (typeof customPlaylists !== "undefined" && Array.isArray(customPlaylists)) {
+            customPlaylists.unshift(customPl);
+            try {
+              localStorage.setItem("imported_youtube_playlists", JSON.stringify(customPlaylists.slice(0, 15)));
+            } catch(e) {}
+          }
+
+          if (typeof renderSidebarLibrary === "function") renderSidebarLibrary("playlists");
+          if (typeof openPlaylist === "function") openPlaylist(customPl);
+          showToast(`Loaded YouTube Playlist: ${customPl.name} (${customPl.tracks.length} tracks)!`);
+
+          if (isLocalPlayer) {
+            // Check if URL has a specific video v= ID or index= to start from that index
+            let startIdx = 0;
+            const indexMatch = cleanUrl.match(/[?&]index=(\d+)/i);
+            if (indexMatch && indexMatch[1]) {
+              const parsedIdx = parseInt(indexMatch[1], 10) - 1;
+              if (parsedIdx >= 0 && parsedIdx < customPl.tracks.length) {
+                startIdx = parsedIdx;
+              }
+            }
+            const vMatch = cleanUrl.match(/[?&]v=([a-zA-Z0-9_-]+)/i);
+            if (vMatch && vMatch[1]) {
+              const matchedIdx = customPl.tracks.findIndex(t => t.id === `yt-${vMatch[1]}` || (t.url && t.url.includes(vMatch[1])));
+              if (matchedIdx >= 0) {
+                startIdx = matchedIdx;
+              } else {
+                const videoTrack = {
+                  id: `yt-${vMatch[1]}`,
+                  title: "Loading Track...",
+                  artist: customPl.author || "YouTube",
+                  author: customPl.author || "YouTube",
+                  duration: 180000,
+                  durationMs: 180000,
+                  query: `https://www.youtube.com/watch?v=${vMatch[1]}`,
+                  url: `https://www.youtube.com/watch?v=${vMatch[1]}`,
+                  source: "youtube",
+                  artworkUrl: `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg`,
+                  filterMode: "filterless"
+                };
+                customPl.tracks.unshift(videoTrack);
+                startIdx = 0;
+              }
+            }
+
+            if (immediate) {
+              BrowserPlayer.playPlaylistAtIndex(customPl, startIdx, true);
+            } else {
+              const previousQueue = Array.isArray(BrowserPlayer.queue) ? BrowserPlayer.queue.filter(t => !t.isRadio) : [];
+              BrowserPlayer.queue = [...previousQueue, ...customPl.tracks];
+              renderQueueView();
+              renderSidebarLibrary("queue");
+              if (typeof saveUserQueue === "function") saveUserQueue();
+              showToast(`Queued ${customPl.tracks.length} YouTube tracks`);
+            }
+          }
+
+          if (target === "all") {
+            sendAction(immediate ? "play_now" : "play_query", cleanUrl, { targetChannel: "bot", immediate });
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Direct /api/youtube-playlist resolution fallback:", e);
+    }
+  }
+
+  showToast("Resolving YouTube audio stream...");
 
   try {
     const shouldSet = immediate ? "true" : "false";
@@ -2861,40 +3329,51 @@ async function playYouTubeLink(url, immediate = true, target = activeSystemChann
       streamUrl: data.track.streamUrl,
       source: "youtube",
       uri: cleanUrl,
+      url: cleanUrl,
       isRadio: false
     };
 
     if (data.playlist && Array.isArray(data.playlist.tracks) && data.playlist.tracks.length > 1) {
       const plTracks = data.playlist.tracks;
-      showToast(`Loaded YouTube Playlist: ${data.playlist.name} (${plTracks.length} tracks)!`);
+      showToast(`Loaded YouTube Playlist: ${data.playlist.name || "YouTube Playlist"} (${plTracks.length} tracks)!`);
       if (isLocalPlayer) {
+        const customPl = {
+          id: `yt-${data.playlist.id || Date.now()}`,
+          name: data.playlist.name || data.playlist.title || "YouTube Playlist",
+          desc: `YouTube Playlist • ${plTracks.length} tracks`,
+          author: data.playlist.uploader || "YouTube",
+          gradient: "linear-gradient(135deg, #ff0000 0%, #282828 100%)",
+          tracksCount: plTracks.length,
+          coverUrl: data.playlist.coverUrl || track.artworkUrl || "logo.png",
+          tracks: plTracks.map((pt, idx) => {
+            const ptId = (pt.id && !pt.id.startsWith("yt_")) ? pt.id : (pt.url ? (pt.url.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || pt.url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || [])[1] : null);
+            const ptUrl = ptId ? `https://www.youtube.com/watch?v=${ptId}` : (pt.url && !pt.url.includes("playlist?list=") ? pt.url.split("&list=")[0].split("?list=")[0] : null);
+            const ptQuery = ptUrl || `${pt.title} ${pt.artist || pt.uploader || ""}`.trim();
+            const ytThumb = ptId ? `https://i.ytimg.com/vi/${ptId}/hqdefault.jpg` : null;
+            const ptArt = (pt.artworkUrl && pt.artworkUrl !== data.playlist.coverUrl && pt.artworkUrl !== "logo.png")
+              ? pt.artworkUrl
+              : (ytThumb || pt.artworkUrl || "logo.png");
+            return {
+              id: ptId ? `yt-${ptId}` : `yt-${idx}-${Date.now()}`,
+              title: pt.title,
+              author: pt.artist || pt.uploader || "YouTube",
+              artist: pt.artist || pt.uploader || "YouTube",
+              duration: pt.duration || 180,
+              durationMs: pt.durationMs || (pt.duration ? pt.duration * 1000 : 180000),
+              query: ptQuery,
+              url: ptUrl,
+              source: "youtube",
+              artworkUrl: ptArt,
+              isRadio: false
+            };
+          })
+        };
+
         if (immediate) {
-          BrowserPlayer.playTrack(track);
-          const upcoming = plTracks.slice(1).map(pt => ({
-            id: `yt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            title: pt.title,
-            author: pt.artist || "YouTube",
-            duration: pt.duration || 180,
-            query: pt.url || `${pt.title} ${pt.artist || ""}`,
-            artworkUrl: track.artworkUrl,
-            isRadio: false
-          }));
-          BrowserPlayer.queue = BrowserPlayer.queue.concat(upcoming);
-          renderQueueView();
-          renderSidebarLibrary("queue");
-          if (typeof saveUserQueue === "function") saveUserQueue();
+          BrowserPlayer.playPlaylistAtIndex(customPl, data.startIndex || 0, true);
         } else {
-          BrowserPlayer.queue.push(track);
-          const upcoming = plTracks.slice(1).map(pt => ({
-            id: `yt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            title: pt.title,
-            author: pt.artist || "YouTube",
-            duration: pt.duration || 180,
-            query: pt.url || `${pt.title} ${pt.artist || ""}`,
-            artworkUrl: track.artworkUrl,
-            isRadio: false
-          }));
-          BrowserPlayer.queue = BrowserPlayer.queue.concat(upcoming);
+          const previousQueue = Array.isArray(BrowserPlayer.queue) ? BrowserPlayer.queue.filter(t => !t.isRadio) : [];
+          BrowserPlayer.queue = [...previousQueue, ...customPl.tracks];
           showToast(`Queued ${plTracks.length} YouTube tracks`);
           renderQueueView();
           renderSidebarLibrary("queue");
@@ -2957,7 +3436,7 @@ async function recordTrackTaste(track, eventType = "play") {
 
   if (!token) return;
   try {
-    await fetch("/api/user/taste/record", {
+    await fetch(resolveApiUrl("/api/user/taste/record"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -3411,7 +3890,7 @@ function renderSpotifyRadioStations() {
     card.className = "spotify-card";
     card.innerHTML = `
       <div class="card-artwork">
-        <span class="card-top-badge" style="background: rgba(30, 215, 96, 0.95); color: #000; font-weight: 800;">${escapeHtml(station.badge)}</span>
+        <span class="card-top-badge" style="background: rgba(255, 255, 255, 0.95); color: #000; font-weight: 800;">${escapeHtml(station.badge)}</span>
         <img src="${escapeHtml(station.coverUrl)}" alt="${escapeHtml(station.name)}" loading="lazy" onerror="this.src='logo.png'">
         <button class="circle-play" title="Tune in to ${escapeHtml(station.name)}">
           <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -3608,7 +4087,7 @@ function renderAll114Surahs(filter = "") {
     card.className = "spotify-card";
     card.innerHTML = `
       <div class="card-artwork" style="background: linear-gradient(135deg, #1f2937 0%, #111827 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid rgba(255, 255, 255, 0.08);">
-        <span style="font-size: 22px; color: #1ed760; font-weight: 800;">${i}</span>
+        <span style="font-size: 22px; color: #FFFFFF; font-weight: 800;">${i}</span>
         <button class="circle-play" title="Play Surah ${i}">
           <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </button>
@@ -3714,7 +4193,8 @@ function renderSidebarLibrary(filter = "all") {
         emptyItem.innerHTML = `No tracks in queue.<br><span style="color:var(--text-primary);cursor:pointer;margin-top:6px;display:inline-block;text-decoration:underline;" onclick="switchView('search')">Search songs to enqueue</span>`;
         list.appendChild(emptyItem);
       } else {
-        queueList.forEach((t, i) => {
+        const maxSide = 50;
+        queueList.slice(0, maxSide).forEach((t, i) => {
           const item = document.createElement("div");
           item.className = "library-item";
           item.innerHTML = `
@@ -3731,6 +4211,15 @@ function renderSidebarLibrary(filter = "all") {
           });
           list.appendChild(item);
         });
+        if (queueList.length > maxSide) {
+          const moreItem = document.createElement("div");
+          moreItem.style.padding = "10px";
+          moreItem.style.textAlign = "center";
+          moreItem.style.fontSize = "0.78rem";
+          moreItem.style.color = "var(--text-tertiary)";
+          moreItem.textContent = `+ ${queueList.length - maxSide} more in queue`;
+          list.appendChild(moreItem);
+        }
       }
     }
   }
@@ -3869,7 +4358,10 @@ function renderQueueView() {
     return;
   }
 
-  list.forEach((t, i) => {
+  const maxRender = 75;
+  const visibleList = list.slice(0, maxRender);
+
+  visibleList.forEach((t, i) => {
     const tr = document.createElement("tr");
     tr.className = "song-row";
     const title = t.title || t.info?.title || "Unknown Track";
@@ -3953,6 +4445,16 @@ function renderQueueView() {
 
     tbody.appendChild(tr);
   });
+
+  if (list.length > maxRender) {
+    const moreRow = document.createElement("tr");
+    moreRow.innerHTML = `
+      <td colspan="4" style="text-align: center; padding: 18px 12px; color: var(--text-tertiary); font-size: 0.85rem; font-weight: 500;">
+        + ${list.length - maxRender} more tracks in queue (playback advances automatically)
+      </td>
+    `;
+    tbody.appendChild(moreRow);
+  }
 }
 
 window.skipToBrowserQueueIndex = function(idx) {
@@ -4116,14 +4618,14 @@ function dispatchPlayPlaylist(playlistOrId, immediate = true) {
       targetChannel: "bot",
       name: pl.name || pl.title || "Playlist",
       immediate,
-      tracks: (pl.tracks || []).map(t => `${t.title} ${t.artist || t.author || ""}`.trim())
+      tracks: (pl.tracks || []).map(t => (t.url && (t.url.startsWith("http://") || t.url.startsWith("https://"))) ? t.url : (t.query || `${t.title} ${t.artist || t.author || ""}`.trim()))
     });
   } else if (!isLocalPlayer) {
     sendAction("play_playlist", null, {
       targetChannel: activeSystemChannel,
       name: pl.name || pl.title || "Playlist",
       immediate,
-      tracks: (pl.tracks || []).map(t => `${t.title} ${t.artist || t.author || ""}`.trim())
+      tracks: (pl.tracks || []).map(t => (t.url && (t.url.startsWith("http://") || t.url.startsWith("https://"))) ? t.url : (t.query || `${t.title} ${t.artist || t.author || ""}`.trim()))
     });
   }
 }
@@ -4323,7 +4825,7 @@ async function loadAndOpenSearchPlaylist(pl) {
       coverUrl: playlistData?.artworkUrl || pl.artworkUrl || "logo.png",
       tracksCount: tracks.length,
       badge: pl.isAlbum ? "Official Album" : "Featured Playlist",
-      gradient: "linear-gradient(135deg, #1db954 0%, #121212 100%)",
+      gradient: "linear-gradient(145deg, #1C2028 0%, #0D0F14 100%)",
       tracks: tracks.map(t => ({
         id: t.id,
         title: t.title,
@@ -4635,7 +5137,7 @@ async function initUserAuth() {
           localStorage.setItem("ahm_session_token", token);
         } else if (vault?.user?.id) {
           // Rehydrate directly if token missing but vault present
-          const rRes = await fetch("/api/user/rehydrate", {
+          const rRes = await fetch(resolveApiUrl("/api/user/rehydrate"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ vault })
@@ -4668,7 +5170,7 @@ async function initUserAuth() {
   if (!currentUser) {
     try {
       const headers = { "Authorization": `Bearer ${token}` };
-      const res = await fetch("/api/user/me", { headers });
+      const res = await fetch(resolveApiUrl("/api/user/me"), { headers });
       const data = await res.json();
       if (data.authenticated && data.user) {
         currentUser = data.user;
@@ -4692,7 +5194,7 @@ async function initUserAuth() {
             const vault = JSON.parse(vaultRaw);
             if (vault && vault.user && vault.user.id) {
               console.log("Auto-rehydrating user session after server push/restart...");
-              const rRes = await fetch("/api/user/rehydrate", {
+              const rRes = await fetch(resolveApiUrl("/api/user/rehydrate"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ vault })
@@ -4751,8 +5253,6 @@ window.saveUserVault = saveUserVault;
 function updateUserProfileUI() {
   const avatarMini = document.getElementById("userAvatarMini");
   const nameMini = document.getElementById("userNameMini");
-  const btnTopLogout = document.getElementById("btnTopLogout");
-  const tasteTag = document.getElementById("userTasteStatusTag");
   const bannerAuthText = document.getElementById("btnBannerAuthText");
 
   if (currentUser) {
@@ -4766,28 +5266,12 @@ function updateUserProfileUI() {
     if (nameMini) {
       nameMini.textContent = currentUser.displayName || currentUser.username;
     }
-    if (btnTopLogout) {
-      btnTopLogout.style.display = "inline-flex";
-    }
-    if (tasteTag) {
-      tasteTag.textContent = currentUser.type === "customer" ? "✨ Customer Taste" : "✨ Member Taste";
-      tasteTag.style.background = "rgba(30, 215, 96, 0.2)";
-      tasteTag.style.color = "var(--spotify-green)";
-    }
     if (bannerAuthText) {
       bannerAuthText.textContent = "Account & Taste";
     }
   } else {
     if (avatarMini) avatarMini.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
     if (nameMini) nameMini.textContent = "Log In / Sign Up";
-    if (btnTopLogout) {
-      btnTopLogout.style.display = "none";
-    }
-    if (tasteTag) {
-      tasteTag.textContent = "✨ Taste AI";
-      tasteTag.style.background = "rgba(255, 255, 255, 0.08)";
-      tasteTag.style.color = "var(--text-secondary)";
-    }
     if (bannerAuthText) {
       bannerAuthText.textContent = "Log In / Sign Up";
     }
@@ -4801,7 +5285,7 @@ function updateUserProfileUI() {
 async function handleLogout() {
   try {
     const token = localStorage.getItem("ahm_session_token");
-    await fetch("/api/user/logout", {
+    await fetch(resolveApiUrl("/api/user/logout"), {
       method: "POST",
       headers: token ? { "Authorization": `Bearer ${token}` } : {}
     });
@@ -4837,7 +5321,7 @@ async function loadUserFavorites() {
   try {
     const token = localStorage.getItem("ahm_session_token");
     const headers = token ? { "Authorization": `Bearer ${token}` } : {};
-    const res = await fetch("/api/user/favorites", { headers });
+    const res = await fetch(resolveApiUrl("/api/user/favorites"), { headers });
     const data = await res.json();
     if (data.success && Array.isArray(data.favorites)) {
       if (data.favorites.length >= userFavorites.length) {
@@ -4871,7 +5355,7 @@ async function toggleTrackFavorite(track) {
   try {
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch("/api/user/favorites/toggle", {
+    const res = await fetch(resolveApiUrl("/api/user/favorites/toggle"), {
       method: "POST",
       headers,
       body: JSON.stringify({ track })
@@ -4904,7 +5388,7 @@ async function saveUserQueue() {
     const token = localStorage.getItem("ahm_session_token");
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    await fetch("/api/user/queue", {
+    await fetch(resolveApiUrl("/api/user/queue"), {
       method: "POST",
       headers,
       body: JSON.stringify({ queue: q })
@@ -4929,7 +5413,7 @@ async function loadUserQueue() {
   try {
     const token = localStorage.getItem("ahm_session_token");
     const headers = token ? { "Authorization": `Bearer ${token}` } : {};
-    const res = await fetch("/api/user/queue", { headers });
+    const res = await fetch(resolveApiUrl("/api/user/queue"), { headers });
     const data = await res.json();
     if (data.success && Array.isArray(data.queue) && data.queue.length > 0) {
       if (BrowserPlayer.queue.length === 0) {
@@ -5151,7 +5635,7 @@ function openProfileModal() {
           <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-header); margin: 0;">${escapeHtml(currentUser.displayName || currentUser.username)}</h2>
           ${currentUser.email ? `<div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 3px;">✉️ ${escapeHtml(currentUser.email)}</div>` : ""}
           <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 6px;">
-            <span style="font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: rgba(30, 215, 96, 0.15); color: var(--spotify-green);">
+            <span style="font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); color: var(--text-primary); border: 1px solid rgba(255, 255, 255, 0.12);">
               ${isCustomer ? "✨ Personalized Account" : (currentUser.type === "discord" ? "Discord Member" : "Local Account")}
             </span>
           </div>
@@ -5239,7 +5723,7 @@ function openProfileModal() {
     body.innerHTML = `
       <div style="text-align: center; margin-bottom: 14px;">
         <div style="display:flex; justify-content:center; margin-bottom: 8px;">
-          <div style="width:44px; height:44px; border-radius:12px; background:rgba(30,215,96,0.15); border:1px solid rgba(30,215,96,0.3); display:flex; align-items:center; justify-content:center; color:var(--spotify-green);">
+          <div style="width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; color:var(--text-primary);">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
           </div>
         </div>
@@ -5269,29 +5753,9 @@ function openProfileModal() {
           <button type="button" class="auth-switch-btn" id="btnSwitchCreate">Create Account</button>
         </div>
 
-        <!-- FORM 1A: SIGN IN FORM -->
-        <div id="formSignInContainer" style="display: flex; flex-direction: column; gap: 10px;">
-          <div>
-            <label class="auth-field-label">
-              <span>Email Address</span>
-            </label>
-            <input type="email" id="inputSignInEmail" class="auth-text-input input-green" placeholder="name@example.com" autocomplete="email">
-          </div>
-          <div>
-            <label class="auth-field-label">
-              <span>Password</span>
-            </label>
-            <input type="password" id="inputSignInPassword" class="auth-text-input" placeholder="Enter your password..." autocomplete="current-password">
-          </div>
-          <div id="authSignInError" class="auth-error-notice" style="display:none;"></div>
-          <button type="button" id="btnExecuteSignIn" class="btn-save-taste" style="margin-top: 4px;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-            <span>Log In with Email</span>
-          </button>
-          <div style="text-align: center; margin-top: 6px;">
-            <span style="font-size: 0.78rem; color: var(--text-secondary);">Don't have an account? </span>
-            <button type="button" id="btnLinkToCreate" style="background: none; border: none; color: var(--spotify-green); font-size: 0.78rem; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 0;">Create one</button>
-          </div>
+        <!-- FORM 1A: SIGN IN FORM (CYBER LOGIN COMPONENT MOUNT POINT) -->
+        <div id="formSignInContainer" style="display: flex; flex-direction: column;">
+          <!-- Dynamically populated by CyberLoginComponent -->
         </div>
 
         <!-- FORM 1B: CREATE ACCOUNT FORM -->
@@ -5306,7 +5770,21 @@ function openProfileModal() {
             <label class="auth-field-label">
               <span>Password (at least 6 characters) *</span>
             </label>
-            <input type="password" id="inputRegPassword" class="auth-text-input" placeholder="Create a secure password..." autocomplete="new-password">
+            <div class="cyber-input-wrap">
+              <input type="password" id="inputRegPassword" class="auth-text-input" placeholder="Create a secure password..." autocomplete="new-password" style="padding-right: 42px;">
+              <button type="button" id="btnToggleRegPass" class="cyber-eye-toggle" aria-label="Toggle password visibility" title="Toggle password visibility">
+                <svg id="iconRegEyeOpen" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg id="iconRegEyeSlash" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                  <path d="m9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                  <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                  <line x1="2" y1="2" x2="22" y2="22"></line>
+                </svg>
+              </button>
+            </div>
           </div>
           <div>
             <label class="auth-field-label">
@@ -5457,79 +5935,57 @@ function openProfileModal() {
       });
     });
 
-    // 5. Sign In Action (Email & Password)
-    const executeCustomerLogin = async () => {
-      const eInp = document.getElementById("inputSignInEmail");
-      const pInp = document.getElementById("inputSignInPassword");
-      const err = document.getElementById("authSignInError");
-      const email = eInp ? eInp.value.trim() : "";
-      const password = pInp ? pInp.value : "";
-
-      if (!email) {
-        if (err) {
-          err.textContent = "Please enter your email address";
-          err.style.display = "block";
-        }
-        return;
-      }
-      if (!password) {
-        if (err) {
-          err.textContent = "Please enter your password";
-          err.style.display = "block";
-        }
-        return;
-      }
-      if (err) err.style.display = "none";
-
-      let res, data;
-      try {
-        res = await fetch("/api/user/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password })
+    // 5. Mount Professional Cyber Login Component
+    if (formSignIn) {
+      if (typeof CyberLoginComponent !== "undefined") {
+        new CyberLoginComponent({
+          container: formSignIn,
+          onSuccess: async (user, token) => {
+            try {
+              if (token) {
+                localStorage.setItem("ahm_session_token", token);
+                localStorage.setItem("auth_token", token);
+                if (window.AuthService) {
+                  await AuthService.Storage.setItem(AuthService.Storage.TOKEN_KEY, token);
+                }
+              }
+              currentUser = user;
+              localStorage.setItem("ahm_cached_user", JSON.stringify(user));
+              updateUserProfileUI();
+              await loadUserFavorites();
+              await loadUserQueue();
+              await loadDailyRecommendations(true);
+              saveUserVault();
+              closeProfileModal();
+              showToast(`Welcome back, ${user.displayName || user.email}! Terminal authenticated.`);
+            } catch (postErr) {
+              console.error("Post-login UI setup error:", postErr);
+              closeProfileModal();
+              showToast("Welcome back! Logged in successfully.");
+            }
+          },
+          onSwitchToRegister: () => {
+            switchToCreate();
+          },
+          onToast: (msg) => showToast(msg)
         });
-        data = await res.json();
-      } catch (e) {
-        console.error("Login request error:", e);
-        if (err) {
-          err.textContent = "Network error connecting to server. Please ensure discord-bot is running and refresh the page.";
-          err.style.display = "block";
-        }
-        return;
       }
+    }
 
-      if (data && data.success && data.user) {
-        try {
-          if (data.token) localStorage.setItem("ahm_session_token", data.token);
-          currentUser = data.user;
-          localStorage.setItem("ahm_cached_user", JSON.stringify(data.user));
-          updateUserProfileUI();
-          await loadUserFavorites();
-          await loadUserQueue();
-          await loadDailyRecommendations(true);
-          saveUserVault();
-          closeProfileModal();
-          showToast(`Welcome back, ${data.user.displayName || data.user.email}! Your daily taste mixes are loaded.`);
-        } catch (postErr) {
-          console.error("Post-login UI setup error:", postErr);
-          closeProfileModal();
-          showToast("Welcome back! Logged in successfully.");
-        }
-      } else {
-        if (err) {
-          err.textContent = (data && data.error) ? data.error : "Login failed. Please check your credentials.";
-          err.style.display = "block";
-        }
-      }
-    };
-
-    document.getElementById("btnExecuteSignIn")?.addEventListener("click", executeCustomerLogin);
-    document.getElementById("inputSignInPassword")?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") executeCustomerLogin();
-    });
-    document.getElementById("inputSignInEmail")?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") document.getElementById("inputSignInPassword")?.focus();
-    });
+    // Password Eye Toggle for Registration Form
+    const btnToggleRegPass = document.getElementById("btnToggleRegPass");
+    const inputRegPassword = document.getElementById("inputRegPassword");
+    let isRegPassVisible = false;
+    if (btnToggleRegPass && inputRegPassword) {
+      btnToggleRegPass.addEventListener("click", () => {
+        isRegPassVisible = !isRegPassVisible;
+        inputRegPassword.type = isRegPassVisible ? "text" : "password";
+        const eyeOpen = document.getElementById("iconRegEyeOpen");
+        const eyeSlash = document.getElementById("iconRegEyeSlash");
+        if (eyeOpen) eyeOpen.style.display = isRegPassVisible ? "none" : "block";
+        if (eyeSlash) eyeSlash.style.display = isRegPassVisible ? "block" : "none";
+      });
+    }
 
     // 6. Registration Action (Email & Password)
     const executeCustomerRegister = async () => {
@@ -5560,9 +6016,21 @@ function openProfileModal() {
       }
       if (err) err.style.display = "none";
 
+      const regBtn = document.getElementById("btnExecuteRegister");
+      const origBtnHtml = regBtn ? regBtn.innerHTML : "";
+      if (regBtn) {
+        regBtn.disabled = true;
+        regBtn.innerHTML = `
+          <svg class="cyber-spinner" viewBox="0 0 24 24" fill="none" style="width: 16px; height: 16px; stroke: currentColor; animation: cyberSpin 0.65s linear infinite;">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" stroke-dasharray="42" stroke-dashoffset="14" stroke-linecap="round"></circle>
+          </svg>
+          <span>Creating Account...</span>
+        `;
+      }
+
       let res, data;
       try {
-        res = await fetch("/api/user/register", {
+        res = await fetch(resolveApiUrl("/api/user/register"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -5576,11 +6044,20 @@ function openProfileModal() {
         data = await res.json();
       } catch (e) {
         console.error("Registration request error:", e);
+        if (regBtn) {
+          regBtn.disabled = false;
+          regBtn.innerHTML = origBtnHtml;
+        }
         if (err) {
           err.textContent = "Network error communicating with server. Please verify the server is running.";
           err.style.display = "block";
         }
         return;
+      }
+
+      if (regBtn) {
+        regBtn.disabled = false;
+        regBtn.innerHTML = origBtnHtml;
       }
 
       if (data && data.success && data.user) {
@@ -5619,7 +6096,7 @@ function openProfileModal() {
     // 7. Populate Discord Server Member Chips
     (async () => {
       try {
-        const res = await fetch("/api/auth/server-members");
+        const res = await fetch(resolveApiUrl("/api/auth/server-members"));
         const data = await res.json();
         const chipsContainer = document.getElementById("serverMembersChipsList");
         if (chipsContainer && data.success && Array.isArray(data.members) && data.members.length > 0) {
@@ -5665,7 +6142,7 @@ function openProfileModal() {
       }
 
       try {
-        const res = await fetch("/api/auth/discord-verify", {
+        const res = await fetch(resolveApiUrl("/api/auth/discord-verify"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query: q })
@@ -5753,7 +6230,7 @@ function openProfileModal() {
       badge.style.background = "var(--bg-surface)";
     }
     try {
-      const res = await fetch("/api/state");
+      const res = await fetch(resolveApiUrl("/api/state"));
       if (res.ok) {
         if (badge) {
           badge.textContent = "● Connected";
@@ -5856,7 +6333,7 @@ function openTuneTasteModal() {
       <input type="text" id="tuneInputArtists" class="auth-text-input" placeholder="e.g. Arijit Singh, Atif Aslam, Pritam..." value="${escapeHtml(curArtists)}">
     </div>
 
-    <div style="background: rgba(30, 215, 96, 0.08); border: 1px solid rgba(30, 215, 96, 0.2); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; font-size: 0.76rem; color: var(--text-secondary);">
+    <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; font-size: 0.76rem; color: var(--text-secondary);">
       💡 <strong>Everyday Rotation</strong>: Your selected preferences weight your Daily Mix 1, Daily Discovery, and 2x4 Quick Access grid. Changes update immediately!
     </div>
 
@@ -5901,7 +6378,7 @@ function openTuneTasteModal() {
     closeTuneTasteModal();
 
     try {
-      const res = await fetch("/api/user/taste/calibrate", {
+      const res = await fetch(resolveApiUrl("/api/user/taste/calibrate"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -5960,14 +6437,6 @@ function updateUIWithTrack(track, isPlaying = false) {
   const mobileTitle = document.getElementById("mobilePlayerTitle");
   const mobileArtist = document.getElementById("mobilePlayerArtist");
 
-  // Origin Island Live Notch Capsule Elements
-  const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
-  const capsuleImg = document.getElementById("vivoCapsuleImg");
-  const capsuleImgMini = document.getElementById("vivoCapsuleImgMini");
-  const capsuleTitle = document.getElementById("vivoCapsuleTitle");
-  const notchTitle = document.getElementById("notchCompactTitle");
-  const capsuleArtist = document.getElementById("vivoCapsuleArtist");
-
   const expImg = document.getElementById("expandedTrackImg");
   const expTitle = document.getElementById("expandedTrackTitle");
   const expArtist = document.getElementById("expandedTrackArtist");
@@ -5976,34 +6445,32 @@ function updateUIWithTrack(track, isPlaying = false) {
   if (track) {
     const title = track.title || track.info?.title || "Unknown Track";
     const author = track.author || track.info?.author || "Artist";
-    const art = track.artworkUrl || track.info?.artworkUrl || "logo.png";
+    const art = getTrackArtwork(track);
 
-    if (playerArt) playerArt.src = art;
+    if (playerArt) {
+      if (playerArt.getAttribute("src") !== art) playerArt.src = art;
+    }
     if (playerTitle) playerTitle.textContent = title;
     if (playerArtist) playerArtist.textContent = author;
 
-    if (rightArt) rightArt.src = art;
+    if (rightArt) {
+      if (rightArt.getAttribute("src") !== art) rightArt.src = art;
+    }
     if (rightTitle) rightTitle.textContent = title;
     if (rightArtist) rightArtist.textContent = author;
 
-    if (mobileImg) mobileImg.src = art;
+    if (mobileImg) {
+      if (mobileImg.getAttribute("src") !== art) mobileImg.src = art;
+    }
     if (mobileTitle) mobileTitle.textContent = title;
     if (mobileArtist) mobileArtist.textContent = author;
 
-    if (capsuleImg) capsuleImg.src = art;
-    if (capsuleImgMini) capsuleImgMini.src = art;
-    if (capsuleTitle) capsuleTitle.textContent = title;
-    if (notchTitle) notchTitle.textContent = title;
-    if (capsuleArtist) capsuleArtist.textContent = author;
-
-    if (expImg) expImg.src = art;
+    if (expImg) {
+      if (expImg.getAttribute("src") !== art) expImg.src = art;
+    }
     if (expTitle) expTitle.textContent = title;
     if (expArtist) expArtist.textContent = author;
     if (expBackdrop) expBackdrop.style.backgroundImage = `url("${art}")`;
-
-    if (vivoCapsule && !window._vivoCapsuleDismissed) {
-      vivoCapsule.classList.add("visible");
-    }
 
     // Dynamic browser tab title
     try {
@@ -6024,20 +6491,10 @@ function updateUIWithTrack(track, isPlaying = false) {
     if (mobileArtist) mobileArtist.textContent = "Select a song";
     if (mobileImg) mobileImg.src = "logo.png";
 
-    if (capsuleTitle) capsuleTitle.textContent = "Web Browser Ready";
-    if (notchTitle) notchTitle.textContent = "Spy Sec Music";
-    if (capsuleArtist) capsuleArtist.textContent = "Select a song";
-    if (capsuleImg) capsuleImg.src = "logo.png";
-    if (capsuleImgMini) capsuleImgMini.src = "logo.png";
-
     if (expTitle) expTitle.textContent = "Web Browser Ready";
     if (expArtist) expArtist.textContent = "Select a song or playlist";
     if (expImg) expImg.src = "logo.png";
     if (expBackdrop) expBackdrop.style.backgroundImage = `url("logo.png")`;
-
-    if (vivoCapsule) {
-      vivoCapsule.classList.remove("visible");
-    }
 
     try {
       document.title = "Spy Sec Music — Free Sovereign Lossless Audio Player & Web Music Hub";
@@ -6060,7 +6517,7 @@ function updateRadioUI() {
   if (expSubhead) {
     if (isRadio) {
       expSubhead.innerHTML = '<span class="radio-pulse-dot"></span> PLAYING FROM RADIO';
-      expSubhead.style.color = "var(--emerald, #1ed760)";
+      expSubhead.style.color = "var(--emerald, #FFFFFF)";
     } else {
       expSubhead.textContent = "PLAYING FROM";
       expSubhead.style.color = "";
@@ -6127,28 +6584,22 @@ window.updateRadioUI = updateRadioUI;
 function updatePlayPauseIcons(isPlaying) {
   const svg = document.getElementById("mainPlayPauseSvg");
   const mobileBtn = document.getElementById("btnMobilePlayPause");
-  const capsuleSvg = document.getElementById("capsulePlayPauseSvg");
-  const notchQuickSvg = document.getElementById("notchQuickPlaySvg");
   const expSvg = document.getElementById("expandedPlayPauseSvg");
   const expOverlay = document.getElementById("expandedNowPlayingOverlay");
   const visualizer = document.getElementById("rightVisualizerBars");
 
-  // Origin Island Notch Vinyl Discs & Soundwave Equalizers
-  const vinylDiscs = document.querySelectorAll(".vivo-vinyl-disc, .vivo-capsule-vinyl");
+  // Vinyl Discs & Soundwave Equalizers
+  const vinylDiscs = document.querySelectorAll(".vivo-vinyl-disc");
   const equalizers = document.querySelectorAll(".vivo-equalizer");
-  const vivoCapsule = document.getElementById("vivoOriginNotificationBar");
 
   // Play button wrappers
   const mainBtn = document.getElementById("btnMainPlayPause");
-  const capsuleBtn = document.getElementById("btnCapsulePlayPause");
-  const notchBtn = document.getElementById("btnNotchQuickPlay");
   const expBtn = document.getElementById("btnExpandedPlayPause");
-  const notchRingContainer = document.querySelector(".notch-progress-ring-container");
 
   const isBuffering = Boolean(BrowserPlayer.isBuffering);
 
   // Toggle buffering animation classes on all play buttons
-  [mainBtn, mobileBtn, capsuleBtn, notchBtn, expBtn, notchRingContainer].forEach(el => {
+  [mainBtn, mobileBtn, expBtn].forEach(el => {
     if (el) el.classList.toggle("is-buffering", isBuffering);
   });
 
@@ -6165,16 +6616,6 @@ function updatePlayPauseIcons(isPlaying) {
     if (mobileBtn) {
       mobileBtn.innerHTML = `<svg class="buffering-spinner-svg" viewBox="0 0 24 24" width="16" height="16">${spinnerPaths}</svg>`;
     }
-    if (capsuleSvg) {
-      capsuleSvg.setAttribute("viewBox", "0 0 24 24");
-      capsuleSvg.classList.add("buffering-spinner-svg");
-      capsuleSvg.innerHTML = spinnerPaths;
-    }
-    if (notchQuickSvg) {
-      notchQuickSvg.setAttribute("viewBox", "0 0 24 24");
-      notchQuickSvg.classList.add("buffering-spinner-svg");
-      notchQuickSvg.innerHTML = spinnerPaths;
-    }
     if (expSvg) {
       expSvg.setAttribute("viewBox", "0 0 24 24");
       expSvg.classList.add("buffering-spinner-svg");
@@ -6190,10 +6631,6 @@ function updatePlayPauseIcons(isPlaying) {
       d.classList.remove("vivo-vinyl-spinning");
       d.classList.add("vivo-vinyl-paused");
     });
-
-    if (vivoCapsule && !window._vivoCapsuleDismissed && (BrowserPlayer.currentTrack || Boolean(currentState?.channels?.bot?.current) || Boolean(currentState?.current))) {
-      vivoCapsule.classList.add("visible");
-    }
   } else if (isPlaying) {
     if (svg) {
       svg.setAttribute("viewBox", "0 0 16 16");
@@ -6202,16 +6639,6 @@ function updatePlayPauseIcons(isPlaying) {
     }
     if (mobileBtn) {
       mobileBtn.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14">${pausePaths}</svg>`;
-    }
-    if (capsuleSvg) {
-      capsuleSvg.setAttribute("viewBox", "0 0 16 16");
-      capsuleSvg.classList.remove("buffering-spinner-svg");
-      capsuleSvg.innerHTML = pausePaths;
-    }
-    if (notchQuickSvg) {
-      notchQuickSvg.setAttribute("viewBox", "0 0 16 16");
-      notchQuickSvg.classList.remove("buffering-spinner-svg");
-      notchQuickSvg.innerHTML = pausePaths;
     }
     if (expSvg) {
       expSvg.setAttribute("viewBox", "0 0 16 16");
@@ -6228,10 +6655,6 @@ function updatePlayPauseIcons(isPlaying) {
     });
     // Animate soundwave equalizer bars
     equalizers.forEach(eq => eq.classList.add("playing"));
-
-    if (vivoCapsule && !window._vivoCapsuleDismissed && (BrowserPlayer.currentTrack || Boolean(currentState?.channels?.bot?.current) || Boolean(currentState?.current))) {
-      vivoCapsule.classList.add("visible");
-    }
   } else {
     if (svg) {
       svg.setAttribute("viewBox", "0 0 16 16");
@@ -6240,16 +6663,6 @@ function updatePlayPauseIcons(isPlaying) {
     }
     if (mobileBtn) {
       mobileBtn.innerHTML = `<svg viewBox="0 0 16 16" width="14" height="14">${playPaths}</svg>`;
-    }
-    if (capsuleSvg) {
-      capsuleSvg.setAttribute("viewBox", "0 0 16 16");
-      capsuleSvg.classList.remove("buffering-spinner-svg");
-      capsuleSvg.innerHTML = playPaths;
-    }
-    if (notchQuickSvg) {
-      notchQuickSvg.setAttribute("viewBox", "0 0 16 16");
-      notchQuickSvg.classList.remove("buffering-spinner-svg");
-      notchQuickSvg.innerHTML = playPaths;
     }
     if (expSvg) {
       expSvg.setAttribute("viewBox", "0 0 16 16");
@@ -6292,18 +6705,10 @@ function updateProgressUI(curSec, durSec, pct) {
   const totLabel = document.getElementById("totalDurationLabel");
   const fill = document.getElementById("playbackProgressFill");
   const microFill = document.getElementById("mobileMicroFill");
-  const capsuleFill = document.getElementById("vivoCapsuleFill");
 
   const expCurLabel = document.getElementById("expandedCurrentTime");
   const expTotLabel = document.getElementById("expandedTotalDuration");
   const expFill = document.getElementById("expandedProgressFill");
-
-  // Origin Island Notch Elements
-  const notchTime = document.getElementById("notchCompactTime");
-  const ringCircle = document.getElementById("notchProgressRingCircle");
-  const islandTimeCur = document.getElementById("islandTimeCurrent");
-  const islandTimeTot = document.getElementById("islandTimeTotal");
-  const islandSeekThumb = document.getElementById("islandSeekThumb");
 
   const timeStr = formatTime(curSec * 1000);
   const durStr = durSec > 0 ? formatTime(durSec * 1000) : "0:00";
@@ -6312,24 +6717,10 @@ function updateProgressUI(curSec, durSec, pct) {
   if (totLabel && durSec > 0) totLabel.textContent = durStr;
   if (fill) fill.style.width = `${pct}%`;
   if (microFill) microFill.style.width = `${pct}%`;
-  if (capsuleFill) capsuleFill.style.width = `${pct}%`;
 
   if (expCurLabel) expCurLabel.textContent = timeStr;
   if (expTotLabel && durSec > 0) expTotLabel.textContent = durStr;
   if (expFill) expFill.style.width = `${pct}%`;
-
-  // Origin Island Notch Progress & Seekbar Updates
-  if (notchTime) notchTime.textContent = timeStr;
-  if (islandTimeCur) islandTimeCur.textContent = timeStr;
-  if (islandTimeTot && durSec > 0) islandTimeTot.textContent = durStr;
-  if (islandSeekThumb) islandSeekThumb.style.left = `${pct}%`;
-
-  if (ringCircle) {
-    // Circumference = 2 * PI * 11 ≈ 69.115
-    const circumference = 69.115;
-    const offset = Math.max(0, Math.min(circumference - (circumference * pct / 100), circumference));
-    ringCircle.style.strokeDashoffset = offset.toFixed(2);
-  }
 }
 
 function updateVolumeUI(percent) {
@@ -6450,7 +6841,7 @@ async function sendAction(action, value = null, extra = {}) {
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch("/api/action", {
+    const res = await fetch(resolveApiUrl("/api/action"), {
       method: "POST",
       headers,
       body: JSON.stringify({ targetChannel, action, value, ...extra })
@@ -6537,7 +6928,7 @@ function showToast(msg, type = null) {
   
   let iconHtml = "";
   if (type === "success") {
-    iconHtml = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(16,185,129,0.22);color:#10B981;font-size:11px;font-weight:900;flex-shrink:0;">✓</span>`;
+    iconHtml = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.15);color:#FFFFFF;font-size:11px;font-weight:900;flex-shrink:0;">✓</span>`;
   } else if (type === "error") {
     iconHtml = `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(239,68,68,0.22);color:#EF4444;font-size:11px;font-weight:900;flex-shrink:0;">⚠</span>`;
   } else {
@@ -6810,8 +7201,8 @@ function restorePlaybackState() {
       const formattedPos = formatTime(pos * 1000);
       const formattedDur = dur > 0 ? formatTime(dur * 1000) : "0:00";
       artistEl.textContent = `${track.author || track.artist || "Artist"} • Resume from ${formattedPos} / ${formattedDur}`;
-      if (coverEl && track.artworkUrl) {
-        coverEl.src = track.artworkUrl;
+      if (coverEl) {
+        coverEl.src = getTrackArtwork(track);
       }
       card.style.display = "flex";
       card.classList.add("visible");
@@ -7048,6 +7439,182 @@ function initEventListeners() {
         playYouTubeLink(url, true, activeSystemChannel);
       }
     }
+  });
+
+  // ==========================================================================
+  // GLASS AI BUTTON & MATRIX INTERFACE (Rule: glass-ui-design.md)
+  // ==========================================================================
+  const btnGlassAi = document.getElementById("btnGlassAi");
+  const glassAiModal = document.getElementById("glassAiModal");
+  const btnCloseGlassAi = document.getElementById("btnCloseGlassAiModal");
+  const glassAiInput = document.getElementById("glassAiInput");
+  const btnGlassAiPaste = document.getElementById("btnGlassAiPaste");
+  const btnGlassAiPlay = document.getElementById("btnGlassAiGenerateNow");
+  const btnGlassAiQueue = document.getElementById("btnGlassAiQueueFlow");
+  const glassAiCanvas = document.getElementById("glassAiParticleCanvas");
+
+  // Particle Burst on Activation (Embedded HTML5 Canvas Particle System)
+  const triggerGlassParticleBurst = () => {
+    if (!glassAiCanvas) return;
+    const ctx = glassAiCanvas.getContext("2d");
+    if (!ctx) return;
+    const width = glassAiCanvas.width = 130;
+    const height = glassAiCanvas.height = 36;
+    const particles = [];
+    const colors = ["#38bdf8", "#60a5fa", "#93c5fd", "#ffffff", "#3b82f6"];
+
+    for (let i = 0; i < 28; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.2 + Math.random() * 2.8;
+      particles.push({
+        x: width * 0.2, // origin around galaxy orb
+        y: height * 0.5,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius: 0.8 + Math.random() * 1.8,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        alpha: 1,
+        life: 0,
+        maxLife: 25 + Math.random() * 20
+      });
+    }
+
+    let animFrame = null;
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+      let alive = false;
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life++;
+        p.alpha = Math.max(0, 1 - (p.life / p.maxLife));
+        if (p.alpha > 0) {
+          alive = true;
+          ctx.save();
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 4;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+      if (alive) {
+        animFrame = requestAnimationFrame(render);
+      } else {
+        ctx.clearRect(0, 0, width, height);
+        cancelAnimationFrame(animFrame);
+      }
+    };
+    render();
+  };
+
+  // 3D Tilt on Pointer Hover
+  if (btnGlassAi) {
+    btnGlassAi.addEventListener("mousemove", (e) => {
+      const rect = btnGlassAi.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      const tiltX = (y / (rect.height / 2)) * -6;
+      const tiltY = (x / (rect.width / 2)) * 6;
+      btnGlassAi.style.transform = `perspective(400px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.03)`;
+    });
+    btnGlassAi.addEventListener("mouseleave", () => {
+      btnGlassAi.style.transform = "";
+    });
+  }
+
+  const openGlassAiModal = () => {
+    triggerGlassParticleBurst();
+    if (!glassAiModal) return;
+    glassAiModal.classList.remove("hidden");
+    glassAiModal.style.display = "flex";
+    if (glassAiInput) {
+      glassAiInput.value = "";
+      glassAiInput.focus();
+    }
+  };
+
+  const closeGlassAiModal = () => {
+    if (glassAiModal) {
+      glassAiModal.classList.add("hidden");
+      glassAiModal.style.display = "none";
+    }
+  };
+
+  btnGlassAi?.addEventListener("click", openGlassAiModal);
+  btnCloseGlassAi?.addEventListener("click", closeGlassAiModal);
+  glassAiModal?.addEventListener("click", (e) => {
+    if (e.target === glassAiModal) closeGlassAiModal();
+  });
+
+  btnGlassAiPaste?.addEventListener("click", async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && glassAiInput) {
+          glassAiInput.value = text.trim();
+          showToast("Pasted into Glass AI Matrix");
+        }
+      }
+    } catch (_) {
+      showToast("Clipboard access restricted");
+    }
+  });
+
+  // Preset quick selections
+  document.querySelectorAll(".btn-glass-preset").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const prompt = btn.getAttribute("data-ai-prompt");
+      if (prompt && glassAiInput) {
+        glassAiInput.value = prompt;
+        btnGlassAiPlay?.click();
+      }
+    });
+  });
+
+  const executeGlassAiAction = (immediate = true) => {
+    const rawVal = glassAiInput?.value?.trim();
+    if (!rawVal) return showToast("Please enter a prompt or playlist link");
+    closeGlassAiModal();
+
+    if (isSpotifyUrl(rawVal)) {
+      showToast(immediate ? "Glass AI: Streaming Spotify Playlist..." : "Glass AI: Enqueuing Spotify Playlist...");
+      return importAndPlaySpotifyLink(rawVal, activeSystemChannel);
+    }
+    if (isYouTubeUrl(rawVal)) {
+      showToast(immediate ? "Glass AI: Streaming YouTube Playlist..." : "Glass AI: Enqueuing YouTube Playlist...");
+      return playYouTubeLink(rawVal, immediate, activeSystemChannel);
+    }
+
+    // Natural Language Prompt or AI Mood Flow
+    showToast(`Glass AI: Generating neural flow for "${rawVal}"...`);
+    const aiTrack = {
+      id: `ai-${Date.now()}`,
+      title: rawVal,
+      artist: "Glass AI GPT 6 Sol",
+      author: "Glass AI GPT 6 Sol",
+      duration: 180000,
+      query: rawVal,
+      artworkUrl: "logo.png",
+      filterMode: currentFilterMode || "filterless",
+      source: "ai"
+    };
+
+    if (immediate) {
+      BrowserPlayer.playTrack(aiTrack);
+    } else {
+      BrowserPlayer.enqueue(aiTrack);
+      showToast(`Added "${rawVal}" to flow queue`);
+    }
+  };
+
+  btnGlassAiPlay?.addEventListener("click", () => executeGlassAiAction(true));
+  btnGlassAiQueue?.addEventListener("click", () => executeGlassAiAction(false));
+  glassAiInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") executeGlassAiAction(true);
   });
 
   searchInput?.addEventListener("input", (e) => {
@@ -7306,7 +7873,6 @@ function initEventListeners() {
 
   document.getElementById("btnMainPlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnMobilePlayPause")?.addEventListener("click", handlePlayPause);
-  document.getElementById("btnCapsulePlayPause")?.addEventListener("click", handlePlayPause);
   document.getElementById("btnPlaylistHeroPlay")?.addEventListener("click", () => {
     if (!currentActivePlaylist) return;
     const pl = (typeof resolvePlaylistObject === "function" ? resolvePlaylistObject(currentActivePlaylist) : null) || currentActivePlaylist;
@@ -7316,91 +7882,33 @@ function initEventListeners() {
     const curTitle = (BrowserPlayer.currentTrack?.title || "").toLowerCase();
     const isCurrentInPlaylist = curTitle && pl.tracks.some(t => (t.title || "").toLowerCase() === curTitle);
 
-    if (isCurrentInPlaylist) {
+    // If currently playing a track from this playlist, pause it
+    if (isPlaying && isCurrentInPlaylist) {
+      BrowserPlayer.pause();
+      return;
+    }
+
+    // If paused with a valid, actively loaded track from this playlist, resume playback
+    const hasResumeableAudio = isCurrentInPlaylist &&
+      BrowserPlayer.audio &&
+      BrowserPlayer.audio.src &&
+      !BrowserPlayer.audio.error &&
+      BrowserPlayer.audio.currentTime > 0;
+
+    if (hasResumeableAudio) {
       BrowserPlayer.playPause();
     } else {
+      // Otherwise start or restart the playlist cleanly
       dispatchPlayPlaylist(pl);
     }
   });
 
-  // Next & Previous (Desktop, Mobile Pill, Vivo OriginOS Capsule)
+  // Next & Previous (Desktop, Mobile Pill)
   document.getElementById("btnNextTrack")?.addEventListener("click", handleNextTrack);
   document.getElementById("btnMobileNext")?.addEventListener("click", handleNextTrack);
-  document.getElementById("btnCapsuleNext")?.addEventListener("click", handleNextTrack);
 
   document.getElementById("btnPrevTrack")?.addEventListener("click", handlePrevTrack);
   document.getElementById("btnMobilePrev")?.addEventListener("click", handlePrevTrack);
-  document.getElementById("btnCapsulePrev")?.addEventListener("click", handlePrevTrack);
-
-  // Origin Island Live Notification Capsule Actions
-  const vivoNotchBar = document.getElementById("vivoOriginNotificationBar");
-
-  // Tap compact notch pill to expand into Origin Island Hub
-  document.getElementById("originNotchCompactView")?.addEventListener("click", () => {
-    if (vivoNotchBar) {
-      vivoNotchBar.classList.remove("compact-mode");
-      vivoNotchBar.classList.add("expanded-mode");
-    }
-  });
-
-  // Tap minimize button to collapse back into compact notch pill
-  document.getElementById("btnIslandMinimize")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (vivoNotchBar) {
-      vivoNotchBar.classList.remove("expanded-mode");
-      vivoNotchBar.classList.add("compact-mode");
-    }
-  });
-
-  // Quick play/pause on compact notch
-  document.getElementById("btnNotchQuickPlay")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    handlePlayPause();
-  });
-
-  // Open full player from expanded island
-  document.getElementById("btnOpenFromIsland")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    openExpandedPlayer();
-  });
-
-  // Close / hide island
-  document.getElementById("btnCapsuleClose")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    window._vivoCapsuleDismissed = true;
-    vivoNotchBar?.classList.remove("visible");
-  });
-
-  document.getElementById("vivoCapsuleExpandClick")?.addEventListener("click", () => {
-    openExpandedPlayer();
-  });
-
-  // Live scrubbable seekbar in Origin Island Hub
-  const islandSeekTrack = document.getElementById("islandSeekTrack");
-  if (islandSeekTrack) {
-    const handleIslandSeek = (e) => {
-      const rect = islandSeekTrack.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const frac = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
-      const dur = (Number.isFinite(BrowserPlayer.audio?.duration) && BrowserPlayer.audio.duration > 0)
-        ? BrowserPlayer.audio.duration
-        : (BrowserPlayer.currentTrack?.duration ? BrowserPlayer.currentTrack.duration / 1000 : 0);
-      if (dur > 0) {
-        BrowserPlayer.seek(frac * dur);
-      }
-    };
-    islandSeekTrack.addEventListener("click", handleIslandSeek);
-    islandSeekTrack.addEventListener("touchstart", (e) => {
-      handleIslandSeek(e);
-      const onMove = (ev) => handleIslandSeek(ev);
-      const onEnd = () => {
-        window.removeEventListener("touchmove", onMove);
-        window.removeEventListener("touchend", onEnd);
-      };
-      window.addEventListener("touchmove", onMove, { passive: true });
-      window.addEventListener("touchend", onEnd, { once: true });
-    }, { passive: true });
-  }
 
   // Native Android Media Action Dispatcher (Headset, Bluetooth, Lockscreen & Quick Settings Notification)
   window.handleAndroidMediaAction = function(action, value) {
@@ -7493,12 +8001,8 @@ function initEventListeners() {
   document.getElementById("btnPlaylistHeroLike")?.addEventListener("click", toggleCurrentSongLike);
   document.getElementById("btnRightLike")?.addEventListener("click", toggleCurrentSongLike);
 
-  // User Profile Modal & Logout Listeners
+  // User Profile Modal Listeners
   document.getElementById("btnUserProfile")?.addEventListener("click", openProfileModal);
-  document.getElementById("btnTopLogout")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    handleLogout();
-  });
   document.getElementById("btnCloseProfileModal")?.addEventListener("click", closeProfileModal);
   document.getElementById("modalUserProfile")?.addEventListener("click", (e) => {
     if (e.target.id === "modalUserProfile") closeProfileModal();
@@ -7612,7 +8116,7 @@ function initEventListeners() {
   document.getElementById("btnExpandedEqualizer")?.addEventListener("click", openEqualizerModal);
   document.getElementById("btnCloseEqualizerModal")?.addEventListener("click", closeEqualizerModal);
   document.getElementById("modalEqualizer")?.addEventListener("click", (e) => {
-    if (e.target.id === "modalEqualizer") closeEqualizerModal();
+    if (!e.target.closest(".spotify-modal-card")) closeEqualizerModal();
   });
   document.getElementById("chkEqualizerEnabled")?.addEventListener("change", (e) => {
     EqualizerEngine.toggle(e.target.checked);
@@ -7644,7 +8148,7 @@ function initEventListeners() {
   document.getElementById("btnExpandedSleepTimerToggle")?.addEventListener("click", openSleepTimerModal);
   document.getElementById("btnCloseSleepTimerModal")?.addEventListener("click", closeSleepTimerModal);
   document.getElementById("modalSleepTimer")?.addEventListener("click", (e) => {
-    if (e.target.id === "modalSleepTimer") closeSleepTimerModal();
+    if (!e.target.closest(".spotify-modal-card")) closeSleepTimerModal();
   });
   document.querySelectorAll(".sleep-timer-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -7671,7 +8175,7 @@ function initEventListeners() {
   document.getElementById("btnAudioQualityToggle")?.addEventListener("click", openAudioQualityModal);
   document.getElementById("btnCloseAudioQualityModal")?.addEventListener("click", closeAudioQualityModal);
   document.getElementById("modalAudioQuality")?.addEventListener("click", (e) => {
-    if (e.target.id === "modalAudioQuality") closeAudioQualityModal();
+    if (!e.target.closest(".spotify-modal-card")) closeAudioQualityModal();
   });
   document.querySelectorAll(".quality-option-card").forEach(c => {
     c.addEventListener("click", () => {
@@ -7715,7 +8219,7 @@ function initEventListeners() {
       // Check with backend if not set locally
       if (!apkUrl) {
         try {
-          const res = await fetch("/api/apk-link");
+          const res = await fetch(resolveApiUrl("/api/apk-link"));
           if (res.ok) {
             const data = await res.json();
             if (data?.url) {
@@ -7912,19 +8416,39 @@ function initEventListeners() {
     });
   }
 
-  // Escape key collapses expanded player or mobile drawer
+  // Escape key collapses modals, expanded player, or mobile drawer
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      const eqModal = document.getElementById("modalEqualizer");
+      if (eqModal && eqModal.style.display !== "none") {
+        eqModal.style.display = "none";
+        e.preventDefault();
+        return;
+      }
+      const sleepModal = document.getElementById("modalSleepTimer");
+      if (sleepModal && sleepModal.style.display !== "none") {
+        sleepModal.style.display = "none";
+        e.preventDefault();
+        return;
+      }
+      const qualityModal = document.getElementById("modalAudioQuality");
+      if (qualityModal && qualityModal.style.display !== "none") {
+        qualityModal.style.display = "none";
+        e.preventDefault();
+        return;
+      }
       const exp = document.getElementById("expandedNowPlayingOverlay");
       if (exp && exp.classList.contains("active")) {
         closeExpandedPlayer();
         e.preventDefault();
+        return;
       }
       const mobileDrawer = document.getElementById("mobileMenuDrawer");
       if (mobileDrawer && mobileDrawer.style.display !== "none") {
         mobileDrawer.style.display = "none";
         document.body.style.overflow = "";
         e.preventDefault();
+        return;
       }
     }
   });
@@ -7990,45 +8514,9 @@ function initEventListeners() {
     if (stage) stage.scrollTo({ top: 0, behavior: "smooth" });
   };
   document.getElementById("brandLogoHome")?.addEventListener("click", routeHomeAndScrollTop);
-  document.getElementById("footerBrandLogo")?.addEventListener("click", routeHomeAndScrollTop);
   document.getElementById("drawerBrandLogo")?.addEventListener("click", () => {
     closeMobileDrawer();
     routeHomeAndScrollTop();
-  });
-
-  // Footer Navigation Links
-  document.getElementById("footerNavHome")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    routeHomeAndScrollTop();
-  });
-  document.getElementById("footerNavSearch")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    switchView("search");
-    document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
-  });
-  document.getElementById("footerNavQueue")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    switchView("queue");
-    document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
-  });
-  document.getElementById("footerNavLiked")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    switchView("liked");
-    document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
-  });
-  document.getElementById("footerNavQuran")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    switchView("quran");
-    document.getElementById("spotifyMainStage")?.scrollTo({ top: 0, behavior: "smooth" });
-  });
-
-  // Footer Audio Engine Modals
-  document.getElementById("footerBtnEq")?.addEventListener("click", openEqualizerModal);
-  document.getElementById("footerBtnSleep")?.addEventListener("click", openSleepTimerModal);
-  document.getElementById("footerBtnQuality")?.addEventListener("click", openAudioQualityModal);
-  document.getElementById("footerBtnTaste")?.addEventListener("click", openTuneTasteModal);
-  document.getElementById("footerBtnInstallApk")?.addEventListener("click", () => {
-    document.getElementById("btnInstallPwa")?.click();
   });
 
   // Wire previously unreferenced buttons
@@ -8053,8 +8541,6 @@ function initEventListeners() {
 
   // Dynamic Copyright Year
   const currentYear = new Date().getFullYear();
-  const footerYear = document.getElementById("appCopyrightYear");
-  if (footerYear) footerYear.textContent = currentYear;
   document.querySelectorAll(".dyn-year").forEach(el => el.textContent = currentYear);
 }
 
@@ -8254,7 +8740,7 @@ function initMouseHoverEffects() {
         const shadowY = rotateX * 1.5 + 8;
 
         card.style.transform = `perspective(900px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) translateY(-4px) scale(1.015)`;
-        card.style.boxShadow = `${shadowX.toFixed(1)}px ${shadowY.toFixed(1)}px 28px rgba(0, 0, 0, 0.55), 0 0 16px rgba(30, 215, 96, 0.08)`;
+        card.style.boxShadow = `${shadowX.toFixed(1)}px ${shadowY.toFixed(1)}px 28px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 255, 255, 0.05)`;
       });
     }, { passive: true });
 

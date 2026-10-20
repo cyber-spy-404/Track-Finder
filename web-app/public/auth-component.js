@@ -341,16 +341,22 @@
      * @param {'google'|'apple'} provider
      * @returns {Promise<{ success: boolean, token?: string, user?: object, error?: string }>}
      */
-    async socialLogin(provider = 'google') {
-      const prov = provider.toLowerCase();
-
-      // Simulated or configured Web OAuth provider payload
-      const mockEmail = prov === 'google' 
-        ? `user_${Math.random().toString(36).substring(2, 7)}@gmail.com`
-        : `apple_id_${Math.random().toString(36).substring(2, 7)}@privaterelay.appleid.com`;
-      
-      const mockName = prov === 'google' ? 'Google Cyber User' : 'Apple Music Listener';
-      const mockAvatar = prov === 'google' ? '🎧' : '🍎';
+    /**
+     * Completes OAuth login with selected provider details
+     * @param {string} provider
+     * @param {string} email
+     * @param {string} [name]
+     * @param {string} [avatar]
+     * @returns {Promise<{ success: boolean, token?: string, user?: object, error?: string }>}
+     */
+    async completeOAuthLogin(provider = 'google', email = '', name = '', avatar = '') {
+      const prov = (provider || 'google').toLowerCase();
+      const userEmail = (email || '').trim().toLowerCase();
+      if (!userEmail) {
+        return { success: false, error: 'Valid email is required.' };
+      }
+      const displayName = name || userEmail.split('@')[0];
+      const userAvatar = avatar || (prov === 'apple' ? '🍎' : '🎧');
 
       try {
         const response = await fetch(this.resolveUrl('/api/user/oauth-login'), {
@@ -358,10 +364,10 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             provider: prov,
-            email: mockEmail,
-            name: mockName,
-            avatar: mockAvatar,
-            providerId: `social_${Date.now()}`
+            email: userEmail,
+            name: displayName,
+            avatar: userAvatar,
+            providerId: `${prov}_${userEmail}`
           })
         });
 
@@ -369,12 +375,332 @@
         if (response.ok && data.success && data.user) {
           if (data.token) await this.Storage.setItem(this.Storage.TOKEN_KEY, data.token);
           await this.Storage.setItem(this.Storage.USER_KEY, JSON.stringify(data.user));
+
+          // Save to remembered accounts for fast re-login
+          try {
+            const rawSaved = localStorage.getItem('ahm_saved_google_accounts') || '[]';
+            let saved = JSON.parse(rawSaved);
+            if (!Array.isArray(saved)) saved = [];
+            saved = saved.filter(acc => acc.email !== userEmail);
+            saved.unshift({
+              email: userEmail,
+              name: displayName,
+              avatar: userAvatar,
+              provider: prov,
+              lastLogin: Date.now()
+            });
+            localStorage.setItem('ahm_saved_google_accounts', JSON.stringify(saved.slice(0, 5)));
+          } catch (e) {}
+
           return { success: true, token: data.token, user: data.user };
         } else {
           return { success: false, error: data.error || `${prov} authentication failed.` };
         }
       } catch (err) {
         return { success: false, error: `Network error connecting to ${prov} auth gateway.` };
+      }
+    },
+
+    /**
+     * Social / Federated OAuth Login (Google & Apple)
+     * Automatically uses native Android account chooser on device, or sleek Google Account Chooser modal on web.
+     * @param {'google'|'apple'} provider
+     * @returns {Promise<{ success: boolean, token?: string, user?: object, cancelled?: boolean, error?: string }>}
+     */
+    async socialLogin(provider = 'google') {
+      const prov = provider.toLowerCase();
+
+      if (prov === 'google') {
+        // 1. If running inside native Android app with AndroidAudioBridge account chooser:
+        if (typeof window !== 'undefined' && window.AndroidAudioBridge && typeof window.AndroidAudioBridge.requestGoogleSignIn === 'function') {
+          return new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+              cleanup();
+              this.showGoogleAccountChooserModal(resolve);
+            }, 30000);
+
+            const cleanup = () => {
+              clearTimeout(timeout);
+              window.handleNativeGoogleSignIn = null;
+              window.handleNativeGoogleSignInCancelled = null;
+              window.handleNativeGoogleSignInError = null;
+            };
+
+            window.handleNativeGoogleSignIn = async (email) => {
+              cleanup();
+              if (!email) {
+                return resolve({ success: false, error: 'No Google account was selected.' });
+              }
+              const res = await this.completeOAuthLogin('google', email);
+              resolve(res);
+            };
+
+            window.handleNativeGoogleSignInCancelled = () => {
+              cleanup();
+              resolve({ success: false, cancelled: true, error: 'Google sign-in was cancelled.' });
+            };
+
+            window.handleNativeGoogleSignInError = (errMsg) => {
+              cleanup();
+              console.warn('[GoogleAuth] Native picker error, fallback to in-app chooser:', errMsg);
+              this.showGoogleAccountChooserModal(resolve);
+            };
+
+            try {
+              window.AndroidAudioBridge.requestGoogleSignIn();
+            } catch (err) {
+              cleanup();
+              this.showGoogleAccountChooserModal(resolve);
+            }
+          });
+        }
+
+        // 2. Web browser or fallback: open real Google Account Chooser dialog
+        return new Promise((resolve) => {
+          this.showGoogleAccountChooserModal(resolve);
+        });
+      }
+
+      // Apple OAuth or other social providers
+      return this.completeOAuthLogin('apple', `apple_${Math.random().toString(36).substring(2, 7)}@privaterelay.appleid.com`, 'Apple Music Listener', '🍎');
+    },
+
+    /**
+     * Displays a Google-branded Account Chooser dialog in the browser/webview
+     * @param {Function} resolve - Promise resolution callback
+     */
+    showGoogleAccountChooserModal(resolve) {
+      const existingModal = document.getElementById('ahmGoogleChooserOverlay');
+      if (existingModal) existingModal.remove();
+
+      let savedAccounts = [];
+      try {
+        const raw = localStorage.getItem('ahm_saved_google_accounts') || '[]';
+        savedAccounts = JSON.parse(raw);
+        if (!Array.isArray(savedAccounts)) savedAccounts = [];
+      } catch (e) {}
+
+      const overlay = document.createElement('div');
+      overlay.id = 'ahmGoogleChooserOverlay';
+      overlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 100000;
+        background: rgba(0, 0, 0, 0.78);
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        display: flex; align-items: center; justify-content: center;
+        padding: 16px; opacity: 0; transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      `;
+
+      const cardsHtml = savedAccounts.length > 0 ? `
+        <div style="margin-bottom: 16px;">
+          <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 8px;">
+            Choose a saved Google account
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${savedAccounts.map((acc, idx) => `
+              <div class="google-acc-card" data-index="${idx}" style="
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 10px 14px; background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px;
+                cursor: pointer; transition: all 0.15s ease;
+              ">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                  <div style="
+                    width: 36px; height: 36px; border-radius: 50%;
+                    background: linear-gradient(135deg, #4285F4, #34A853);
+                    color: #fff; font-weight: 700; font-size: 0.95rem;
+                    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+                  ">
+                    ${(acc.name || acc.email || 'G').charAt(0).toUpperCase()}
+                  </div>
+                  <div style="min-width: 0;">
+                    <div style="color: #f1f5f9; font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                      ${acc.name || acc.email.split('@')[0]}
+                    </div>
+                    <div style="color: #94a3b8; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                      ${acc.email}
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="google-acc-delete" data-email="${acc.email}" title="Remove account" style="
+                  background: transparent; border: none; color: #64748b; cursor: pointer;
+                  padding: 4px 6px; font-size: 0.9rem; border-radius: 4px;
+                ">✕</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
+
+      overlay.innerHTML = `
+        <div id="ahmGoogleChooserCard" style="
+          width: 100%; max-width: 420px; background: #0e1117;
+          border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 16px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+          padding: 24px; position: relative; transform: scale(0.95);
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        ">
+          <!-- Close button -->
+          <button id="ahmGoogleChooserClose" type="button" style="
+            position: absolute; top: 16px; right: 16px; width: 32px; height: 32px;
+            background: rgba(255, 255, 255, 0.06); border: none; border-radius: 50%;
+            color: #94a3b8; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+          ">✕</button>
+
+          <!-- Google G Logo & Header -->
+          <div style="display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 20px;">
+            <div style="margin-bottom: 12px;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+              </svg>
+            </div>
+            <h3 style="margin: 0 0 4px 0; font-size: 1.25rem; font-weight: 700; color: #f8fafc;">
+              Sign in with Google
+            </h3>
+            <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">
+              Choose an account to continue to Track Finder
+            </p>
+          </div>
+
+          <!-- Saved Accounts List -->
+          <div id="ahmSavedGoogleAccountsContainer">
+            ${cardsHtml}
+          </div>
+
+          <!-- Enter Email / New Account -->
+          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px;">
+            <div style="font-size: 0.82rem; font-weight: 600; color: #e2e8f0; margin-bottom: 8px;">
+              ${savedAccounts.length > 0 ? 'Or use another Google account' : 'Enter your Google email address'}
+            </div>
+            <div style="margin-bottom: 10px;">
+              <input type="email" id="ahmGoogleEmailInput" placeholder="username@gmail.com" style="
+                width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 8px;
+                padding: 10px 12px; font-size: 0.9rem; color: #f8fafc; outline: none;
+              ">
+              <div id="ahmGoogleEmailError" style="display: none; font-size: 0.75rem; color: #ef4444; margin-top: 4px;">
+                Please enter a valid Google email address.
+              </div>
+            </div>
+            <button type="button" id="ahmGoogleSubmitBtn" style="
+              width: 100%; background: #4285F4;
+              border: none; border-radius: 8px; padding: 10px; font-size: 0.9rem;
+              font-weight: 600; color: #ffffff; cursor: pointer; transition: background 0.15s ease;
+              display: flex; align-items: center; justify-content: center; gap: 8px;
+            ">
+              <span>Continue with Google</span>
+            </button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      // Trigger animation
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        const card = document.getElementById('ahmGoogleChooserCard');
+        if (card) card.style.transform = 'scale(1)';
+      });
+
+      const closeDialog = (res) => {
+        overlay.style.opacity = '0';
+        const card = document.getElementById('ahmGoogleChooserCard');
+        if (card) card.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          overlay.remove();
+          resolve(res || { success: false, cancelled: true, error: 'Cancelled' });
+        }, 200);
+      };
+
+      // Close button
+      const closeBtn = overlay.querySelector('#ahmGoogleChooserClose');
+      if (closeBtn) closeBtn.onclick = () => closeDialog();
+
+      // Click outside
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeDialog();
+      });
+
+      // Escape key
+      const keyHandler = (e) => {
+        if (e.key === 'Escape') {
+          window.removeEventListener('keydown', keyHandler);
+          closeDialog();
+        }
+      };
+      window.addEventListener('keydown', keyHandler);
+
+      // Saved account clicks
+      overlay.querySelectorAll('.google-acc-card').forEach(card => {
+        card.addEventListener('click', async (e) => {
+          if (e.target.closest('.google-acc-delete')) return;
+          const idx = parseInt(card.getAttribute('data-index'), 10);
+          const chosen = savedAccounts[idx];
+          if (chosen && chosen.email) {
+            card.style.opacity = '0.5';
+            card.style.pointerEvents = 'none';
+            const res = await this.completeOAuthLogin('google', chosen.email, chosen.name, chosen.avatar);
+            window.removeEventListener('keydown', keyHandler);
+            closeDialog(res);
+          }
+        });
+      });
+
+      // Saved account delete
+      overlay.querySelectorAll('.google-acc-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const targetEmail = btn.getAttribute('data-email');
+          savedAccounts = savedAccounts.filter(a => a.email !== targetEmail);
+          try {
+            localStorage.setItem('ahm_saved_google_accounts', JSON.stringify(savedAccounts));
+          } catch (e) {}
+          const card = btn.closest('.google-acc-card');
+          if (card) card.remove();
+        });
+      });
+
+      // Submit new email
+      const submitBtn = overlay.querySelector('#ahmGoogleSubmitBtn');
+      const emailInput = overlay.querySelector('#ahmGoogleEmailInput');
+      const errorDiv = overlay.querySelector('#ahmGoogleEmailError');
+
+      const doSubmit = async () => {
+        const val = emailInput ? emailInput.value.trim().toLowerCase() : '';
+        if (!val || !val.includes('@') || !val.includes('.')) {
+          if (errorDiv) {
+            errorDiv.textContent = 'Please enter a valid Google email address.';
+            errorDiv.style.display = 'block';
+          }
+          if (emailInput) emailInput.focus();
+          return;
+        }
+
+        if (errorDiv) errorDiv.style.display = 'none';
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.7';
+          submitBtn.innerHTML = 'Signing in...';
+        }
+
+        const res = await this.completeOAuthLogin('google', val);
+        window.removeEventListener('keydown', keyHandler);
+        closeDialog(res);
+      };
+
+      if (submitBtn) submitBtn.onclick = doSubmit;
+      if (emailInput) {
+        emailInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            doSubmit();
+          }
+        });
+        setTimeout(() => emailInput.focus(), 100);
       }
     },
 
@@ -906,6 +1232,8 @@
           if (typeof this.options.onSuccess === 'function') {
             this.options.onSuccess(result.user, result.token);
           }
+        } else if (result.cancelled) {
+          // User closed or cancelled account picker - do not show error banner
         } else {
           this.showBannerError(result.error || `Failed to sign in with ${provider}.`);
         }

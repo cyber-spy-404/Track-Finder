@@ -6,6 +6,23 @@
 (function () {
   "use strict";
 
+  function resolveApiUrl(path) {
+    if (!path) return "";
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    if (typeof window !== "undefined" && typeof window.resolveApiUrl === "function") {
+      return window.resolveApiUrl(path);
+    }
+    const custom = (localStorage.getItem("ahm_server_url") || "").trim();
+    if (custom && (custom.startsWith("http://") || custom.startsWith("https://"))) {
+      const base = custom.replace(/\/+$/, "");
+      return base + (path.startsWith("/") ? path : "/" + path);
+    }
+    if (typeof window !== "undefined" && window.location?.origin && window.location.origin.includes("track-finder.onrender.com")) {
+      return path;
+    }
+    return "https://track-finder.onrender.com" + (path.startsWith("/") ? path : "/" + path);
+  }
+
   // Elements
   const headerBotAvatar = document.getElementById("headerBotAvatar");
   const voiceChannelLabel = document.getElementById("voiceChannelLabel");
@@ -182,7 +199,7 @@
       }
 
       const headers = { "Authorization": `Bearer ${token}` };
-      const res = await fetch("/api/user/me", { headers });
+      const res = await fetch(resolveApiUrl("/api/user/me"), { headers });
       const data = await res.json();
 
       if (data.authenticated && data.user) {
@@ -241,7 +258,7 @@
 
     let res, data;
     try {
-      res = await fetch("/api/user/login", {
+      res = await fetch(resolveApiUrl("/api/user/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password })
@@ -286,7 +303,7 @@
     const container = document.getElementById("dashServerMembersChips");
     if (!container || container.children.length > 0) return;
     try {
-      const res = await fetch("/api/auth/server-members");
+      const res = await fetch(resolveApiUrl("/api/auth/server-members"));
       const data = await res.json();
       if (data.success && Array.isArray(data.members)) {
         container.innerHTML = "";
@@ -332,7 +349,7 @@
     if (errBox) errBox.style.display = "none";
 
     try {
-      const res = await fetch("/api/auth/discord-verify", {
+      const res = await fetch(resolveApiUrl("/api/auth/discord-verify"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query })
@@ -381,7 +398,7 @@
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch("/api/action", {
+      const res = await fetch(resolveApiUrl("/api/action"), {
         method: "POST",
         headers: headers,
         body: JSON.stringify(payload)
@@ -407,7 +424,7 @@
   // Poll Bot State from Backend
   async function pollState() {
     try {
-      const res = await fetch("/api/state?t=" + Date.now());
+      const res = await fetch(resolveApiUrl("/api/state?t=" + Date.now()));
       if (!res.ok) return;
       const data = await res.json();
       renderDashboard(data);
@@ -865,7 +882,7 @@
     document.getElementById("btnDashLogout")?.addEventListener("click", async () => {
       try {
         const token = localStorage.getItem("ahm_session_token");
-        await fetch("/api/user/logout", {
+        await fetch(resolveApiUrl("/api/user/logout"), {
           method: "POST",
           headers: token ? { "Authorization": `Bearer ${token}` } : {}
         });

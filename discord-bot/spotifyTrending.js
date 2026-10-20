@@ -170,7 +170,7 @@ const CURATED_INDIAN_PLAYLISTS = [
     description: "Divine spiritual trance, sacred verses and timeless qawwalis connecting hearts to eternity.",
     coverUrl: "covers/sufi_mystics.jpg",
     tracks: [
-      { id: "sq_1", title: "Dam Mast Qalandar", artist: "Nusrat Fateh Ali Khan", duration: "08:15", durationMs: 495000, artworkUrl: "covers/sufi_mystics.jpg", query: "Dam Mast Qalandar Nusrat Fateh Ali Khan" },
+      { id: "sq_1", title: "Dam Mast Qalandar", artist: "Nusrat Fateh Ali Khan", duration: "08:15", durationMs: 495000, artworkUrl: "covers/sufi_mystics.jpg", query: "https://www.youtube.com/watch?v=SKZAiWSquA0", url: "https://www.youtube.com/watch?v=SKZAiWSquA0", source: "youtube" },
       { id: "sq_2", title: "Afreen Afreen", artist: "Rahat Fateh Ali Khan & Momina Mustehsan", duration: "06:45", durationMs: 405000, artworkUrl: "covers/sufi_mystics.jpg", query: "Afreen Afreen Rahat Fateh Ali Khan Momina" },
       { id: "sq_3", title: "Kun Faya Kun", artist: "A.R. Rahman, Javed Ali & Mohit Chauhan", duration: "07:53", durationMs: 473000, artworkUrl: "covers/sufi_mystics.jpg", query: "Kun Faya Kun Rockstar AR Rahman" },
       { id: "sq_4", title: "Khwaja Mere Khwaja", artist: "A.R. Rahman (Jodhaa Akbar)", duration: "06:56", durationMs: 416000, artworkUrl: "covers/sufi_mystics.jpg", query: "Khwaja Mere Khwaja AR Rahman" },

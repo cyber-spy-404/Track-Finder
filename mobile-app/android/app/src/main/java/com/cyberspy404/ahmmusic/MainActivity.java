@@ -1,6 +1,7 @@
 package com.cyberspy404.ahmmusic;
 
 import android.Manifest;
+import android.accounts.AccountManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -25,6 +26,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 public class MainActivity extends AppCompatActivity {
+    private static final int REQUEST_CODE_GOOGLE_SIGN_IN = 9001;
     private static MainActivity activeInstance;
     private WebView webView;
     private long lastBackPressedTime = 0;
@@ -343,6 +345,57 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public boolean isNativeAndroidApp() {
             return true;
+        }
+
+        @JavascriptInterface
+        public void requestGoogleSignIn() {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                try {
+                    Intent intent = AccountManager.newChooseAccountIntent(
+                        null,
+                        null,
+                        new String[]{"com.google"},
+                        false,
+                        null,
+                        null,
+                        null,
+                        null
+                    );
+                    MainActivity.this.startActivityForResult(intent, REQUEST_CODE_GOOGLE_SIGN_IN);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    if (webView != null) {
+                        String errMsg = e.getMessage() != null ? e.getMessage().replace("'", "\\'") : "Google account chooser unavailable";
+                        String js = String.format("if (typeof window.handleNativeGoogleSignInError === 'function') { window.handleNativeGoogleSignInError('%s'); }", errMsg);
+                        webView.evaluateJavascript(js, null);
+                    }
+                }
+            });
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_GOOGLE_SIGN_IN) {
+            if (resultCode == RESULT_OK && data != null) {
+                String accountName = data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+                if (accountName != null && !accountName.trim().isEmpty()) {
+                    final String safeEmail = accountName.trim().replace("'", "\\'");
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (webView != null) {
+                            String js = String.format("if (typeof window.handleNativeGoogleSignIn === 'function') { window.handleNativeGoogleSignIn('%s'); }", safeEmail);
+                            webView.evaluateJavascript(js, null);
+                        }
+                    });
+                    return;
+                }
+            }
+            new Handler(Looper.getMainLooper()).post(() -> {
+                if (webView != null) {
+                    webView.evaluateJavascript("if (typeof window.handleNativeGoogleSignInCancelled === 'function') { window.handleNativeGoogleSignInCancelled(); }", null);
+                }
+            });
         }
     }
 

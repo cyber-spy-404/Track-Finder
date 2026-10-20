@@ -1,6 +1,6 @@
 {
-  "lastUpdated": 1792218737020,
-  "nextUpdate": 1792305137020,
+  "lastUpdated": 1792477428598,
+  "nextUpdate": 1792563828598,
   "playlists": [
     {
       "id": "top50-india",
@@ -120,7 +120,7 @@
         }
       ],
       "trackCount": 12,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "bollywood-butter",
@@ -222,7 +222,7 @@
         }
       ],
       "trackCount": 10,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "hot-hits-hindi",
@@ -306,7 +306,7 @@
         }
       ],
       "trackCount": 8,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "punjabi-101",
@@ -399,7 +399,7 @@
         }
       ],
       "trackCount": 9,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "arijit-singh-essentials",
@@ -483,7 +483,7 @@
         }
       ],
       "trackCount": 8,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "atif-aslam-essentials",
@@ -558,7 +558,7 @@
         }
       ],
       "trackCount": 7,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "tollywood-bangers",
@@ -624,7 +624,7 @@
         }
       ],
       "trackCount": 6,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "kollywood-chartbusters",
@@ -690,7 +690,7 @@
         }
       ],
       "trackCount": 6,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "sufi-qawwali-mystics",
@@ -707,7 +707,9 @@
           "duration": "08:15",
           "durationMs": 495000,
           "artworkUrl": "covers/sufi_mystics.jpg",
-          "query": "Dam Mast Qalandar Nusrat Fateh Ali Khan"
+          "query": "https://www.youtube.com/watch?v=SKZAiWSquA0",
+          "url": "https://www.youtube.com/watch?v=SKZAiWSquA0",
+          "source": "youtube"
         },
         {
           "id": "sq_2",
@@ -765,7 +767,7 @@
         }
       ],
       "trackCount": 7,
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "37i9dQZF1DX5q67ZpWyRrZ",
@@ -1602,7 +1604,7 @@
       ],
       "badge": "🎸 Desi Acoustic & Pop",
       "genre": "indie",
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "37i9dQZF1DXcBWIGoYBM5M",
@@ -1619,7 +1621,7 @@
           "durationMs": 223935,
           "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
           "query": "Olivia Rodrigo, Chappell Roan - expectations (feat. Chappell Roan)",
-          "previewUrl": "https://p.scdn.co/mp3-preview/3949e120ef8170dfd179ce5fa105aa55c4c0f761",
+          "previewUrl": "https://p.scdn.co/mp3-preview/cc5b59142bd150799f61068e522f8aaa120d28c9",
           "spotifyUri": "spotify:track:3XmwAZpIMNpTJy8faw3ajD"
         },
         {
@@ -2164,7 +2166,7 @@
       ],
       "badge": "🌍 Global Hits in India",
       "genre": "pop",
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     },
     {
       "id": "37i9dQZEVXbMDoHDwVN2tF",
@@ -2197,6 +2199,17 @@
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_3",
+          "title": "Housewife",
+          "artist": "Tate McRae",
+          "duration": "3:28",
+          "durationMs": 208810,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Tate McRae - Housewife",
+          "previewUrl": "https://p.scdn.co/mp3-preview/724b097d9dc53e0541de27d199adfe3f610944ba",
+          "spotifyUri": "spotify:track:2sFepQNyl1WjpROruP8bJ0"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_4",
           "title": "Ain't In LA",
           "artist": "ADÉLA",
           "duration": "3:04",
@@ -2207,7 +2220,7 @@
           "spotifyUri": "spotify:track:6U9VpmP3dEinuezxCJ2Zg9"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_4",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_5",
           "title": "the cure",
           "artist": "Olivia Rodrigo",
           "duration": "4:57",
@@ -2218,37 +2231,26 @@
           "spotifyUri": "spotify:track:55pBIZO1cqoldeqpp5WR7H"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_5",
-          "title": "Earrings",
-          "artist": "Malcolm Todd",
-          "duration": "2:31",
-          "durationMs": 151500,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Malcolm Todd - Earrings",
-          "previewUrl": "https://p.scdn.co/mp3-preview/20a1469df9f65a51878811bbe49979c418abc1b7",
-          "spotifyUri": "spotify:track:0eAuGrXyGFYwur9ARUe7LJ"
-        },
-        {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_6",
           "title": "Stop The Wedding!",
           "artist": "Ashe",
-          "duration": "3:18",
-          "durationMs": 198840,
+          "duration": "3:19",
+          "durationMs": 199460,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
           "query": "Ashe - Stop The Wedding!",
-          "previewUrl": "https://p.scdn.co/mp3-preview/8a374e33d78679e1143d7a07797ddfa0225f8586",
-          "spotifyUri": "spotify:track:3zOYmiNOuyDL0ClxJcEJ0T"
+          "previewUrl": "https://p.scdn.co/mp3-preview/f7fe3678a39303c44a44bae450f32837f3d1bc90",
+          "spotifyUri": "spotify:track:7MOO89Qv9AV7VZkt5mcqA8"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_7",
-          "title": "stupid song",
-          "artist": "Olivia Rodrigo",
-          "duration": "3:29",
-          "durationMs": 209680,
+          "title": "The One That Got Away",
+          "artist": "Katy Perry",
+          "duration": "3:47",
+          "durationMs": 227333,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Olivia Rodrigo - stupid song",
-          "previewUrl": "https://p.scdn.co/mp3-preview/e7efd6e9d58979bc860703193212bbcb980d492a",
-          "spotifyUri": "spotify:track:49j6SvuvWfbEKZKzsHCdLJ"
+          "query": "Katy Perry - The One That Got Away",
+          "previewUrl": "https://p.scdn.co/mp3-preview/4c37249b9fc2962f5ef829e216314e9caeaee367",
+          "spotifyUri": "spotify:track:2009X8GyWTqyxIdzAEYW6N"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_8",
@@ -2263,14 +2265,14 @@
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_9",
-          "title": "The One That Got Away",
-          "artist": "Katy Perry",
-          "duration": "3:47",
-          "durationMs": 227333,
+          "title": "Earrings",
+          "artist": "Malcolm Todd",
+          "duration": "2:31",
+          "durationMs": 151500,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Katy Perry - The One That Got Away",
-          "previewUrl": "https://p.scdn.co/mp3-preview/4c37249b9fc2962f5ef829e216314e9caeaee367",
-          "spotifyUri": "spotify:track:2009X8GyWTqyxIdzAEYW6N"
+          "query": "Malcolm Todd - Earrings",
+          "previewUrl": "https://p.scdn.co/mp3-preview/20a1469df9f65a51878811bbe49979c418abc1b7",
+          "spotifyUri": "spotify:track:0eAuGrXyGFYwur9ARUe7LJ"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_10",
@@ -2296,39 +2298,17 @@
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_12",
-          "title": "Great Expectation",
-          "artist": "SIENNA SPIRO",
-          "duration": "2:53",
-          "durationMs": 173975,
+          "title": "stupid song",
+          "artist": "Olivia Rodrigo",
+          "duration": "3:29",
+          "durationMs": 209680,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "SIENNA SPIRO - Great Expectation",
-          "previewUrl": "https://p.scdn.co/mp3-preview/f82f2f3e714a66934fc309e357cbf249ad045f62",
-          "spotifyUri": "spotify:track:7ujApz6iFP3PmKIDGcaGbe"
+          "query": "Olivia Rodrigo - stupid song",
+          "previewUrl": "https://p.scdn.co/mp3-preview/e7efd6e9d58979bc860703193212bbcb980d492a",
+          "spotifyUri": "spotify:track:49j6SvuvWfbEKZKzsHCdLJ"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_13",
-          "title": "Love Me Not",
-          "artist": "Ravyn Lenae",
-          "duration": "3:33",
-          "durationMs": 213466,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Ravyn Lenae - Love Me Not",
-          "previewUrl": "https://p.scdn.co/mp3-preview/c660e524e84990f7687728af3ba09f9e071e585d",
-          "spotifyUri": "spotify:track:4WFgvKVfEhb3IUAFGrutTR"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_14",
-          "title": "Sweater Weather",
-          "artist": "The Neighbourhood",
-          "duration": "4:00",
-          "durationMs": 240400,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "The Neighbourhood - Sweater Weather",
-          "previewUrl": "https://p.scdn.co/mp3-preview/877602f424a9dea277b13301ffc516f9fd1fbe7e",
-          "spotifyUri": "spotify:track:2QjOHCTQ1Jl3zawyYOpxh6"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_15",
           "title": "Iris",
           "artist": "The Goo Goo Dolls",
           "duration": "4:49",
@@ -2339,40 +2319,84 @@
           "spotifyUri": "spotify:track:4DPdJvSMB6hmrjgC5eC85d"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_16",
-          "title": "Patient Zero",
-          "artist": "Taylor Swift",
-          "duration": "3:45",
-          "durationMs": 225868,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_14",
+          "title": "Pós - Ao Vivo",
+          "artist": "Felipe e Rodrigo",
+          "duration": "2:55",
+          "durationMs": 175577,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Taylor Swift - Patient Zero",
-          "previewUrl": "https://p.scdn.co/mp3-preview/3b622221c4b4a6c28ef70ed256b47ef825108142",
-          "spotifyUri": "spotify:track:11hcBLPtbMp4aQI6zGQLub"
+          "query": "Felipe e Rodrigo - Pós - Ao Vivo",
+          "previewUrl": "https://p.scdn.co/mp3-preview/a388632e697278d1c9efc11a05f6fb2c8bc56c03",
+          "spotifyUri": "spotify:track:1uDn0nbzeGPVw97jp7SvzR"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_17",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_15",
           "title": "Man I Need",
           "artist": "Olivia Dean",
           "duration": "3:04",
           "durationMs": 184000,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
           "query": "Olivia Dean - Man I Need",
-          "previewUrl": "https://p.scdn.co/mp3-preview/0a36635f94b4e44e6e4f5b7edb3f501d458812d9",
-          "spotifyUri": "spotify:track:1qbmS6ep2hbBRaEZFpn7BX"
+          "previewUrl": "https://p.scdn.co/mp3-preview/40bcf10e0f80094095d6e0be0ff1b85268dda0b7",
+          "spotifyUri": "spotify:track:0mYXRQpTGjaLJt1l9MY4ps"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_16",
+          "title": "Sweater Weather",
+          "artist": "The Neighbourhood",
+          "duration": "4:00",
+          "durationMs": 240400,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "The Neighbourhood - Sweater Weather",
+          "previewUrl": "https://p.scdn.co/mp3-preview/877602f424a9dea277b13301ffc516f9fd1fbe7e",
+          "spotifyUri": "spotify:track:2QjOHCTQ1Jl3zawyYOpxh6"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_17",
+          "title": "expectations (feat. Chappell Roan)",
+          "artist": "Olivia Rodrigo, Chappell Roan",
+          "duration": "3:43",
+          "durationMs": 223935,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Olivia Rodrigo, Chappell Roan - expectations (feat. Chappell Roan)",
+          "previewUrl": "https://p.scdn.co/mp3-preview/cc5b59142bd150799f61068e522f8aaa120d28c9",
+          "spotifyUri": "spotify:track:3XmwAZpIMNpTJy8faw3ajD"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_18",
-          "title": "Babydoll",
-          "artist": "Dominic Fike",
-          "duration": "1:37",
-          "durationMs": 97960,
+          "title": "Love Me Not",
+          "artist": "Ravyn Lenae",
+          "duration": "3:33",
+          "durationMs": 213466,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Dominic Fike - Babydoll",
-          "previewUrl": "https://p.scdn.co/mp3-preview/bf5ab98492256120bd9c48658e9c899c8692f77f",
-          "spotifyUri": "spotify:track:7yNf9YjeO5JXUE3JEBgnYc"
+          "query": "Ravyn Lenae - Love Me Not",
+          "previewUrl": "https://p.scdn.co/mp3-preview/c660e524e84990f7687728af3ba09f9e071e585d",
+          "spotifyUri": "spotify:track:4WFgvKVfEhb3IUAFGrutTR"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_19",
+          "title": "Choosin' Texas",
+          "artist": "Ella Langley",
+          "duration": "3:51",
+          "durationMs": 231746,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Ella Langley - Choosin' Texas",
+          "previewUrl": "https://p.scdn.co/mp3-preview/f08d08e4bc0225289d4b15c46a846cd9e4ebc146",
+          "spotifyUri": "spotify:track:7scFxt9VhL4FJwuPSfRlfN"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_20",
+          "title": "Great Expectation",
+          "artist": "SIENNA SPIRO",
+          "duration": "2:53",
+          "durationMs": 173975,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "SIENNA SPIRO - Great Expectation",
+          "previewUrl": "https://p.scdn.co/mp3-preview/f82f2f3e714a66934fc309e357cbf249ad045f62",
+          "spotifyUri": "spotify:track:7ujApz6iFP3PmKIDGcaGbe"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_21",
           "title": "Self Aware",
           "artist": "Temper City",
           "duration": "3:00",
@@ -2383,18 +2407,7 @@
           "spotifyUri": "spotify:track:4qW3BbQAwZsrnu8a3ZRdyT"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_20",
-          "title": "Loser",
-          "artist": "Tame Impala",
-          "duration": "3:43",
-          "durationMs": 223069,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Tame Impala - Loser",
-          "previewUrl": "https://p.scdn.co/mp3-preview/0015e9347a45b62215447eba657b2fc3ce279d2d",
-          "spotifyUri": "spotify:track:7bxaFZ1O3cHkgLKMsdC3xR"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_21",
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_22",
           "title": "Just Give Me a Reason (feat. Nate Ruess)",
           "artist": "P!nk, Nate Ruess",
           "duration": "4:02",
@@ -2403,17 +2416,6 @@
           "query": "P!nk, Nate Ruess - Just Give Me a Reason (feat. Nate Ruess)",
           "previewUrl": "https://p.scdn.co/mp3-preview/8f4f290fa153a0235bd689140a17c89063095f15",
           "spotifyUri": "spotify:track:1mKXFLRA179hdOWQBwUk9e"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_22",
-          "title": "SWIM",
-          "artist": "BTS",
-          "duration": "2:39",
-          "durationMs": 159007,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "BTS - SWIM",
-          "previewUrl": "https://p.scdn.co/mp3-preview/acafb81cc609de53b9687a40f214f79d828b6947",
-          "spotifyUri": "spotify:track:68lbSrXDORS51pmyjZv712"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_23",
@@ -2428,61 +2430,17 @@
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_24",
-          "title": "Pós - Ao Vivo",
-          "artist": "Felipe e Rodrigo",
-          "duration": "2:55",
-          "durationMs": 175577,
+          "title": "Billie Jean",
+          "artist": "Michael Jackson",
+          "duration": "4:53",
+          "durationMs": 293802,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Felipe e Rodrigo - Pós - Ao Vivo",
-          "previewUrl": "https://p.scdn.co/mp3-preview/a388632e697278d1c9efc11a05f6fb2c8bc56c03",
-          "spotifyUri": "spotify:track:1uDn0nbzeGPVw97jp7SvzR"
+          "query": "Michael Jackson - Billie Jean",
+          "previewUrl": "https://p.scdn.co/mp3-preview/84c7d8302cebe916b8a02392ece9b2c72ce95d34",
+          "spotifyUri": "spotify:track:7J1uxwnxfQLu4APicE5Rnj"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_25",
-          "title": "Sailor Song",
-          "artist": "Gigi Perez",
-          "duration": "3:31",
-          "durationMs": 211978,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Gigi Perez - Sailor Song",
-          "previewUrl": "https://p.scdn.co/mp3-preview/2b82b0fdedc4069da92d96f83dcab0d6fcbaf08a",
-          "spotifyUri": "spotify:track:21IYMdzTrzSe191Cy5eMap"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_26",
-          "title": "End of Beginning",
-          "artist": "Djo",
-          "duration": "2:39",
-          "durationMs": 159245,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Djo - End of Beginning",
-          "previewUrl": "https://p.scdn.co/mp3-preview/dcebd3075a93171a92cad9b3228c8c4e80ffcd8d",
-          "spotifyUri": "spotify:track:3qhlB30KknSejmIvZZLjOD"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_27",
-          "title": "Training Season",
-          "artist": "Dua Lipa",
-          "duration": "3:29",
-          "durationMs": 209487,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Dua Lipa - Training Season",
-          "previewUrl": "https://p.scdn.co/mp3-preview/18939cfc406c70ae954d4a384434ee7744d7e194",
-          "spotifyUri": "spotify:track:5b5cPscqVEMChvDqscVw26"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_28",
-          "title": "Cinderella (feat. Ty Dolla $ign)",
-          "artist": "Mac Miller, Ty Dolla $ign",
-          "duration": "8:00",
-          "durationMs": 480186,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Mac Miller, Ty Dolla $ign - Cinderella (feat. Ty Dolla $ign)",
-          "previewUrl": "https://p.scdn.co/mp3-preview/04815fdb32f409e135fbdbcaf8ddb70858a8a7f2",
-          "spotifyUri": "spotify:track:2lpygKqzPFtItQ4ss3cgfb"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_29",
           "title": "BIRDS OF A FEATHER",
           "artist": "Billie Eilish",
           "duration": "3:30",
@@ -2493,26 +2451,70 @@
           "spotifyUri": "spotify:track:6dOtVTDdiauQNBQEDOtlAB"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_30",
-          "title": "hate that i made you love me",
-          "artist": "Ariana Grande",
-          "duration": "3:17",
-          "durationMs": 197949,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_26",
+          "title": "Babydoll",
+          "artist": "Dominic Fike",
+          "duration": "1:37",
+          "durationMs": 97960,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Ariana Grande - hate that i made you love me",
-          "previewUrl": "https://p.scdn.co/mp3-preview/c935ee200aa75c855a349afff4f4852b2e755ec7",
-          "spotifyUri": "spotify:track:3iy2QuCtCzpWnR6tia39AB"
+          "query": "Dominic Fike - Babydoll",
+          "previewUrl": "https://p.scdn.co/mp3-preview/bf5ab98492256120bd9c48658e9c899c8692f77f",
+          "spotifyUri": "spotify:track:7yNf9YjeO5JXUE3JEBgnYc"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_27",
+          "title": "SWIM",
+          "artist": "BTS",
+          "duration": "2:39",
+          "durationMs": 159007,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "BTS - SWIM",
+          "previewUrl": "https://p.scdn.co/mp3-preview/acafb81cc609de53b9687a40f214f79d828b6947",
+          "spotifyUri": "spotify:track:68lbSrXDORS51pmyjZv712"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_28",
+          "title": "Loser",
+          "artist": "Tame Impala",
+          "duration": "3:43",
+          "durationMs": 223069,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Tame Impala - Loser",
+          "previewUrl": "https://p.scdn.co/mp3-preview/0015e9347a45b62215447eba657b2fc3ce279d2d",
+          "spotifyUri": "spotify:track:7bxaFZ1O3cHkgLKMsdC3xR"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_29",
+          "title": "Mr. Brightside",
+          "artist": "The Killers",
+          "duration": "3:42",
+          "durationMs": 222973,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "The Killers - Mr. Brightside",
+          "previewUrl": "https://p.scdn.co/mp3-preview/848b1bd5544e82f62f9cfcec65362d0f5369781f",
+          "spotifyUri": "spotify:track:003vvx7Niy0yvhvHt4a68B"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_30",
+          "title": "Sailor Song",
+          "artist": "Gigi Perez",
+          "duration": "3:31",
+          "durationMs": 211978,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Gigi Perez - Sailor Song",
+          "previewUrl": "https://p.scdn.co/mp3-preview/2b82b0fdedc4069da92d96f83dcab0d6fcbaf08a",
+          "spotifyUri": "spotify:track:21IYMdzTrzSe191Cy5eMap"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_31",
-          "title": "Choosin' Texas",
-          "artist": "Ella Langley",
-          "duration": "3:51",
-          "durationMs": 231746,
+          "title": "Locked out of Heaven",
+          "artist": "Bruno Mars",
+          "duration": "3:53",
+          "durationMs": 233478,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Ella Langley - Choosin' Texas",
-          "previewUrl": "https://p.scdn.co/mp3-preview/f08d08e4bc0225289d4b15c46a846cd9e4ebc146",
-          "spotifyUri": "spotify:track:7scFxt9VhL4FJwuPSfRlfN"
+          "query": "Bruno Mars - Locked out of Heaven",
+          "previewUrl": "https://p.scdn.co/mp3-preview/5a0318e6c43964786d22b9431af35490e96cff3d",
+          "spotifyUri": "spotify:track:3w3y8KPTfNeOKPiqUTakBh"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_32",
@@ -2527,61 +2529,39 @@
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_33",
-          "title": "Billie Jean",
-          "artist": "Michael Jackson",
-          "duration": "4:53",
-          "durationMs": 293802,
+          "title": "Cinderella (feat. Ty Dolla $ign)",
+          "artist": "Mac Miller, Ty Dolla $ign",
+          "duration": "8:00",
+          "durationMs": 480186,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Michael Jackson - Billie Jean",
-          "previewUrl": "https://p.scdn.co/mp3-preview/84c7d8302cebe916b8a02392ece9b2c72ce95d34",
-          "spotifyUri": "spotify:track:7J1uxwnxfQLu4APicE5Rnj"
+          "query": "Mac Miller, Ty Dolla $ign - Cinderella (feat. Ty Dolla $ign)",
+          "previewUrl": "https://p.scdn.co/mp3-preview/04815fdb32f409e135fbdbcaf8ddb70858a8a7f2",
+          "spotifyUri": "spotify:track:2lpygKqzPFtItQ4ss3cgfb"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_34",
-          "title": "Ordinary",
-          "artist": "Alex Warren",
-          "duration": "3:06",
-          "durationMs": 186964,
+          "title": "Patient Zero",
+          "artist": "Taylor Swift",
+          "duration": "3:45",
+          "durationMs": 225868,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Alex Warren - Ordinary",
-          "previewUrl": "https://p.scdn.co/mp3-preview/023ecc53465fc16782a581cbdc2e9d738cde1453",
-          "spotifyUri": "spotify:track:2RkZ5LkEzeHGRsmDqKwmaJ"
+          "query": "Taylor Swift - Patient Zero",
+          "previewUrl": "https://p.scdn.co/mp3-preview/3b622221c4b4a6c28ef70ed256b47ef825108142",
+          "spotifyUri": "spotify:track:11hcBLPtbMp4aQI6zGQLub"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_35",
-          "title": "Mr. Brightside",
-          "artist": "The Killers",
-          "duration": "3:42",
-          "durationMs": 222973,
+          "title": "hate that i made you love me",
+          "artist": "Ariana Grande",
+          "duration": "3:17",
+          "durationMs": 197949,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "The Killers - Mr. Brightside",
-          "previewUrl": "https://p.scdn.co/mp3-preview/848b1bd5544e82f62f9cfcec65362d0f5369781f",
-          "spotifyUri": "spotify:track:003vvx7Niy0yvhvHt4a68B"
+          "query": "Ariana Grande - hate that i made you love me",
+          "previewUrl": "https://p.scdn.co/mp3-preview/c935ee200aa75c855a349afff4f4852b2e755ec7",
+          "spotifyUri": "spotify:track:3iy2QuCtCzpWnR6tia39AB"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_36",
-          "title": "Wonderwall - Remastered",
-          "artist": "Oasis",
-          "duration": "4:18",
-          "durationMs": 258773,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Oasis - Wonderwall - Remastered",
-          "previewUrl": "https://p.scdn.co/mp3-preview/20284474537394c92c98e543b21efe174ff2599d",
-          "spotifyUri": "spotify:track:5qqabIl2vWzo9ApSC317sa"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_37",
-          "title": "Sign of the Times",
-          "artist": "Harry Styles",
-          "duration": "5:40",
-          "durationMs": 340706,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Harry Styles - Sign of the Times",
-          "previewUrl": "https://p.scdn.co/mp3-preview/3f677086b8a90e1b9affde439d2ba55c77044799",
-          "spotifyUri": "spotify:track:5Ohxk2dO5COHF1krpoPigN"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_38",
           "title": "Dai Dai",
           "artist": "Shakira, Burna Boy",
           "duration": "3:43",
@@ -2592,15 +2572,37 @@
           "spotifyUri": "spotify:track:0kosUz0jePvjiz4ctmR6wL"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_39",
-          "title": "The Fate of Ophelia",
-          "artist": "Taylor Swift",
-          "duration": "3:46",
-          "durationMs": 226073,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_37",
+          "title": "End of Beginning",
+          "artist": "Djo",
+          "duration": "2:39",
+          "durationMs": 159245,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Taylor Swift - The Fate of Ophelia",
-          "previewUrl": "https://p.scdn.co/mp3-preview/08d084852368db5ef64c30ae9281d66a610b0605",
-          "spotifyUri": "spotify:track:53iuhJlwXhSER5J2IYYv1W"
+          "query": "Djo - End of Beginning",
+          "previewUrl": "https://p.scdn.co/mp3-preview/dcebd3075a93171a92cad9b3228c8c4e80ffcd8d",
+          "spotifyUri": "spotify:track:3qhlB30KknSejmIvZZLjOD"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_38",
+          "title": "Wonderwall - Remastered",
+          "artist": "Oasis",
+          "duration": "4:18",
+          "durationMs": 258773,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Oasis - Wonderwall - Remastered",
+          "previewUrl": "https://p.scdn.co/mp3-preview/20284474537394c92c98e543b21efe174ff2599d",
+          "spotifyUri": "spotify:track:5qqabIl2vWzo9ApSC317sa"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_39",
+          "title": "Ordinary",
+          "artist": "Alex Warren",
+          "duration": "3:06",
+          "durationMs": 186964,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Alex Warren - Ordinary",
+          "previewUrl": "https://p.scdn.co/mp3-preview/023ecc53465fc16782a581cbdc2e9d738cde1453",
+          "spotifyUri": "spotify:track:2RkZ5LkEzeHGRsmDqKwmaJ"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_40",
@@ -2626,61 +2628,17 @@
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_42",
-          "title": "Every Breath You Take",
-          "artist": "The Police",
-          "duration": "4:13",
-          "durationMs": 253920,
+          "title": "Training Season",
+          "artist": "Dua Lipa",
+          "duration": "3:29",
+          "durationMs": 209487,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "The Police - Every Breath You Take",
-          "previewUrl": "https://p.scdn.co/mp3-preview/92d7997134bb18b99eb5fdc65926e4ef613f9781",
-          "spotifyUri": "spotify:track:1JSTJqkT5qHq8MDJnJbRE1"
+          "query": "Dua Lipa - Training Season",
+          "previewUrl": "https://p.scdn.co/mp3-preview/18939cfc406c70ae954d4a384434ee7744d7e194",
+          "spotifyUri": "spotify:track:5b5cPscqVEMChvDqscVw26"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_43",
-          "title": "Risk It All",
-          "artist": "Bruno Mars",
-          "duration": "3:24",
-          "durationMs": 204068,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Bruno Mars - Risk It All",
-          "previewUrl": "https://p.scdn.co/mp3-preview/2467ff71a7508c57a62112ee5beb996bd6b9e957",
-          "spotifyUri": "spotify:track:5y2ijHECwFYWqcAHKTZgzD"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_44",
-          "title": "WILDFLOWER",
-          "artist": "Billie Eilish",
-          "duration": "4:21",
-          "durationMs": 261466,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Billie Eilish - WILDFLOWER",
-          "previewUrl": "https://p.scdn.co/mp3-preview/ab7acea907be9cbe03bba9964765aa889f53d238",
-          "spotifyUri": "spotify:track:3QaPy1KgI7nu9FJEQUgn6h"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_45",
-          "title": "Yellow",
-          "artist": "Coldplay",
-          "duration": "4:26",
-          "durationMs": 266773,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Coldplay - Yellow",
-          "previewUrl": "https://p.scdn.co/mp3-preview/c0d9119dc69cae75baf6463e21e43f433fdf5ff4",
-          "spotifyUri": "spotify:track:3AJwUDP919kvQ9QcozQPxg"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_46",
-          "title": "Die On This Hill",
-          "artist": "SIENNA SPIRO",
-          "duration": "3:37",
-          "durationMs": 217008,
-          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "SIENNA SPIRO - Die On This Hill",
-          "previewUrl": "https://p.scdn.co/mp3-preview/9f853ffba75ea5bd4cd48b1cf994a47f65fa52c4",
-          "spotifyUri": "spotify:track:7gkZNvBHfI30qG7hA0eopT"
-        },
-        {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_47",
           "title": "Starboy",
           "artist": "The Weeknd, Daft Punk",
           "duration": "3:50",
@@ -2691,15 +2649,59 @@
           "spotifyUri": "spotify:track:7MXVkk9YMctZqd1Srtv4MB"
         },
         {
-          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_48",
-          "title": "So Easy (To Fall In Love)",
-          "artist": "Olivia Dean",
-          "duration": "2:49",
-          "durationMs": 169000,
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_44",
+          "title": "Sign of the Times",
+          "artist": "Harry Styles",
+          "duration": "5:40",
+          "durationMs": 340706,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Olivia Dean - So Easy (To Fall In Love)",
-          "previewUrl": "https://p.scdn.co/mp3-preview/e0ea7353932017364bdb12dc776e89b360abac42",
-          "spotifyUri": "spotify:track:6sGIMrtIzQjdzNndVxe397"
+          "query": "Harry Styles - Sign of the Times",
+          "previewUrl": "https://p.scdn.co/mp3-preview/3f677086b8a90e1b9affde439d2ba55c77044799",
+          "spotifyUri": "spotify:track:5Ohxk2dO5COHF1krpoPigN"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_45",
+          "title": "Raindance (feat. Tems)",
+          "artist": "Dave, Tems",
+          "duration": "3:39",
+          "durationMs": 219743,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Dave, Tems - Raindance (feat. Tems)",
+          "previewUrl": "https://p.scdn.co/mp3-preview/7d860804d259f81b4a7bc04900a5410d99995fd4",
+          "spotifyUri": "spotify:track:3oTuTpF1F3A7rEC6RKsMRz"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_46",
+          "title": "Every Breath You Take",
+          "artist": "The Police",
+          "duration": "4:13",
+          "durationMs": 253920,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "The Police - Every Breath You Take",
+          "previewUrl": "https://p.scdn.co/mp3-preview/92d7997134bb18b99eb5fdc65926e4ef613f9781",
+          "spotifyUri": "spotify:track:1JSTJqkT5qHq8MDJnJbRE1"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_47",
+          "title": "Lies (feat. Lana Del Rey)",
+          "artist": "Zach Bryan, Lana Del Rey",
+          "duration": "3:40",
+          "durationMs": 220588,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Zach Bryan, Lana Del Rey - Lies (feat. Lana Del Rey)",
+          "previewUrl": "https://p.scdn.co/mp3-preview/46a21f2dd3bdd6c6aa0a6be40f91498ac0572ed7",
+          "spotifyUri": "spotify:track:4EVSMqqVEehvyyOBmjNTlA"
+        },
+        {
+          "id": "sp_37i9dQZEVXbMDoHDwVN2tF_48",
+          "title": "505",
+          "artist": "Arctic Monkeys",
+          "duration": "4:13",
+          "durationMs": 253586,
+          "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
+          "query": "Arctic Monkeys - 505",
+          "previewUrl": "https://p.scdn.co/mp3-preview/24ad19af2d5feeeb0048bff59b4096960b415848",
+          "spotifyUri": "spotify:track:0BxE4FqsDD1Ot4YuBXwAPp"
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_49",
@@ -2714,19 +2716,19 @@
         },
         {
           "id": "sp_37i9dQZEVXbMDoHDwVN2tF_50",
-          "title": "The Night We Met",
-          "artist": "Lord Huron",
-          "duration": "3:28",
-          "durationMs": 208226,
+          "title": "Postinho de Gasolina",
+          "artist": "João Gustavo e Murilo, Grelo",
+          "duration": "2:23",
+          "durationMs": 143371,
           "artworkUrl": "https://charts-images.scdn.co/assets/locale_en/regional/daily/region_global_default.jpg",
-          "query": "Lord Huron - The Night We Met",
-          "previewUrl": "https://p.scdn.co/mp3-preview/52aeda9a6b79dcc376ea590391478a4f4c034244",
-          "spotifyUri": "spotify:track:5yJaXWIErrrsjQ3J0eR5aK"
+          "query": "João Gustavo e Murilo, Grelo - Postinho de Gasolina",
+          "previewUrl": "https://p.scdn.co/mp3-preview/ec015d1dfcaaccbbd13a1ccb43c1d2dcf9f95eac",
+          "spotifyUri": "spotify:track:4RuRAwMmuBxw4QsKeFVhxh"
         }
       ],
       "badge": "📈 Worldwide Daily Chart",
       "genre": "charts",
-      "lastImported": 1792218737020
+      "lastImported": 1792477428598
     }
   ],
   "topTracks": [
@@ -3056,7 +3058,7 @@
       "durationMs": 223935,
       "artworkUrl": "https://i.scdn.co/image/ab67706f0000000230888e59410296f950502d00",
       "query": "Olivia Rodrigo, Chappell Roan - expectations (feat. Chappell Roan)",
-      "previewUrl": "https://p.scdn.co/mp3-preview/3949e120ef8170dfd179ce5fa105aa55c4c0f761",
+      "previewUrl": "https://p.scdn.co/mp3-preview/cc5b59142bd150799f61068e522f8aaa120d28c9",
       "spotifyUri": "spotify:track:3XmwAZpIMNpTJy8faw3ajD",
       "playlistName": "Today's Top Hits",
       "playlistBadge": "🌍 Global Hits in India",
