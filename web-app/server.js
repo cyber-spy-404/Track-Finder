@@ -316,34 +316,39 @@ function executeYtDlp(args, options, callback) {
     runArgs.unshift("--js-runtimes", "node");
   }
 
+  const tryPythonAndSystem = (prevErr) => {
+    const pythonCmd = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
+    execFile(pythonCmd, ["-m", "yt_dlp", ...runArgs], options, (err, stdout, stderr) => {
+      if (options?.signal?.aborted || err?.name === "AbortError") {
+        return callback(new Error("Request aborted"), "", "");
+      }
+      if (err) {
+        return execFile("yt-dlp", runArgs, options, (err2, stdout2, stderr2) => {
+          if (options?.signal?.aborted || err2?.name === "AbortError") {
+            return callback(new Error("Request aborted"), "", "");
+          }
+          callback(err2 || err || prevErr, stdout2 || stdout, stderr2 || stderr);
+        });
+      }
+      callback(null, stdout, stderr);
+    });
+  };
+
   const localBinary = path.join(__dirname, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
   if (fs.existsSync(localBinary)) {
     return execFile(localBinary, runArgs, options, (err, stdout, stderr) => {
       if (options?.signal?.aborted || err?.name === "AbortError") {
         return callback(new Error("Request aborted"), "", "");
       }
-      callback(err, stdout, stderr);
+      if (err) {
+        console.warn("[executeYtDlp] localBinary failed, falling back to python/system yt-dlp:", err.message);
+        return tryPythonAndSystem(err);
+      }
+      callback(null, stdout, stderr);
     });
   }
 
-  const pythonCmd = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
-  execFile(pythonCmd, ["-m", "yt_dlp", ...runArgs], options, (err, stdout, stderr) => {
-    if (options?.signal?.aborted || err?.name === "AbortError") {
-      return callback(new Error("Request aborted"), "", "");
-    }
-    if (err && (err.code === "ENOENT" || err.message?.includes("ENOENT"))) {
-      return execFile("yt-dlp", runArgs, options, (err2, stdout2, stderr2) => {
-        if (options?.signal?.aborted || err2?.name === "AbortError") {
-          return callback(new Error("Request aborted"), "", "");
-        }
-        if (err2 && process.platform !== "win32") {
-          return execFile("python", ["-m", "yt_dlp", ...runArgs], options, callback);
-        }
-        callback(err2, stdout2, stderr2);
-      });
-    }
-    callback(err, stdout, stderr);
-  });
+  tryPythonAndSystem(null);
 }
 
 // ==========================================================================
@@ -2093,6 +2098,30 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(400, { "Access-Control-Allow-Origin": "*" });
       return res.end("Invalid audio URI");
     }
+  }
+
+  // --------------------------------------------------------------------------
+  // API: Diagnostics (Inspect yt-dlp on cloud instance)
+  // --------------------------------------------------------------------------
+  if (pathname === "/api/debug-ytdlp") {
+    const targetUrl = parsedUrl.searchParams.get("url") || "https://www.youtube.com/watch?v=FBeoVl1B3EI";
+    executeYtDlp(
+      ["-g", "--get-title", "--get-duration", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", targetUrl],
+      { timeout: 35000 },
+      (err, stdout, stderr) => {
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({
+          url: targetUrl,
+          err: err ? err.message : null,
+          stdout: stdout ? stdout.trim() : null,
+          stderr: stderr ? stderr.trim() : null,
+          nodeEnv: process.env.NODE_ENV,
+          platform: process.platform,
+          pythonPath: process.env.PYTHON_PATH || null
+        }, null, 2));
+      }
+    );
+    return;
   }
 
   // --------------------------------------------------------------------------
