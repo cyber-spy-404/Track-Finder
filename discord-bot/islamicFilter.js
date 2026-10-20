@@ -495,10 +495,20 @@ const SURAH_ALIASES = {
   114: ["an nas", "nas", "mankind"]
 };
 
-function resolveSurahInfo(text) {
+function isTranslationOrTafsir(text) {
+  if (!text || typeof text !== "string") return false;
+  return /(?:translation|transl|অনুবাদ|উচ্চারণ|বাংলা|bangla|bengali|tarjuma|tarjama|urdu|hindi|english|tafsir|tafseer|meaning|অর্থ|bayan|dars|waz|lecture|sheikh|mufti)/i.test(text);
+}
+
+function resolveSurahInfo(text, allowTranslation = false) {
   if (!text || typeof text !== "string") return null;
   const str = text.trim();
   if (!str) return null;
+
+  // Do not resolve to Arabic Mishary audio if user explicitly requested a translation, tafsir, or lecture
+  if (!allowTranslation && isTranslationOrTafsir(str)) {
+    return null;
+  }
 
   // 1. Check for explicit number: "surah 1", "surat 02", "036 surah", "surah #114", "surah: 55", or standalone number
   const numMatch = str.match(/(?:surah|surat|soorah)\s*[:#.-]?\s*(\d{1,3})/i) ||
@@ -564,6 +574,7 @@ module.exports = {
   BLOCKED_KEYWORDS,
   SURAH_NAMES,
   SURAH_ALIASES,
+  isTranslationOrTafsir,
   resolveSurahInfo
 };
 

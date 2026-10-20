@@ -16,6 +16,7 @@ const {
   validateByFilterMode,
   SURAH_NAMES,
   SURAH_ALIASES,
+  isTranslationOrTafsir,
   resolveSurahInfo
 } = require("./islamicFilter");
 
@@ -1015,6 +1016,7 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
               query: videoUrl || `${e.title} ${author}`.trim(),
               streamUrl: null,
               rawStreamUrl: null,
+              proxyStreamUrl: videoUrl ? `/api/stream-audio?url=${encodeURIComponent(videoUrl)}` : null,
               source: "youtube",
               filterMode: isItemIslamic ? "strict" : "filterless"
             };
@@ -1140,12 +1142,23 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
       streamMeta = cachedSearch.results[0];
       target = streamMeta.url || `https://www.youtube.com/watch?v=${streamMeta.id}`;
     } else {
-      target = `ytsearch1:${target}`;
+      // Use ultra-fast Lavalink lookup to resolve the YouTube video URL in ~1.5s instead of 40s ytsearch!
+      try {
+        const lavaResults = await searchLavalinkTracks(target, 1, signal);
+        if (lavaResults && lavaResults.length > 0 && lavaResults[0].url) {
+          streamMeta = lavaResults[0];
+          target = lavaResults[0].url;
+        } else {
+          target = `ytsearch1:${target}`;
+        }
+      } catch (e) {
+        target = `ytsearch1:${target}`;
+      }
     }
   }
 
   // Strip playlist parameter from individual video URLs to speed up extraction by 10x
-  if (isUrl && (target.includes("youtube.com") || target.includes("youtu.be"))) {
+  if ((target.includes("youtube.com") || target.includes("youtu.be")) && !target.startsWith("ytsearch")) {
     const vMatch = target.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || target.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || target.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
     if (vMatch && vMatch[1]) {
       target = `https://www.youtube.com/watch?v=${vMatch[1]}`;
@@ -1930,6 +1943,22 @@ const server = http.createServer(async (req, res) => {
     if (!uri || (!uri.startsWith("http://") && !uri.startsWith("https://"))) {
       res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ error: `No active audio stream for channel: ${targetChannel}` }));
+    }
+
+    // CRITICAL GUARD: If uri is still a YouTube HTML webpage, stream extraction failed!
+    // NEVER proxy an HTML webpage into an audio player element!
+    if (uri && (uri.includes("youtube.com") || uri.includes("youtu.be"))) {
+      console.warn("[StreamProxy] YouTube direct stream extraction yielded no audio stream for:", uri);
+      const curTitle = systemChannels[targetChannel]?.current?.title || "";
+      const isTrans = isTranslationOrTafsir(curTitle);
+      const surahCheck = !isTrans ? resolveSurahInfo(curTitle) : null;
+      if (surahCheck) {
+        const padded = String(surahCheck.number).padStart(3, "0");
+        uri = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+      } else {
+        res.writeHead(502, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        return res.end(JSON.stringify({ error: "Could not extract playable stream for this YouTube video. It may be restricted or unavailable." }));
+      }
     }
 
     try {

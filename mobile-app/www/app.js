@@ -43,9 +43,14 @@ function getApiBaseUrl() {
     localStorage.removeItem("ahm_server_url");
   }
 
-  // If running in browser and already served directly from track-finder.onrender.com, use relative path
-  if (typeof window !== "undefined" && window.location?.origin && window.location.origin.includes("track-finder.onrender.com")) {
-    return "";
+  // If running in browser over HTTP/HTTPS (not an isolated native app container), always use same-origin relative path
+  if (typeof window !== "undefined" && window.location?.origin) {
+    if (!isMobileAppEnvironment && (window.location.protocol === "http:" || window.location.protocol === "https:")) {
+      return "";
+    }
+    if (window.location.origin.includes("track-finder.onrender.com")) {
+      return "";
+    }
   }
 
   // Built-in connection to https://track-finder.onrender.com for native Android APK, Capacitor, iOS, PWA, or local shells
@@ -292,10 +297,21 @@ const SURAH_ALIASES = {
   114: ["an nas", "nas", "mankind"]
 };
 
-function resolveSurahInfo(text) {
+function isTranslationOrTafsir(text) {
+  if (!text || typeof text !== "string") return false;
+  return /(?:translation|transl|অনুবাদ|উচ্চারণ|বাংলা|bangla|bengali|tarjuma|tarjama|urdu|hindi|english|tafsir|tafseer|meaning|অর্থ|bayan|dars|waz|lecture|sheikh|mufti)/i.test(text);
+}
+window.isTranslationOrTafsir = isTranslationOrTafsir;
+
+function resolveSurahInfo(text, allowTranslation = false) {
   if (!text || typeof text !== "string") return null;
   const str = text.trim();
   if (!str) return null;
+
+  // Do not resolve to Arabic Mishary audio if user explicitly requested a translation, tafsir, or lecture
+  if (!allowTranslation && isTranslationOrTafsir(str)) {
+    return null;
+  }
 
   // 1. Check for explicit number: "surah 1", "surat 02", "036 surah", "surah #114", "surah: 55", or standalone number
   const numMatch = str.match(/(?:surah|surat|soorah)\s*[:#.-]?\s*(\d{1,3})/i) ||
@@ -353,7 +369,7 @@ window.resolveSurahInfo = resolveSurahInfo;
 
 function isIslamicText(text) {
   if (!text) return false;
-  if (resolveSurahInfo(text)) return true;
+  if (resolveSurahInfo(text, true)) return true;
   const s = String(text).toLowerCase();
   return /(?:quran|surah|surat|ayat|tilawat|tilawah|qari|mishary|alafasy|sudais|abdul\s*basit|ghamdi|muaiqly|minshawi|hussary|nasheed|anasheed|naat|hamd|bayan|waz|gojol|ghazal|kalarob|islamic)/i.test(s);
 }
@@ -1101,6 +1117,7 @@ const BrowserPlayer = {
               query: trackUrl || (cleanA ? `${cleanT} ${cleanA}` : `${rawT} ${rawA}`).trim(),
               url: trackUrl,
               source: isSpotifyPl ? "spotify" : "youtube",
+              proxyStreamUrl: (!isSpotifyPl && trackUrl) ? `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(trackUrl)}` : null,
               artworkUrl: ptArt,
               filterMode: "filterless"
             });
@@ -1594,7 +1611,7 @@ const BrowserPlayer = {
         url: safeUrl,
         streamUrl: directSurahCdn || item.streamUrl || null,
         rawStreamUrl: directSurahCdn || item.rawStreamUrl || null,
-        proxyStreamUrl: directSurahCdn ? `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(directSurahCdn)}` : (item.proxyStreamUrl || null),
+        proxyStreamUrl: directSurahCdn ? `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(directSurahCdn)}` : (item.proxyStreamUrl || (safeUrl && isYouTubeUrl(safeUrl) ? `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(safeUrl)}` : null)),
         filterMode: surahMatch ? "strict" : (item.filterMode || (isIslamicText(rawT) ? "strict" : "filterless")),
         source: surahMatch ? "quran" : (isSpotifyItem ? "spotify" : (item.source || (safeUrl && isYouTubeUrl(safeUrl) ? "youtube" : undefined)))
       };
