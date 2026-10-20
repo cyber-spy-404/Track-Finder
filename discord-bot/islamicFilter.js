@@ -240,6 +240,7 @@ function checkBlocked(text) {
 
 function isIslamicText(text) {
   if (!text) return false;
+  if (resolveSurahInfo(text)) return true;
   const normalized = normalizeText(text);
 
   // If it contains any explicitly blocked keyword, reject immediately
@@ -351,6 +352,207 @@ function validateByFilterMode(mode, target) {
   return { allowed: true, reason: "Passed" };
 }
 
+const SURAH_NAMES = {
+  1: "Al-Fatihah", 2: "Al-Baqarah", 3: "Ali 'Imran", 4: "An-Nisa", 5: "Al-Ma'idah",
+  6: "Al-An'am", 7: "Al-A'raf", 8: "Al-Anfal", 9: "At-Tawbah", 10: "Yunus",
+  11: "Hud", 12: "Yusuf", 13: "Ar-Ra'd", 14: "Ibrahim", 15: "Al-Hijr",
+  16: "An-Nahl", 17: "Al-Isra", 18: "Al-Kahf", 19: "Maryam", 20: "Ta-Ha",
+  21: "Al-Anbiya", 22: "Al-Hajj", 23: "Al-Mu'minun", 24: "An-Nur", 25: "Al-Furqan",
+  26: "Ash-Shu'ara", 27: "An-Naml", 28: "Al-Qasas", 29: "Al-'Ankabut", 30: "Ar-Rum",
+  31: "Luqman", 32: "As-Sajdah", 33: "Al-Ahzab", 34: "Saba", 35: "Fatir",
+  36: "Ya-Sin", 37: "As-Saffat", 38: "Sad", 39: "Az-Zumar", 40: "Ghafir",
+  41: "Fussilat", 42: "Ash-Shura", 43: "Az-Zukhruf", 44: "Ad-Dukhan", 45: "Al-Jathiyah",
+  46: "Al-Ahqaf", 47: "Muhammad", 48: "Al-Fath", 49: "Al-Hujurat", 50: "Qaf",
+  51: "Adh-Dhariyat", 52: "At-Tur", 53: "An-Najm", 54: "Al-Qamar", 55: "Ar-Rahman",
+  56: "Al-Waqi'ah", 57: "Al-Hadid", 58: "Al-Mujadila", 59: "Al-Hashr", 60: "Al-Mumtahanah",
+  61: "As-Saff", 62: "Al-Jumu'ah", 63: "Al-Munafiqun", 64: "At-Taghabun", 65: "At-Talaq",
+  66: "At-Tahrim", 67: "Al-Mulk", 68: "Al-Qalam", 69: "Al-Haqqah", 70: "Al-Ma'arij",
+  71: "Nuh", 72: "Al-Jinn", 73: "Al-Muzzammil", 74: "Al-Muddaththir", 75: "Al-Qiyamah",
+  76: "Al-Insan", 77: "Al-Mursalat", 78: "An-Naba", 79: "An-Nazi'at", 80: "'Abasa",
+  81: "At-Takwir", 82: "Al-Infitar", 83: "Al-Mutaffifin", 84: "Al-Inshiqaq", 85: "Al-Buruj",
+  86: "At-Tariq", 87: "Al-A'la", 88: "Al-Ghashiyah", 89: "Al-Fajr", 90: "Al-Balad",
+  91: "Ash-Shams", 92: "Al-Layl", 93: "Ad-Duha", 94: "Ash-Sharh", 95: "At-Tin",
+  96: "Al-'Alaq", 97: "Al-Qadr", 98: "Al-Bayyinah", 99: "Az-Zalzalah", 100: "Al-'Adiyat",
+  101: "Al-Qari'ah", 102: "At-Takathur", 103: "Al-'Asr", 104: "Al-Humazah", 105: "Al-Fil",
+  106: "Quraysh", 107: "Al-Ma'un", 108: "Al-Kawthar", 109: "Al-Kafirun", 110: "An-Nasr",
+  111: "Al-Masad", 112: "Al-Ikhlas", 113: "Al-Falaq", 114: "An-Nas"
+};
+
+const SURAH_ALIASES = {
+  1: ["fatihah", "fatiha", "fateha", "the opening", "al fatiha", "al fatihah", "surah fatiha", "surah fatihah"],
+  2: ["baqarah", "baqara", "bakara", "al baqarah", "al baqara", "the cow", "surah baqarah", "surah al baqarah"],
+  3: ["ali imran", "al imran", "aal e imran", "imran", "family of imran"],
+  4: ["an nisa", "nisa", "al nisa", "women"],
+  5: ["al maidah", "maidah", "maida", "the table spread"],
+  6: ["al anam", "anam", "an am", "cattle"],
+  7: ["al araf", "araf", "a'raf", "the heights"],
+  8: ["al anfal", "anfal", "the spoils of war"],
+  9: ["at tawbah", "tawbah", "tauba", "at taubah", "repentance"],
+  10: ["yunus", "jonah"],
+  11: ["hud"],
+  12: ["yusuf", "joseph"],
+  13: ["ar rad", "rad", "ra'd", "the thunder"],
+  14: ["ibrahim", "abraham"],
+  15: ["al hijr", "hijr", "the rocky tract"],
+  16: ["an nahl", "nahl", "the bee"],
+  17: ["al isra", "isra", "bani israil", "the night journey"],
+  18: ["al kahf", "kahf", "the cave"],
+  19: ["maryam", "mary"],
+  20: ["ta ha", "taha"],
+  21: ["al anbiya", "anbiya", "the prophets"],
+  22: ["al hajj", "hajj", "the pilgrimage"],
+  23: ["al muminun", "muminun", "mu'minun", "the believers"],
+  24: ["an nur", "nur", "noor", "the light"],
+  25: ["al furqan", "furqan", "the criterion"],
+  26: ["ash shuara", "shuara", "the poets"],
+  27: ["an naml", "naml", "the ant"],
+  28: ["al qasas", "qasas", "the stories"],
+  29: ["al ankabut", "ankabut", "the spider"],
+  30: ["ar rum", "rum", "the romans"],
+  31: ["luqman"],
+  32: ["as sajdah", "sajdah", "sajda", "prostration"],
+  33: ["al ahzab", "ahzab", "the combined forces"],
+  34: ["saba", "sheba"],
+  35: ["fatir", "the originator"],
+  36: ["ya sin", "yasin", "yaseen", "ya seen"],
+  37: ["as saffat", "saffat", "those who set the ranks"],
+  38: ["sad", "saad"],
+  39: ["az zumar", "zumar", "the troops"],
+  40: ["ghafir", "mumin", "the forgiver"],
+  41: ["fussilat", "ha mim sajdah"],
+  42: ["ash shura", "shura", "consultation"],
+  43: ["az zukhruf", "zukhruf", "the gold ornaments"],
+  44: ["ad dukhan", "dukhan", "the smoke"],
+  45: ["al jathiyah", "jathiyah", "the crouching"],
+  46: ["al ahqaf", "ahqaf", "the wind curved sandhills"],
+  47: ["muhammad"],
+  48: ["al fath", "fath", "the victory"],
+  49: ["al hujurat", "hujurat", "the rooms"],
+  50: ["qaf"],
+  51: ["adh dhariyat", "dhariyat", "the winnowing winds"],
+  52: ["at tur", "tur", "the mount"],
+  53: ["an najm", "najm", "the star"],
+  54: ["al qamar", "qamar", "the moon"],
+  55: ["ar rahman", "rahman", "rehman", "the beneficent", "the most merciful"],
+  56: ["al waqiah", "waqiah", "waqia", "the inevitable"],
+  57: ["al hadid", "hadid", "the iron"],
+  58: ["al mujadila", "mujadila", "mujadilah", "the pleading woman"],
+  59: ["al hashr", "hashr", "the exile"],
+  60: ["al mumtahanah", "mumtahanah", "the examined one"],
+  61: ["as saff", "saff", "the ranks"],
+  62: ["al jumuah", "jumuah", "jumah", "friday"],
+  63: ["al munafiqun", "munafiqun", "the hypocrites"],
+  64: ["at taghabun", "taghabun", "mutual disillusion"],
+  65: ["at talaq", "talaq", "divorce"],
+  66: ["at tahrim", "tahrim", "the prohibition"],
+  67: ["al mulk", "mulk", "tabarak", "the sovereignty", "dominion"],
+  68: ["al qalam", "qalam", "nun", "the pen"],
+  69: ["al haqqah", "haqqah", "the reality"],
+  70: ["al maarij", "maarij", "the ascending stairways"],
+  71: ["nuh", "noah"],
+  72: ["al jinn", "jinn", "the jinn"],
+  73: ["al muzzammil", "muzzammil", "muzammil", "the enshrouded one"],
+  74: ["al muddaththir", "muddathir", "mudassir", "the cloaked one"],
+  75: ["al qiyamah", "qiyamah", "the resurrection"],
+  76: ["al insan", "insan", "dahr", "ad dahr", "man"],
+  77: ["al mursalat", "mursalat", "the emissaries"],
+  78: ["an naba", "naba", "amma", "the tidings"],
+  79: ["an naziat", "naziat", "those who drag forth"],
+  80: ["abasa", "'abasa", "he frowned"],
+  81: ["at takwir", "takwir", "the overthrowing"],
+  82: ["al infitar", "infitar", "the cleaving"],
+  83: ["al mutaffifin", "mutaffifin", "the defrauding"],
+  84: ["al inshiqaq", "inshiqaq", "the splitting open"],
+  85: ["al buruj", "buruj", "burooj", "the constellations"],
+  86: ["at tariq", "tariq", "the night comer"],
+  87: ["al ala", "ala", "a'la", "the most high"],
+  88: ["al ghashiyah", "ghashiyah", "the overwhelming"],
+  89: ["al fajr", "fajr", "the dawn"],
+  90: ["al balad", "balad", "the city"],
+  91: ["ash shams", "shams", "the sun"],
+  92: ["al layl", "layl", "lail", "the night"],
+  93: ["ad duha", "duha", "the morning hours"],
+  94: ["ash sharh", "sharh", "inshirah", "alam nashrah", "the relief"],
+  95: ["at tin", "tin", "the fig"],
+  96: ["al alaq", "alaq", "iqra", "the clot"],
+  97: ["al qadr", "qadr", "the power", "night of decree"],
+  98: ["al bayyinah", "bayyinah", "bayyina", "the clear proof"],
+  99: ["az zalzalah", "zalzalah", "zilzal", "the earthquake"],
+  100: ["al adiyat", "adiyat", "the courser"],
+  101: ["al qariah", "qariah", "the calamity"],
+  102: ["at takathur", "takathur", "competition in increase"],
+  103: ["al asr", "asr", "the declining day", "time"],
+  104: ["al humazah", "humazah", "the traducer"],
+  105: ["al fil", "fil", "feel", "the elephant"],
+  106: ["quraysh", "quraish"],
+  107: ["al maun", "maun", "small kindnesses"],
+  108: ["al kawthar", "kawthar", "kauthar", "abundance"],
+  109: ["al kafirun", "kafirun", "the disbelievers"],
+  110: ["an nasr", "nasr", "the divine support"],
+  111: ["al masad", "masad", "lahab", "the palm fiber"],
+  112: ["al ikhlas", "ikhlas", "sincerity", "monotheism"],
+  113: ["al falaq", "falaq", "the daybreak"],
+  114: ["an nas", "nas", "mankind"]
+};
+
+function resolveSurahInfo(text) {
+  if (!text || typeof text !== "string") return null;
+  const str = text.trim();
+  if (!str) return null;
+
+  // 1. Check for explicit number: "surah 1", "surat 02", "036 surah", "surah #114", "surah: 55", or standalone number
+  const numMatch = str.match(/(?:surah|surat|soorah)\s*[:#.-]?\s*(\d{1,3})/i) ||
+                   str.match(/^(\d{1,3})\s*[:.-]?\s*(?:surah|surat)/i) ||
+                   str.match(/^(\d{1,3})$/);
+  if (numMatch) {
+    const n = parseInt(numMatch[1], 10);
+    if (n >= 1 && n <= 114) {
+      return { number: n, name: SURAH_NAMES[n] };
+    }
+  }
+
+  // 2. Check for leading track numbering like "001 Al-Fatihah", "02. Al-Baqarah", "36 - Ya-Sin"
+  const leadingNumMatch = str.match(/^0*(\d{1,3})\s*[:.-]\s*(.+)$/);
+  if (leadingNumMatch) {
+    const n = parseInt(leadingNumMatch[1], 10);
+    if (n >= 1 && n <= 114) {
+      return { number: n, name: SURAH_NAMES[n] };
+    }
+  }
+
+  // 3. Normalize string for word/alias lookup
+  const clean = str.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // If text doesn't mention Surah or Quran, only match if it starts with "al " or is a very specific Surah alias
+  const hasSurahKeyword = /(?:surah|surat|quran|koran|tilawat|recitation|ayat)/i.test(str);
+
+  // Check aliases
+  for (let num = 1; num <= 114; num++) {
+    const aliases = SURAH_ALIASES[num] || [];
+    const surahNameClean = SURAH_NAMES[num].toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+    
+    if (clean.includes(surahNameClean)) {
+      return { number: num, name: SURAH_NAMES[num] };
+    }
+
+    for (const alias of aliases) {
+      const aliasClean = alias.replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+      const regex = new RegExp(`(^|\\s)${aliasClean}(\\s|$)`, "i");
+      if (regex.test(clean)) {
+        if (["hud", "sad", "qaf", "nur", "rum", "mary", "man", "time"].includes(aliasClean)) {
+          if (!hasSurahKeyword && clean !== aliasClean) continue;
+        }
+        return { number: num, name: SURAH_NAMES[num] };
+      }
+    }
+  }
+
+  return null;
+}
+
 module.exports = {
   checkBlocked,
   isIslamicText,
@@ -359,6 +561,9 @@ module.exports = {
   sanitizeSearchQuery,
   validateByFilterMode,
   ISLAMIC_TERMS,
-  BLOCKED_KEYWORDS
+  BLOCKED_KEYWORDS,
+  SURAH_NAMES,
+  SURAH_ALIASES,
+  resolveSurahInfo
 };
 

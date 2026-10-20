@@ -20,7 +20,10 @@ const {
   isIslamicTrack,
   isIslamicQuery,
   sanitizeSearchQuery,
-  validateByFilterMode
+  validateByFilterMode,
+  SURAH_NAMES,
+  SURAH_ALIASES,
+  resolveSurahInfo
 } = require("./islamicFilter");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 const userStore = require("./userStore");
@@ -55,6 +58,27 @@ async function searchYouTubeMulti(query, limit = 20) {
     if (Date.now() - cached.time < 3600000 && Array.isArray(cached.results) && cached.results.length >= limit) {
       return cached.results.slice(0, limit);
     }
+  }
+
+  // Instant Surah Injection: If query is an authentic Quran Surah, resolve directly to Quran CDN
+  const surahInfo = resolveSurahInfo(query);
+  if (surahInfo) {
+    const sNum = surahInfo.number;
+    const padded = String(sNum).padStart(3, "0");
+    const sName = SURAH_NAMES[sNum] || surahInfo.name || `Surah ${sNum}`;
+    const directSurahTrack = {
+      id: `quran_surah_${sNum}`,
+      title: `Surah ${sNum}: ${sName} - Mishary Rashid Alafasy`,
+      author: "Mishary Rashid Alafasy",
+      duration: 180000,
+      artworkUrl: "logo.png",
+      url: `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`,
+      streamUrl: `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`,
+      rawStreamUrl: `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`,
+      source: "quran",
+      filterMode: "strict"
+    };
+    return [directSurahTrack];
   }
 
   // Fast path 1: Lavalink REST search (ultra-fast, ~900ms, no channel clutter)
@@ -1171,42 +1195,12 @@ lavalink.on("queueEnd", async (player, track, payload) => {
   }
 });
 
-const SURAH_NAMES = {
-  1: "Al-Fatihah", 2: "Al-Baqarah", 3: "Ali 'Imran", 4: "An-Nisa", 5: "Al-Ma'idah",
-  6: "Al-An'am", 7: "Al-A'raf", 8: "Al-Anfal", 9: "At-Tawbah", 10: "Yunus",
-  11: "Hud", 12: "Yusuf", 13: "Ar-Ra'd", 14: "Ibrahim", 15: "Al-Hijr",
-  16: "An-Nahl", 17: "Al-Isra", 18: "Al-Kahf", 19: "Maryam", 20: "Ta-Ha",
-  21: "Al-Anbiya", 22: "Al-Hajj", 23: "Al-Mu'minun", 24: "An-Nur", 25: "Al-Furqan",
-  26: "Ash-Shu'ara", 27: "An-Naml", 28: "Al-Qasas", 29: "Al-'Ankabut", 30: "Ar-Rum",
-  31: "Luqman", 32: "As-Sajdah", 33: "Al-Ahzab", 34: "Saba", 35: "Fatir",
-  36: "Ya-Sin", 37: "As-Saffat", 38: "Sad", 39: "Az-Zumar", 40: "Ghafir",
-  41: "Fussilat", 42: "Ash-Shura", 43: "Az-Zukhruf", 44: "Ad-Dukhan", 45: "Al-Jathiyah",
-  46: "Al-Ahqaf", 47: "Muhammad", 48: "Al-Fath", 49: "Al-Hujurat", 50: "Qaf",
-  51: "Adh-Dhariyat", 52: "At-Tur", 53: "An-Najm", 54: "Al-Qamar", 55: "Ar-Rahman",
-  56: "Al-Waqi'ah", 57: "Al-Hadid", 58: "Al-Mujadila", 59: "Al-Hashr", 60: "Al-Mumtahanah",
-  61: "As-Saff", 62: "Al-Jumu'ah", 63: "Al-Munafiqun", 64: "At-Taghabun", 65: "At-Talaq",
-  66: "At-Tahrim", 67: "Al-Mulk", 68: "Al-Qalam", 69: "Al-Haqqah", 70: "Al-Ma'arij",
-  71: "Nuh", 72: "Al-Jinn", 73: "Al-Muzzammil", 74: "Al-Muddaththir", 75: "Al-Qiyamah",
-  76: "Al-Insan", 77: "Al-Mursalat", 78: "An-Naba", 79: "An-Nazi'at", 80: "'Abasa",
-  81: "At-Takwir", 82: "Al-Infitar", 83: "Al-Mutaffifin", 84: "Al-Inshiqaq", 85: "Al-Buruj",
-  86: "At-Tariq", 87: "Al-A'la", 88: "Al-Ghashiyah", 89: "Al-Fajr", 90: "Al-Balad",
-  91: "Ash-Shams", 92: "Al-Layl", 93: "Ad-Duha", 94: "Ash-Sharh", 95: "At-Tin",
-  96: "Al-'Alaq", 97: "Al-Qadr", 98: "Al-Bayyinah", 99: "Az-Zalzalah", 100: "Al-'Adiyat",
-  101: "Al-Qari'ah", 102: "At-Takathur", 103: "Al-'Asr", 104: "Al-Humazah", 105: "Al-Fil",
-  106: "Quraysh", 107: "Al-Ma'un", 108: "Al-Kawthar", 109: "Al-Kafirun", 110: "An-Nasr",
-  111: "Al-Masad", 112: "Al-Ikhlas", 113: "Al-Falaq", 114: "An-Nas"
-};
-
 function resolveSurah(input) {
+  const info = resolveSurahInfo(input);
+  if (info) return info.number;
   const num = parseInt(input);
   if (!isNaN(num) && num >= 1 && num <= 114) {
     return num;
-  }
-  const clean = input.toLowerCase().replace(/[^a-z]/g, "");
-  for (const [sNum, sName] of Object.entries(SURAH_NAMES)) {
-    if (sName.toLowerCase().replace(/[^a-z]/g, "").includes(clean)) {
-      return parseInt(sNum);
-    }
   }
   return null;
 }
@@ -1243,15 +1237,15 @@ async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterl
   const normArtist = (seedArtist || "").trim();
 
   // 1. Quran Surah Progressive Recitation Radio
-  if (normTitle.includes("surah")) {
-    const match = normTitle.match(/surah\s*(\d+)/i);
-    const startNum = match ? parseInt(match[1], 10) : 1;
+  const seedSurah = resolveSurahInfo(normTitle);
+  if (seedSurah) {
+    const startNum = seedSurah.number;
     const radio = [];
     for (let i = 1; i <= limit; i++) {
       const nextNum = ((startNum - 1 + i) % 114) + 1;
       const padded = String(nextNum).padStart(3, "0");
       const name = SURAH_NAMES[nextNum] || `Surah ${nextNum}`;
-      const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+      const quranUrl = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
       radio.push({
         id: `quran_surah_${nextNum}`,
         title: `Surah ${nextNum}: ${name}`,
@@ -1266,7 +1260,10 @@ async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterl
         radioSeed: seedTitle
       });
     }
-    return radio;
+    return {
+      tracks: radio,
+      title: `Quran Progressive Radio (From Surah ${startNum}: ${seedSurah.name})`
+    };
   }
 
   // 2. Music Radio via JioSaavn Search API & Multi Search
@@ -1359,10 +1356,10 @@ async function resolveTrackLyrics(title, artist, duration = 0) {
   }
 
   // 1. Quran Surah English Translation / Guidance
-  if (cleanTitle.toLowerCase().includes("surah")) {
-    const match = cleanTitle.match(/surah\s*(\d+)/i);
-    const surahNum = match ? parseInt(match[1], 10) : 1;
-    const surahName = SURAH_NAMES[surahNum] || `Surah ${surahNum}`;
+  const lyricSurah = resolveSurahInfo(cleanTitle);
+  if (lyricSurah) {
+    const surahNum = lyricSurah.number;
+    const surahName = SURAH_NAMES[surahNum] || lyricSurah.name || `Surah ${surahNum}`;
     const quranData = {
       isQuran: true,
       title: `Surah ${surahNum}: ${surahName}`,
@@ -2497,23 +2494,47 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, expectedTi
   const filterMode = (detectedMode !== "filterless") ? detectedMode : (forcedFilterMode || "filterless");
   const isUrl = query.startsWith("http://") || query.startsWith("https://");
 
-  // Check if it's a Surah number or query
-  const surahMatch = query.match(/surah\s*(\d+)/i) || (query.match(/^\d+$/) ? [, query] : null);
+  // Check if query or expectedTitle is an authentic Quran Surah
+  const surahMatch = resolveSurahInfo(query) || resolveSurahInfo(expectedTitle);
   if (surahMatch) {
-    const sNum = parseInt(surahMatch[1]);
-    if (sNum >= 1 && sNum <= 114) {
-      const padded = String(sNum).padStart(3, "0");
-      const sName = SURAH_NAMES[sNum] || `Surah ${sNum}`;
-      return {
-        title: `Surah ${sNum}: ${sName}`,
-        author: "Mishary Rashid Alafasy",
-        duration: 180000,
-        streamUrl: `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`,
-        rawStreamUrl: `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`,
-        artworkUrl: "logo.png",
-        filterMode: "strict"
-      };
+    const sNum = surahMatch.number;
+    const padded = String(sNum).padStart(3, "0");
+    const sName = SURAH_NAMES[sNum] || surahMatch.name || `Surah ${sNum}`;
+    
+    // Check if query specifies a particular reciter
+    const qLower = `${query} ${expectedArtist || ""}`.toLowerCase();
+    let cdnUrl = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+    let reciter = "Mishary Rashid Alafasy";
+    if (qLower.includes("sudais")) {
+      cdnUrl = `https://download.quranicaudio.com/quran/abdurrahmaan_as-sudays/${padded}.mp3`;
+      reciter = "Abdur-Rahman As-Sudais";
+    } else if (qLower.includes("abdul basit") || qLower.includes("abdulbasit")) {
+      cdnUrl = `https://download.quranicaudio.com/quran/abdulbaset_mujawwad/${padded}.mp3`;
+      reciter = "Abdul Basit Abdul Samad";
+    } else if (qLower.includes("ghamdi") || qLower.includes("ghamidi")) {
+      cdnUrl = `https://download.quranicaudio.com/quran/sa3d_al-ghaamidi/complete/${padded}.mp3`;
+      reciter = "Saad Al-Ghamdi";
+    } else if (qLower.includes("muaiqly") || qLower.includes("maher")) {
+      cdnUrl = `https://download.quranicaudio.com/quran/maher_almu3aiqly/year1440/${padded}.mp3`;
+      reciter = "Maher Al-Muaiqly";
+    } else if (qLower.includes("minshawi") || qLower.includes("menshawy")) {
+      cdnUrl = `https://download.quranicaudio.com/quran/muhammad_siddeeq_al-menshaawi/${padded}.mp3`;
+      reciter = "Muhammad Siddiq Al-Minshawi";
+    } else if (qLower.includes("hussary") || qLower.includes("hosary")) {
+      cdnUrl = `https://download.quranicaudio.com/quran/mahmood_khaleel_al-husaree_dour/${padded}.mp3`;
+      reciter = "Mahmoud Khalil Al-Hussary";
     }
+
+    return {
+      title: `Surah ${sNum}: ${sName}`,
+      author: reciter,
+      duration: 180000,
+      streamUrl: cdnUrl,
+      rawStreamUrl: cdnUrl,
+      source: "quran",
+      artworkUrl: "logo.png",
+      filterMode: "strict"
+    };
   }
 
   // Direct MP3/Audio file URL
@@ -2529,6 +2550,8 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, expectedTi
       filterMode
     };
   }
+
+  const isQIslamic = isIslamicQuery(query) || isIslamicText(query) || isIslamicText(expectedTitle) || Boolean(surahMatch);
 
   // Spotify Link Resolution (Extract single track or specific track of playlist/album)
   const spotifyUrl = extractSpotifyUrl(query);
@@ -2553,21 +2576,23 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, expectedTi
           if (fIdx >= 0) chosenIdx = fIdx;
         }
 
-        for (let i = chosenIdx; i < Math.min(spData.tracks.length, chosenIdx + 5); i++) {
-          const topTrack = spData.tracks[i];
-          const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
-          const saavnMatch = await searchJioSaavn(searchQ, 5);
-          const relevantMatch = (saavnMatch || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(searchQ, r.title, topTrack.title, topTrack.artist));
-          if (relevantMatch && relevantMatch.streamUrl) {
-            return {
-              title: topTrack.title || relevantMatch.title,
-              author: topTrack.artist || relevantMatch.author,
-              duration: topTrack.duration || relevantMatch.duration,
-              streamUrl: relevantMatch.streamUrl,
-              rawStreamUrl: relevantMatch.streamUrl,
-              artworkUrl: topTrack.artworkUrl || relevantMatch.artworkUrl || "logo.png",
-              filterMode
-            };
+        if (!isQIslamic) {
+          for (let i = chosenIdx; i < Math.min(spData.tracks.length, chosenIdx + 5); i++) {
+            const topTrack = spData.tracks[i];
+            const searchQ = topTrack.query || `${topTrack.title} ${topTrack.artist}`.trim();
+            const saavnMatch = await searchJioSaavn(searchQ, 5);
+            const relevantMatch = (saavnMatch || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(searchQ, r.title, topTrack.title, topTrack.artist));
+            if (relevantMatch && relevantMatch.streamUrl) {
+              return {
+                title: topTrack.title || relevantMatch.title,
+                author: topTrack.artist || relevantMatch.author,
+                duration: topTrack.duration || relevantMatch.duration,
+                streamUrl: relevantMatch.streamUrl,
+                rawStreamUrl: relevantMatch.streamUrl,
+                artworkUrl: topTrack.artworkUrl || relevantMatch.artworkUrl || "logo.png",
+                filterMode
+              };
+            }
           }
         }
         const targetTrack = spData.tracks[chosenIdx] || spData.tracks[0];
@@ -2584,7 +2609,8 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, expectedTi
   const isDirectAudioUrl = query.startsWith("http://") || query.startsWith("https://");
 
   // Fast Path 1: Check JioSaavn first for instant (~100ms) 320kbps CD-quality audio stream!
-  if (!isDirectAudioUrl) {
+  // Strictly bypass JioSaavn for any Islamic content or Surah queries to prevent secular Indian song fallback
+  if (!isDirectAudioUrl && !isQIslamic) {
     try {
       const saavnResults = await searchJioSaavn(query, 5);
       const relevantMatch = (saavnResults || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(query, r.title, expectedTitle, expectedArtist));

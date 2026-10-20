@@ -13,7 +13,10 @@ const {
   isIslamicTrack,
   isIslamicQuery,
   sanitizeSearchQuery,
-  validateByFilterMode
+  validateByFilterMode,
+  SURAH_NAMES,
+  SURAH_ALIASES,
+  resolveSurahInfo
 } = require("./islamicFilter");
 
 let desModule = null;
@@ -283,15 +286,7 @@ const searchPlaylistCache = new Map();
 const playlistTracksCache = new Map();
 const directStreamCache = new Map();
 
-// ==========================================================================
-// SURAH DIRECT HIGH-FIDELITY AUDIO MAP
-// ==========================================================================
-const SURAH_NAMES = {
-  1: "Al-Fatihah", 2: "Al-Baqarah", 3: "Ali 'Imran", 4: "An-Nisa", 5: "Al-Ma'idah",
-  6: "Al-An'am", 7: "Al-A'raf", 8: "Al-Anfal", 9: "At-Tawbah", 10: "Yunus",
-  18: "Al-Kahf", 36: "Ya-Sin", 55: "Ar-Rahman", 56: "Al-Waqi'ah", 67: "Al-Mulk",
-  112: "Al-Ikhlas", 113: "Al-Falaq", 114: "An-Nas"
-};
+// Full 114 Surah Map & Resolver imported from ./islamicFilter
 
 // ==========================================================================
 // RESILIENT YT-DLP RUNNER (Windows, Linux, Docker, Render)
@@ -512,22 +507,43 @@ async function searchYouTubeMulti(query, limit = 20, signal = null) {
     }
   }
 
-  // Execute JioSaavn and Lavalink in parallel for ultra-low latency (<300ms)
+  const surah = resolveSurahInfo(query);
+  const isQueryIslamic = isIslamicQuery(query) || Boolean(surah);
+
+  let combined = [];
+  if (surah) {
+    const padded = String(surah.number).padStart(3, "0");
+    const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+    combined.push({
+      id: `quran_surah_${surah.number}`,
+      title: `Surah ${surah.number}: ${surah.name}`,
+      author: "Mishary Rashid Alafasy",
+      artist: "Mishary Rashid Alafasy",
+      duration: surah.number === 2 ? 7200000 : 300000,
+      streamUrl: quranUrl,
+      rawStreamUrl: quranUrl,
+      artworkUrl: "logo.png",
+      source: "quran",
+      filterMode: "strict"
+    });
+  }
+
+  // Execute JioSaavn (for secular music only) and Lavalink in parallel
   const [saavnResults, lavalinkResults] = await Promise.all([
-    searchJioSaavn(query, Math.min(limit, 12), signal),
+    isQueryIslamic ? Promise.resolve([]) : searchJioSaavn(query, Math.min(limit, 12), signal),
     searchLavalinkTracks(query, Math.min(limit, 15), signal)
   ]);
 
   if (signal?.aborted) return [];
 
-  let combined = [];
   if (saavnResults.length > 0) {
     combined.push(...saavnResults);
   }
   if (lavalinkResults.length > 0) {
-    // Deduplicate against JioSaavn by checking title similarity
+    // Deduplicate against existing results by checking title similarity
     const existingTitles = new Set(combined.map(r => r.title.toLowerCase().replace(/[^a-z0-9]/g, "")));
     for (const t of lavalinkResults) {
+      if (isQueryIslamic && !isIslamicTrack(t) && !isIslamicText(t.title)) continue;
       const simplified = t.title.toLowerCase().replace(/[^a-z0-9]/g, "");
       if (!existingTitles.has(simplified)) {
         combined.push(t);
@@ -962,28 +978,53 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
         try {
           const data = JSON.parse(stdout);
           const entries = (data.entries || []).filter(e => e && e.title && e.title !== "[Deleted video]" && e.title !== "[Private video]" && !e.id?.startsWith("UC"));
-          const tracks = entries.map((e, idx) => ({
-            id: e.id || `yt_${idx}`,
-            title: e.title,
-            artist: e.uploader || e.channel || data.title || "YouTube Music",
-            author: e.uploader || e.channel || data.title || "YouTube Music",
-            duration: Math.round((e.duration || 0) * 1000) || 180000,
-            durationMs: Math.round((e.duration || 0) * 1000) || 180000,
-            artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`,
-            url: e.id ? `https://www.youtube.com/watch?v=${e.id}` : ((e.url && e.url.startsWith("http")) ? e.url.split("&list=")[0].split("?list=")[0] : `https://www.youtube.com/watch?v=${e.id}`),
-            query: e.id ? `https://www.youtube.com/watch?v=${e.id}` : `${e.title} ${e.uploader || ""}`.trim(),
-            source: "youtube"
-          }));
+          const isPlaylistIslamic = isIslamicText(data.title || "") || isIslamicText(data.description || "") || isIslamicText(data.uploader || "") || entries.some(e => isIslamicText(e?.title || ""));
+          const tracks = entries.map((e, idx) => {
+            const surahInfo = resolveSurahInfo(e.title) || (isPlaylistIslamic && e.title?.match(/^0*(\d{1,3})\b/) ? resolveSurahInfo(e.title.match(/^0*(\d{1,3})\b/)[1]) : null);
+            let streamUrl = null;
+            let rawStreamUrl = null;
+            let author = e.uploader || e.channel || data.title || "YouTube Music";
+            let source = "youtube";
+            let filterMode = isPlaylistIslamic ? "strict" : "filterless";
+            let duration = Math.round((e.duration || 0) * 1000) || 180000;
+
+            if (surahInfo) {
+              const padded = String(surahInfo.number).padStart(3, "0");
+              const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+              streamUrl = quranUrl;
+              rawStreamUrl = quranUrl;
+              author = "Mishary Rashid Alafasy";
+              source = "quran";
+              filterMode = "strict";
+            }
+
+            return {
+              id: e.id || `yt_${idx}`,
+              title: surahInfo ? `Surah ${surahInfo.number}: ${surahInfo.name}` : e.title,
+              artist: author,
+              author: author,
+              duration: duration,
+              durationMs: duration,
+              artworkUrl: (e.thumbnails && e.thumbnails.length > 0) ? e.thumbnails[e.thumbnails.length - 1].url : (surahInfo ? "logo.png" : `https://i.ytimg.com/vi/${e.id}/hqdefault.jpg`),
+              url: e.id ? `https://www.youtube.com/watch?v=${e.id}` : ((e.url && e.url.startsWith("http")) ? e.url.split("&list=")[0].split("?list=")[0] : `https://www.youtube.com/watch?v=${e.id}`),
+              query: surahInfo ? `Surah ${surahInfo.number}: ${surahInfo.name}` : (e.id ? `https://www.youtube.com/watch?v=${e.id}` : `${e.title} ${e.uploader || ""}`.trim()),
+              streamUrl,
+              rawStreamUrl,
+              source,
+              filterMode
+            };
+          });
           const pl = {
             id: data.id || ytPlaylistId || `yt_${Date.now()}`,
-            name: data.title || "YouTube Playlist",
-            title: data.title || "YouTube Playlist",
-            author: data.uploader || data.channel || "YouTube",
-            description: data.description || `Playlist with ${tracks.length} songs`,
+            name: data.title || (isPlaylistIslamic ? "Holy Quran Recitation" : "YouTube Playlist"),
+            title: data.title || (isPlaylistIslamic ? "Holy Quran Recitation" : "YouTube Playlist"),
+            author: isPlaylistIslamic ? "Mishary Rashid Alafasy" : (data.uploader || data.channel || "YouTube"),
+            description: data.description || `Playlist with ${tracks.length} tracks`,
             artworkUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
             coverUrl: (data.thumbnails && data.thumbnails.length > 0) ? data.thumbnails[data.thumbnails.length - 1].url : (tracks[0]?.artworkUrl || "logo.png"),
             tracks: tracks,
-            trackCount: tracks.length
+            trackCount: tracks.length,
+            filterMode: isPlaylistIslamic ? "strict" : "filterless"
           };
           if (tracks.length > 0) {
             playlistTracksCache.set(cacheKey, { time: Date.now(), data: pl });
@@ -1016,6 +1057,25 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
   let streamMeta = null;
   let target = (queryOrUrl || "").trim();
   let isUrl = target.startsWith("http://") || target.startsWith("https://");
+
+  // Fast Path 0.5: Surah / Quran Direct CDN (Instant <10ms High-Fidelity Audio)
+  const directSurah = resolveSurahInfo(target);
+  if (directSurah) {
+    const padded = String(directSurah.number).padStart(3, "0");
+    const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+    const data = {
+      title: `Surah ${directSurah.number}: ${directSurah.name}`,
+      author: "Mishary Rashid Alafasy",
+      duration: directSurah.number === 2 ? 7200000 : 300000,
+      streamUrl: quranUrl,
+      rawStreamUrl: quranUrl,
+      artworkUrl: "logo.png",
+      filterMode: "strict",
+      source: "quran"
+    };
+    directStreamCache.set(cleanKey, { time: Date.now(), data });
+    return data;
+  }
 
   // Fast Path 1: Direct CDN / Saavn URLs
   if (isUrl && (target.includes("saavncdn.com") || target.match(/\.(mp3|m4a|mp4|webm|aac|ogg)(\?.*)?$/i))) {
@@ -1052,6 +1112,26 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
         if (oeData && oeData.title) {
           const ytTitle = (oeData.title || "").trim();
           const ytAuthor = (oeData.author_name || "").replace(/ - Topic$/i, "").trim();
+
+          const oeSurah = resolveSurahInfo(ytTitle);
+          if (oeSurah) {
+            const padded = String(oeSurah.number).padStart(3, "0");
+            const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+            const data = {
+              title: `Surah ${oeSurah.number}: ${oeSurah.name}`,
+              author: "Mishary Rashid Alafasy",
+              duration: oeSurah.number === 2 ? 7200000 : 300000,
+              streamUrl: quranUrl,
+              rawStreamUrl: quranUrl,
+              artworkUrl: oeData.thumbnail_url || "logo.png",
+              filterMode: "strict",
+              source: "quran"
+            };
+            directStreamCache.set(cleanKey, { time: Date.now(), data });
+            directStreamCache.set(target.toLowerCase(), { time: Date.now(), data });
+            return data;
+          }
+
           streamMeta = {
             title: ytTitle,
             author: ytAuthor,
@@ -1125,9 +1205,10 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
         }
 
         if (signal?.aborted) return resolve(null);
-        // Only fallback to JioSaavn if target was a plain text search query.
-        // Direct YouTube URLs should NEVER be substituted with an unrelated short 2-3 minute cut.
-        if (!isUrl) {
+        // Only fallback to JioSaavn if target was a plain text search query AND not an Islamic or Surah query.
+        // Direct YouTube URLs and Islamic tracks should NEVER be substituted with an unrelated secular music cut.
+        const isSearchIslamic = isIslamicQuery(queryOrUrl) || isIslamicText(streamMeta?.title || "") || Boolean(resolveSurahInfo(queryOrUrl) || resolveSurahInfo(streamMeta?.title || ""));
+        if (!isUrl && !isSearchIslamic) {
           const searchQuery = streamMeta?.title || queryOrUrl.replace(/^https?:\/\/[^\s]+/i, "").trim() || queryOrUrl;
           if (searchQuery && searchQuery.length > 1) {
             try {
@@ -1187,23 +1268,44 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
   let query = (queryOrUrl || "").trim();
   let filterMode = forcedFilterMode || "filterless";
 
-  // Check Surah query
-  const surahMatch = query.match(/surah\s*(\d+)/i) || (query.match(/^\d+$/) ? [, query] : null);
-  if (surahMatch) {
-    const sNum = parseInt(surahMatch[1], 10);
-    if (sNum >= 1 && sNum <= 114) {
-      const padded = String(sNum).padStart(3, "0");
-      const sName = SURAH_NAMES[sNum] || `Surah ${sNum}`;
-      return {
-        title: `Surah ${sNum}: ${sName}`,
-        author: "Mishary Rashid Alafasy",
-        duration: 180000,
-        streamUrl: `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`,
-        rawStreamUrl: `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`,
-        artworkUrl: "logo.png",
-        filterMode: "strict"
-      };
+  // Check Surah query by number, name, or title
+  const surahInfo = resolveSurahInfo(query) || resolveSurahInfo(expectedTitle);
+  if (surahInfo) {
+    const sNum = surahInfo.number;
+    const padded = String(sNum).padStart(3, "0");
+    const sName = surahInfo.name;
+    let reciter = "Mishary Rashid Alafasy";
+    let quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+    const checkText = `${query} ${expectedTitle} ${expectedArtist}`.toLowerCase();
+    if (checkText.includes("sudais") || checkText.includes("abdurrahmaan")) {
+      reciter = "Abdurrahman As-Sudais";
+      quranUrl = `https://download.quranicaudio.com/quran/abdurrahmaan_as-sudays/${padded}.mp3`;
+    } else if (checkText.includes("abdul basit") || checkText.includes("abdus samad") || checkText.includes("abdulbasit")) {
+      reciter = "Abdul Basit Abdus Samad";
+      quranUrl = `https://download.quranicaudio.com/quran/abdulbaset_mujawwad/${padded}.mp3`;
+    } else if (checkText.includes("ghamdi") || checkText.includes("saad al ghamdi")) {
+      reciter = "Saad Al-Ghamdi";
+      quranUrl = `https://download.quranicaudio.com/quran/sa3d_al-ghaamidee/${padded}.mp3`;
+    } else if (checkText.includes("muaiqly") || checkText.includes("maher")) {
+      reciter = "Maher Al-Muaiqly";
+      quranUrl = `https://download.quranicaudio.com/quran/maher_almu3aiqly/${padded}.mp3`;
+    } else if (checkText.includes("minshawi")) {
+      reciter = "Mohamed Siddiq Al-Minshawi";
+      quranUrl = `https://download.quranicaudio.com/quran/muhammad_siddeeq_al-minshaawee/${padded}.mp3`;
+    } else if (checkText.includes("hussary") || checkText.includes("husary")) {
+      reciter = "Mahmoud Khalil Al-Hussary";
+      quranUrl = `https://download.quranicaudio.com/quran/mahmood_khaleel_al-husaree/${padded}.mp3`;
     }
+    return {
+      title: `Surah ${sNum}: ${sName}`,
+      author: reciter,
+      duration: sNum === 2 ? 7200000 : 300000,
+      streamUrl: quranUrl,
+      rawStreamUrl: quranUrl,
+      artworkUrl: "logo.png",
+      filterMode: "strict",
+      source: "quran"
+    };
   }
 
   // Direct MP3 URL
@@ -1271,8 +1373,9 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
     }
   }
 
-  // Fast Path 1: Check JioSaavn first for instant (~100ms) 320kbps CD-quality audio stream!
-  if (!query.startsWith("http://") && !query.startsWith("https://")) {
+  // Fast Path 1: Check JioSaavn first for secular tracks (<100ms instant 320kbps CD-quality audio)
+  const isTargetIslamic = isIslamicQuery(query) || isIslamicText(expectedTitle) || Boolean(surahInfo) || filterMode === "strict";
+  if (!isTargetIslamic && !query.startsWith("http://") && !query.startsWith("https://")) {
     try {
       if (signal?.aborted) return null;
       const saavnResults = await searchJioSaavn(query, 5, signal);
@@ -1324,9 +1427,9 @@ async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterl
   const normArtist = (seedArtist || "").trim();
 
   // 1. Quran Surah Progressive Recitation Radio
-  if (normTitle.includes("surah")) {
-    const match = normTitle.match(/surah\s*(\d+)/i);
-    const startNum = match ? parseInt(match[1], 10) : 1;
+  const seedSurah = resolveSurahInfo(seedTitle);
+  if (seedSurah || normTitle.includes("surah")) {
+    const startNum = seedSurah ? seedSurah.number : ((normTitle.match(/surah\s*(\d+)/i) ? parseInt(normTitle.match(/surah\s*(\d+)/i)[1], 10) : 1));
     const radio = [];
     for (let i = 1; i <= limit; i++) {
       const nextNum = ((startNum - 1 + i) % 114) + 1;
@@ -1784,6 +1887,23 @@ const server = http.createServer(async (req, res) => {
       else if (targetChannel === "app") uri = systemChannels.app.current?.streamUrl;
     }
 
+    // 1. Instant Surah Auto-Resolution to authentic Quran audio CDN
+    const surahCheck = resolveSurahInfo(uri) || resolveSurahInfo(systemChannels[targetChannel]?.current?.title || "");
+    if (surahCheck) {
+      const padded = String(surahCheck.number).padStart(3, "0");
+      uri = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
+    } else if (uri && (uri.includes("youtube.com/watch") || uri.includes("youtu.be/") || uri.includes("youtube.com/shorts/"))) {
+      // 2. YouTube Webpage URL: Extract playable audio stream before proxying!
+      try {
+        const streamInfo = await extractYouTubeStream(uri, abortController?.signal);
+        if (streamInfo && streamInfo.streamUrl && streamInfo.streamUrl.startsWith("http")) {
+          uri = streamInfo.streamUrl;
+        }
+      } catch (e) {
+        console.warn("[StreamProxy] YouTube stream extract error:", e.message);
+      }
+    }
+
     if (!uri || (!uri.startsWith("http://") && !uri.startsWith("https://"))) {
       res.writeHead(404, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ error: `No active audio stream for channel: ${targetChannel}` }));
@@ -2052,6 +2172,11 @@ const server = http.createServer(async (req, res) => {
                 const maxAttempts = Math.min(plData.tracks.length, chosenIndex + 5);
                 for (let i = chosenIndex; i < maxAttempts; i++) {
                   const cand = plData.tracks[i];
+                  if (cand.streamUrl && cand.streamUrl.startsWith("http") && !cand.streamUrl.includes("youtube.com/watch")) {
+                    resolvedFirst = cand;
+                    chosenIndex = i;
+                    break;
+                  }
                   const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
                   const candQ = candUrl || cand.query || `${cand.title} ${cand.artist}`;
                   resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal, cand.title, cand.artist);
@@ -2064,6 +2189,11 @@ const server = http.createServer(async (req, res) => {
               if (!resolvedFirst && chosenIndex > 0) {
                 for (let i = 0; i < Math.min(chosenIndex, 5); i++) {
                   const cand = plData.tracks[i];
+                  if (cand.streamUrl && cand.streamUrl.startsWith("http") && !cand.streamUrl.includes("youtube.com/watch")) {
+                    resolvedFirst = cand;
+                    chosenIndex = i;
+                    break;
+                  }
                   const candUrl = cand.url || (cand.id ? `https://www.youtube.com/watch?v=${cand.id}` : null);
                   const candQ = candUrl || cand.query || `${cand.title} ${cand.artist}`;
                   resolvedFirst = await resolveMediaTrack(candQ, filterMode, abortController?.signal, cand.title, cand.artist);
@@ -2133,41 +2263,44 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      // 3. Fast JioSaavn Check (<100ms instant 320kbps CD-quality audio) with relevance verification
-      try {
-        if (abortController?.signal?.aborted || res.headersSent) return;
-        const saavnResults = await searchJioSaavn(q, 5, abortController?.signal);
-        if (abortController?.signal?.aborted || res.headersSent) return;
-        const relevantMatch = (saavnResults || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(q, r.title, titleParam, artistParam));
-        if (relevantMatch && relevantMatch.streamUrl) {
-          const track = {
-            title: relevantMatch.title,
-            author: relevantMatch.author,
-            duration: relevantMatch.duration,
-            streamUrl: relevantMatch.streamUrl,
-            rawStreamUrl: relevantMatch.streamUrl,
-            artworkUrl: relevantMatch.artworkUrl,
-            filterMode
-          };
-          const shouldSet = parsedUrl.searchParams.get("set") === "true";
-          if (shouldSet && systemChannels[targetChannel]) {
-            systemChannels[targetChannel].current = track;
-            systemChannels[targetChannel].isPlaying = true;
-            systemChannels[targetChannel].isPaused = false;
-            systemChannels[targetChannel].position = 0;
-            if (track.duration) systemChannels[targetChannel].duration = track.duration;
-          }
-          res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-          return res.end(JSON.stringify({
-            success: true,
-            channel: targetChannel,
-            track: {
-              ...track,
-              proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(track.streamUrl)}`
+      // 3. Fast JioSaavn Check (<100ms instant 320kbps CD-quality audio) with relevance verification (Secular music only)
+      const isQIslamic = isIslamicQuery(q) || isIslamicText(titleParam) || Boolean(resolveSurahInfo(q) || resolveSurahInfo(titleParam)) || filterMode === "strict";
+      if (!isQIslamic) {
+        try {
+          if (abortController?.signal?.aborted || res.headersSent) return;
+          const saavnResults = await searchJioSaavn(q, 5, abortController?.signal);
+          if (abortController?.signal?.aborted || res.headersSent) return;
+          const relevantMatch = (saavnResults || []).find(r => r && r.streamUrl && isJioSaavnResultRelevant(q, r.title, titleParam, artistParam));
+          if (relevantMatch && relevantMatch.streamUrl) {
+            const track = {
+              title: relevantMatch.title,
+              author: relevantMatch.author,
+              duration: relevantMatch.duration,
+              streamUrl: relevantMatch.streamUrl,
+              rawStreamUrl: relevantMatch.streamUrl,
+              artworkUrl: relevantMatch.artworkUrl,
+              filterMode
+            };
+            const shouldSet = parsedUrl.searchParams.get("set") === "true";
+            if (shouldSet && systemChannels[targetChannel]) {
+              systemChannels[targetChannel].current = track;
+              systemChannels[targetChannel].isPlaying = true;
+              systemChannels[targetChannel].isPaused = false;
+              systemChannels[targetChannel].position = 0;
+              if (track.duration) systemChannels[targetChannel].duration = track.duration;
             }
-          }));
-        }
-      } catch (e) {}
+            res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+            return res.end(JSON.stringify({
+              success: true,
+              channel: targetChannel,
+              track: {
+                ...track,
+                proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(track.streamUrl)}`
+              }
+            }));
+          }
+        } catch (e) {}
+      }
 
       if (abortController?.signal?.aborted || res.headersSent) return;
       const track = await resolveMediaTrack(q, filterMode, abortController?.signal, titleParam, artistParam);
