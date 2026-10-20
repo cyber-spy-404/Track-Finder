@@ -1178,10 +1178,11 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
 
   // Fast Path 0.5: Surah / Quran Direct CDN (Instant <10ms High-Fidelity Audio for text queries only, NOT YouTube URLs)
   if (!isUrl) {
-    const directSurah = resolveSurahInfo(target);
+    const isTrans = isTranslationOrTafsir(target);
+    const directSurah = !isTrans ? resolveSurahInfo(target) : null;
     if (directSurah) {
       const padded = String(directSurah.number).padStart(3, "0");
-      const quranUrl = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+      const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
       const data = {
         title: `Surah ${directSurah.number}: ${directSurah.name}`,
         author: "Mishary Rashid Alafasy",
@@ -1435,7 +1436,7 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
     const padded = String(sNum).padStart(3, "0");
     const sName = surahInfo.name;
     let reciter = "Mishary Rashid Alafasy";
-    let quranUrl = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+    let quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
     const checkText = `${query} ${expectedTitle} ${expectedArtist}`.toLowerCase();
     if (checkText.includes("sudais") || checkText.includes("abdurrahmaan")) {
       reciter = "Abdurrahman As-Sudais";
@@ -2061,10 +2062,11 @@ const server = http.createServer(async (req, res) => {
       }
     } else if (!uri || (!uri.startsWith("http://") && !uri.startsWith("https://"))) {
       const curTitle = systemChannels[targetChannel]?.current?.title || "";
-      const surahCheck = resolveSurahInfo(curTitle);
+      const isTrans = isTranslationOrTafsir(curTitle);
+      const surahCheck = !isTrans ? resolveSurahInfo(curTitle) : null;
       if (surahCheck) {
         const padded = String(surahCheck.number).padStart(3, "0");
-        uri = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+        uri = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
       }
     }
 
@@ -2082,7 +2084,7 @@ const server = http.createServer(async (req, res) => {
       const surahCheck = !isTrans ? resolveSurahInfo(curTitle) : null;
       if (surahCheck) {
         const padded = String(surahCheck.number).padStart(3, "0");
-        uri = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+        uri = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
       } else {
         res.writeHead(502, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ error: "Could not extract playable stream for this YouTube video. It may be restricted or unavailable." }));

@@ -73,9 +73,9 @@ async function searchYouTubeMulti(query, limit = 20) {
       author: "Mishary Rashid Alafasy",
       duration: 180000,
       artworkUrl: "logo.png",
-      url: `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`,
-      streamUrl: `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`,
-      rawStreamUrl: `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`,
+      url: `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`,
+      streamUrl: `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`,
+      rawStreamUrl: `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`,
       source: "quran",
       filterMode: "strict"
     };
@@ -1327,7 +1327,7 @@ async function generateRadioStation(seedTitle, seedArtist, filterMode = "filterl
       const nextNum = ((startNum - 1 + i) % 114) + 1;
       const padded = String(nextNum).padStart(3, "0");
       const name = SURAH_NAMES[nextNum] || `Surah ${nextNum}`;
-      const quranUrl = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+      const quranUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
       radio.push({
         id: `quran_surah_${nextNum}`,
         title: `Surah ${nextNum}: ${name}`,
@@ -2607,7 +2607,7 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, expectedTi
     
     // Check if query specifies a particular reciter
     const qLower = `${query} ${expectedArtist || ""}`.toLowerCase();
-    let cdnUrl = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+    let cdnUrl = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
     let reciter = "Mishary Rashid Alafasy";
     if (qLower.includes("sudais")) {
       cdnUrl = `https://download.quranicaudio.com/quran/abdurrahmaan_as-sudays/${padded}.mp3`;
@@ -3947,7 +3947,7 @@ const webServer = http.createServer(async (req, res) => {
       const surahCheck = !isTrans ? resolveSurahInfo(curTitle) : null;
       if (surahCheck) {
         const padded = String(surahCheck.number).padStart(3, "0");
-        uri = `https://download.quranicaudio.com/quran/mishari_rashid_al_3afasy/${padded}.mp3`;
+        uri = `https://download.quranicaudio.com/quran/mishaari_raashid_al_3afaasee/${padded}.mp3`;
       } else {
         res.writeHead(502, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
         return res.end(JSON.stringify({ error: "Could not extract playable stream for this YouTube video. It may be restricted or unavailable." }));
