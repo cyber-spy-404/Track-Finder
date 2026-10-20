@@ -830,6 +830,14 @@ async function extractYouTubeStream(queryOrUrl) {
     }
   }
 
+  // Strip playlist parameter from individual video URLs to speed up extraction by 10x
+  if (isUrl && (target.includes("youtube.com") || target.includes("youtu.be"))) {
+    const vMatch = target.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || target.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || target.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
+    if (vMatch && vMatch[1]) {
+      target = `https://www.youtube.com/watch?v=${vMatch[1]}`;
+    }
+  }
+
   return new Promise((resolve) => {
     executeYtDlp(
       ["-g", "--get-title", "--get-duration", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
@@ -3856,13 +3864,15 @@ const webServer = http.createServer(async (req, res) => {
     }
 
     if (uri && (uri.includes("youtube.com/watch") || uri.includes("youtu.be/") || uri.includes("youtube.com/shorts/"))) {
+      const vMatch = uri.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || uri.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || uri.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
+      const cleanYt = (vMatch && vMatch[1]) ? `https://www.youtube.com/watch?v=${vMatch[1]}` : uri;
       try {
-        const streamInfo = await extractYouTubeStream(uri);
+        const streamInfo = await extractYouTubeStream(cleanYt);
         if (streamInfo && streamInfo.streamUrl && streamInfo.streamUrl.startsWith("http")) {
           uri = streamInfo.streamUrl;
         }
       } catch (e) {
-        console.warn("[StreamProxy] YouTube stream extract error:", e.message);
+        console.warn("[StreamProxy] YouTube stream extract error in bot.js:", e.message);
       }
     }
 
@@ -3898,6 +3908,10 @@ const webServer = http.createServer(async (req, res) => {
         "Accept": "*/*",
         "Accept-Encoding": "identity"
       };
+      if (targetUrl.hostname.includes("googlevideo.com")) {
+        proxyReqHeaders["Referer"] = "https://www.youtube.com/";
+        proxyReqHeaders["Origin"] = "https://www.youtube.com";
+      }
       if (req.headers.range) {
         proxyReqHeaders["range"] = req.headers.range;
       }

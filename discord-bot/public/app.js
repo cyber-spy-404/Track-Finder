@@ -86,17 +86,13 @@ window.isLocalChannel = isLocalChannel;
 function isDirectPlayableAudioUrl(url) {
   if (!url || typeof url !== "string") return false;
   const u = url.trim();
+  // Server audio proxy endpoint is always directly playable by the <audio> element
+  if (u.includes("/api/stream-audio") || u.includes("/api/web/stream") || u.includes("/api/mobile/stream")) {
+    return true;
+  }
+  // Raw YouTube/Spotify webpage links cannot be fed directly to <audio src="...">
   if (u.includes("youtube.com/watch") || u.includes("youtu.be/") || u.includes("open.spotify.com/")) {
     return false;
-  }
-  if (u.includes("/api/stream-audio")) {
-    try {
-      const parsed = new URL(u, (typeof window !== "undefined" && window.location?.origin) || "http://localhost");
-      const target = parsed.searchParams.get("url");
-      return Boolean(target && isDirectPlayableAudioUrl(target));
-    } catch (_) {
-      return false;
-    }
   }
   return u.startsWith("http://") || u.startsWith("https://") || u.startsWith("blob:");
 }
@@ -1002,10 +998,19 @@ const BrowserPlayer = {
       }
     }
 
+    // YouTube tracks always stream via the local/server audio proxy
+    if (isExplicitYt && !track.proxyStreamUrl) {
+      const ytTarget = track.url || track.query || (track.id?.startsWith("yt-") ? `https://www.youtube.com/watch?v=${track.id.replace(/^yt-/, "")}` : null);
+      if (ytTarget) {
+        track.proxyStreamUrl = `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(ytTarget)}`;
+      }
+    }
+
     const hasPlayableStream = Boolean(
       (track.streamUrl && isDirectPlayableAudioUrl(track.streamUrl)) ||
       (track.proxyStreamUrl && isDirectPlayableAudioUrl(track.proxyStreamUrl)) ||
-      (track.rawStreamUrl && isDirectPlayableAudioUrl(track.rawStreamUrl))
+      (track.rawStreamUrl && isDirectPlayableAudioUrl(track.rawStreamUrl)) ||
+      (isExplicitYt && (track.url || track.query || track.proxyStreamUrl))
     );
 
     // Dynamically resolve audio stream if track was enqueued without a verified playable direct URL
@@ -1181,12 +1186,22 @@ const BrowserPlayer = {
     // Direct CDN streams (Saavn CDN / Quranic Audio) are loaded directly with zero proxy overhead for blazing fast playback.
     // If direct CDN is unavailable or proxyStreamUrl is direct, fall back to same-origin /api/stream-audio.
     let src = null;
-    if (track.streamUrl && isDirectPlayableAudioUrl(track.streamUrl)) {
+    if (track.source === "youtube" || isExplicitYt) {
+      // YouTube audio always streams via server audio proxy to bypass googlevideo 403 Forbidden & IP restrictions
+      const ytTarget = (track.url && isYouTubeUrl(track.url)) ? track.url :
+                       ((track.query && isYouTubeUrl(track.query)) ? track.query :
+                       ((track.id?.startsWith("yt-")) ? `https://www.youtube.com/watch?v=${track.id.replace(/^yt-/, "")}` : null));
+      src = resolveApiUrl(track.proxyStreamUrl || (ytTarget ? `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(ytTarget)}` : null));
+    } else if (track.streamUrl && isDirectPlayableAudioUrl(track.streamUrl)) {
       src = track.streamUrl;
     } else if (track.proxyStreamUrl && isDirectPlayableAudioUrl(track.proxyStreamUrl)) {
       src = resolveApiUrl(track.proxyStreamUrl);
     } else if (track.rawStreamUrl && isDirectPlayableAudioUrl(track.rawStreamUrl)) {
       src = track.rawStreamUrl;
+    } else if (track.proxyStreamUrl) {
+      src = resolveApiUrl(track.proxyStreamUrl);
+    } else if (track.url) {
+      src = resolveApiUrl(`/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(track.url)}`);
     } else if (track.streamUrl) {
       src = resolveApiUrl(`/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(track.streamUrl)}`);
     }
