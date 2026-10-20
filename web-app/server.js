@@ -310,9 +310,15 @@ const directStreamCache = new Map();
 // RESILIENT YT-DLP RUNNER (Windows, Linux, Docker, Render)
 // ==========================================================================
 function executeYtDlp(args, options, callback) {
+  // Automatically ensure yt-dlp has access to Node.js JS runtime for fast YouTube signature deciphering
+  const runArgs = [...args];
+  if (!runArgs.includes("--js-runtimes")) {
+    runArgs.unshift("--js-runtimes", "node");
+  }
+
   const localBinary = path.join(__dirname, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
   if (fs.existsSync(localBinary)) {
-    return execFile(localBinary, args, options, (err, stdout, stderr) => {
+    return execFile(localBinary, runArgs, options, (err, stdout, stderr) => {
       if (options?.signal?.aborted || err?.name === "AbortError") {
         return callback(new Error("Request aborted"), "", "");
       }
@@ -321,17 +327,17 @@ function executeYtDlp(args, options, callback) {
   }
 
   const pythonCmd = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
-  execFile(pythonCmd, ["-m", "yt_dlp", ...args], options, (err, stdout, stderr) => {
+  execFile(pythonCmd, ["-m", "yt_dlp", ...runArgs], options, (err, stdout, stderr) => {
     if (options?.signal?.aborted || err?.name === "AbortError") {
       return callback(new Error("Request aborted"), "", "");
     }
     if (err && (err.code === "ENOENT" || err.message?.includes("ENOENT"))) {
-      return execFile("yt-dlp", args, options, (err2, stdout2, stderr2) => {
+      return execFile("yt-dlp", runArgs, options, (err2, stdout2, stderr2) => {
         if (options?.signal?.aborted || err2?.name === "AbortError") {
           return callback(new Error("Request aborted"), "", "");
         }
         if (err2 && process.platform !== "win32") {
-          return execFile("python", ["-m", "yt_dlp", ...args], options, callback);
+          return execFile("python", ["-m", "yt_dlp", ...runArgs], options, callback);
         }
         callback(err2, stdout2, stderr2);
       });
@@ -986,7 +992,6 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50, signal = null)
         "-J",
         "--no-warnings",
         "--yes-playlist",
-        "--extractor-args", "youtube:player_client=ios,android,web",
         "--playlist-end", String(Math.max(limit, 1000)),
         url
       ],
@@ -1168,7 +1173,7 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve(null);
     executeYtDlp(
-      ["-g", "--get-title", "--get-duration", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
+      ["-g", "--get-title", "--get-duration", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", target],
       { timeout: 35000, signal },
       async (err, stdout) => {
         if (signal?.aborted) return resolve(null);
@@ -1242,7 +1247,7 @@ async function extractYouTubeStream(queryOrUrl, signal = null) {
         if (signal?.aborted) return resolve(null);
         // Final Fallback: full JSON metadata extraction with yt-dlp
         executeYtDlp(
-          ["-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
+          ["-j", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", target],
           { maxBuffer: 15 * 1024 * 1024, timeout: 15000, signal },
           (err2, stdout2) => {
             if (signal?.aborted) return resolve(null);
@@ -1280,6 +1285,8 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
 
   // Direct YouTube URL: Always extract the exact YouTube video requested!
   if (isExplicitYt) {
+    const vMatch = query.match(/[?&]v=([a-zA-Z0-9_-]{11})/i) || query.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i) || query.match(/\/shorts\/([a-zA-Z0-9_-]{11})/i);
+    const videoId = vMatch ? vMatch[1] : null;
     try {
       if (signal?.aborted) return null;
       const streamInfo = await extractYouTubeStream(query, signal);
@@ -1290,13 +1297,28 @@ async function resolveMediaTrack(queryOrUrl, forcedFilterMode = null, signal = n
           duration: streamInfo.duration || 0,
           streamUrl: streamInfo.streamUrl,
           rawStreamUrl: streamInfo.streamUrl,
-          artworkUrl: streamInfo.artworkUrl || "logo.png",
+          artworkUrl: streamInfo.artworkUrl || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : "logo.png"),
           filterMode: isIslamicText(expectedTitle) ? "strict" : filterMode,
           source: "youtube"
         };
       }
     } catch (err) {
       console.warn("Direct YouTube stream extraction error in resolveMediaTrack:", err.message);
+    }
+    // RESILIENT RECOVERY: If explicit YouTube video ID is present, NEVER fail with null!
+    // Return a track object wired to /api/stream-audio so the player never aborts or skips.
+    if (videoId) {
+      const canonicalUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      return {
+        title: expectedTitle || "YouTube Audio",
+        author: expectedArtist || "YouTube",
+        duration: 0,
+        streamUrl: canonicalUrl,
+        rawStreamUrl: canonicalUrl,
+        artworkUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        filterMode: isIslamicText(expectedTitle) ? "strict" : filterMode,
+        source: "youtube"
+      };
     }
   }
 
@@ -2311,6 +2333,27 @@ const server = http.createServer(async (req, res) => {
               track: {
                 ...ytTrack,
                 proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(ytTrack.streamUrl)}`
+              }
+            }));
+          } else if (hasVideoId && vMatch[1]) {
+            const canonicalUrl = `https://www.youtube.com/watch?v=${vMatch[1]}`;
+            const fallbackYtTrack = {
+              title: titleParam || "YouTube Audio",
+              author: artistParam || "YouTube",
+              duration: 0,
+              streamUrl: canonicalUrl,
+              rawStreamUrl: canonicalUrl,
+              artworkUrl: `https://i.ytimg.com/vi/${vMatch[1]}/hqdefault.jpg`,
+              source: "youtube",
+              filterMode
+            };
+            res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+            return res.end(JSON.stringify({
+              success: true,
+              channel: targetChannel,
+              track: {
+                ...fallbackYtTrack,
+                proxyStreamUrl: `/api/stream-audio?channel=${targetChannel}&url=${encodeURIComponent(fallbackYtTrack.streamUrl)}`
               }
             }));
           }

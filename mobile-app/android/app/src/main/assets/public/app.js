@@ -2239,7 +2239,7 @@ const BrowserPlayer = {
 
     // Retry Strategy 1: Attempt alternate stream source ONCE only (switch between proxy and direct CDN)
     if (track._errorRetryCount === 1) {
-      if (this.audio?.src && this.audio.src.includes("/api/stream-audio") && track.streamUrl) {
+      if (this.audio?.src && this.audio.src.includes("/api/stream-audio") && track.streamUrl && isDirectPlayableAudioUrl(track.streamUrl)) {
         console.log("Audio proxy failed, attempting direct CDN stream...");
         try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
         this.audio.src = track.streamUrl;
@@ -2299,11 +2299,14 @@ const BrowserPlayer = {
       fetch(resolveApiUrl(fallbackUrl))
         .then(r => r.json())
         .then(d => {
-          if (d.success && d.track?.streamUrl) {
+          if (d.success && d.track && (d.track.streamUrl || d.track.proxyStreamUrl)) {
             track.streamUrl = d.track.streamUrl;
             track.proxyStreamUrl = d.track.proxyStreamUrl;
-            const chosenSrc = d.track.streamUrl || resolveApiUrl(d.track.proxyStreamUrl);
-            try { this.audio.crossOrigin = "anonymous"; } catch (_) {}
+            const isYtTrack = d.track.source === "youtube" || isYt || isYouTubeUrl(d.track.streamUrl || "") || isYouTubeUrl(query);
+            const chosenSrc = (isYtTrack && d.track.proxyStreamUrl)
+              ? resolveApiUrl(d.track.proxyStreamUrl)
+              : (d.track.streamUrl ? (isDirectPlayableAudioUrl(d.track.streamUrl) ? d.track.streamUrl : resolveApiUrl(d.track.proxyStreamUrl || `/api/stream-audio?channel=${encodeURIComponent(activeSystemChannel)}&url=${encodeURIComponent(d.track.streamUrl)}`)) : resolveApiUrl(d.track.proxyStreamUrl));
+            try { this.audio.removeAttribute("crossorigin"); } catch (_) {}
             this.audio.src = chosenSrc;
             this.audio.currentTime = 0;
             this.audio.play().catch(() => {});

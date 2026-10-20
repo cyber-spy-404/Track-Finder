@@ -403,16 +403,21 @@ async function searchPlaylistsMulti(query, limit = 5) {
 }
 
 function executeYtDlp(args, options, callback) {
+  const runArgs = [...args];
+  if (!runArgs.includes("--js-runtimes")) {
+    runArgs.unshift("--js-runtimes", "node");
+  }
+
   const localBinary = path.join(__dirname, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
   if (fs.existsSync(localBinary)) {
-    return execFile(localBinary, args, options, callback);
+    return execFile(localBinary, runArgs, options, callback);
   }
   const pythonCmd = process.env.PYTHON_PATH || (process.platform === "win32" ? "python" : "python3");
-  execFile(pythonCmd, ["-m", "yt_dlp", ...args], options, (err, stdout, stderr) => {
+  execFile(pythonCmd, ["-m", "yt_dlp", ...runArgs], options, (err, stdout, stderr) => {
     if (err && (err.code === "ENOENT" || err.message?.includes("ENOENT"))) {
-      return execFile("yt-dlp", args, options, (err2, stdout2, stderr2) => {
+      return execFile("yt-dlp", runArgs, options, (err2, stdout2, stderr2) => {
         if (err2 && process.platform !== "win32") {
-          return execFile("python", ["-m", "yt_dlp", ...args], options, callback);
+          return execFile("python", ["-m", "yt_dlp", ...runArgs], options, callback);
         }
         callback(err2, stdout2, stderr2);
       });
@@ -569,7 +574,6 @@ async function resolvePlaylistTracks(playlistUrlOrId, limit = 50) {
         "-J",
         "--no-warnings",
         "--yes-playlist",
-        "--extractor-args", "youtube:player_client=ios,android,web",
         "--playlist-end", String(Math.max(limit, 1000)),
         url
       ],
@@ -842,7 +846,7 @@ async function extractYouTubeStream(queryOrUrl) {
 
   return new Promise((resolve) => {
     executeYtDlp(
-      ["-g", "--get-title", "--get-duration", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
+      ["-g", "--get-title", "--get-duration", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", target],
       { timeout: 35000 },
       (err, stdout) => {
         if (!err && stdout && stdout.trim()) {
@@ -885,7 +889,7 @@ async function extractYouTubeStream(queryOrUrl) {
 
         // Fallback: full JSON extraction if -g failed
         executeYtDlp(
-          ["-j", "-f", "ba[ext=webm]/251/ba[ext=m4a]/140/ba/18/b/best", "--no-playlist", "--no-warnings", "--extractor-args", "youtube:player_client=ios,android,web", target],
+          ["-j", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", target],
           { maxBuffer: 15 * 1024 * 1024, timeout: 25000 },
           (err2, stdout2) => {
             if (err2 || !stdout2) return resolve(null);
