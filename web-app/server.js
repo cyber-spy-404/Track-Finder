@@ -68,14 +68,16 @@ const spotifyLinkCache = new Map();
 
 function isSpotifyUrl(url) {
   if (!url || typeof url !== "string") return false;
-  return /open\.spotify\.com\/(playlist|album|track|artist)\/([a-zA-Z0-9]+)/i.test(url) ||
-         /spotify:(playlist|album|track|artist):([a-zA-Z0-9]+)/i.test(url);
+  return /open\.spotify\.com\/(?:intl-[a-zA-Z]{2,5}\/)?(?:user\/[^/]+\/)?(playlist|album|track|artist|show|episode)\/([a-zA-Z0-9]+)/i.test(url) ||
+         /spotify:(playlist|album|track|artist|show|episode):([a-zA-Z0-9]+)/i.test(url) ||
+         /(?:spotify\.link|spotify\.app\.link)\/[a-zA-Z0-9_-]+/i.test(url);
 }
 
 function extractSpotifyUrl(text) {
   if (!text || typeof text !== "string") return null;
-  const match = text.match(/https?:\/\/open\.spotify\.com\/(playlist|album|track|artist)\/[a-zA-Z0-9]+(\?[^\s]*)?/i) ||
-                text.match(/spotify:(playlist|album|track|artist):[a-zA-Z0-9]+/i);
+  const match = text.match(/https?:\/\/open\.spotify\.com\/(?:intl-[a-zA-Z]{2,5}\/)?(?:user\/[^/]+\/)?(playlist|album|track|artist|show|episode)\/[a-zA-Z0-9]+(\?[^\s]*)?/i) ||
+                text.match(/spotify:(playlist|album|track|artist|show|episode):[a-zA-Z0-9]+/i) ||
+                text.match(/https?:\/\/(?:spotify\.link|spotify\.app\.link)\/[a-zA-Z0-9_-]+(\?[^\s]*)?/i);
   return match ? match[0] : null;
 }
 
@@ -111,8 +113,23 @@ function extractYouTubePlaylistId(urlOrId) {
  */
 async function resolveSpotifyLink(url) {
   if (!spotifyUrlInfo) return null;
-  const cleanUrl = (url || "").trim();
+  let cleanUrl = (url || "").trim();
   if (!cleanUrl) return null;
+
+  // Handle spotify.link / spotify.app.link redirect
+  if (cleanUrl.includes("spotify.link") || cleanUrl.includes("spotify.app.link")) {
+    try {
+      const headRes = await fetch(cleanUrl, { method: "HEAD", redirect: "follow", signal: AbortSignal.timeout(4000) });
+      if (headRes.url && headRes.url.includes("spotify.com")) {
+        cleanUrl = headRes.url;
+      }
+    } catch (_) {}
+  }
+
+  // Normalize internationalization /intl-xx/ and legacy /user/.../playlist paths
+  cleanUrl = cleanUrl
+    .replace(/\/intl-[a-zA-Z]{2,5}\//i, "/")
+    .replace(/\/user\/[^/]+\/playlist\//i, "/playlist/");
 
   const cacheKey = cleanUrl.toLowerCase();
   if (spotifyLinkCache.has(cacheKey)) {
@@ -141,7 +158,7 @@ async function resolveSpotifyLink(url) {
     if (!details) return null;
 
     const preview = details.preview || {};
-    const type = preview.type || (cleanUrl.includes("/track/") ? "track" : cleanUrl.includes("/album/") ? "album" : "playlist");
+    const type = preview.type || (cleanUrl.includes("/track/") ? "track" : cleanUrl.includes("/album/") ? "album" : cleanUrl.includes("/episode/") ? "episode" : cleanUrl.includes("/show/") ? "show" : "playlist");
     const rawTracks = (Array.isArray(details.tracks) && details.tracks.length > 0)
       ? details.tracks
       : (preview.title ? [{ name: preview.title, artist: preview.artist, duration: 180000, previewUrl: preview.audio }] : []);
@@ -2439,7 +2456,27 @@ const server = http.createServer(async (req, res) => {
       } catch(e) {}
     }
 
-    if (!urlParam || (!isSpotifyUrl(urlParam) && !extractSpotifyUrl(urlParam))) {
+    if (!urlParam) {
+      res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      return res.end(JSON.stringify({ success: false, error: "Please provide a valid Spotify or YouTube playlist URL" }));
+    }
+
+    // Auto-detect YouTube playlist / link if passed to /api/spotify-playlist!
+    const ytUrl = extractYouTubeUrl(urlParam) || (isYouTubeUrl(urlParam) ? urlParam.trim() : null);
+    const ytPlId = extractYouTubePlaylistId(urlParam);
+    if (ytUrl || ytPlId) {
+      try {
+        const ytData = await resolvePlaylistTracks(ytUrl || urlParam, 500, abortController?.signal);
+        if (ytData && ytData.tracks?.length) {
+          res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+          return res.end(JSON.stringify({ success: true, playlist: ytData }));
+        }
+      } catch (err) {
+        console.warn("/api/spotify-playlist YouTube fallback error:", err.message);
+      }
+    }
+
+    if (!isSpotifyUrl(urlParam) && !extractSpotifyUrl(urlParam)) {
       res.writeHead(400, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
       return res.end(JSON.stringify({ success: false, error: "Please provide a valid Spotify URL (playlist, album, or track)" }));
     }

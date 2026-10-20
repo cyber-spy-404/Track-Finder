@@ -605,8 +605,17 @@ try {
 
 function isSpotifyUrl(url) {
   if (!url || typeof url !== "string") return false;
-  return /open\.spotify\.com\/(playlist|album|track|artist)\/([a-zA-Z0-9]+)/i.test(url) ||
-         /spotify:(playlist|album|track|artist):([a-zA-Z0-9]+)/i.test(url);
+  return /open\.spotify\.com\/(?:intl-[a-zA-Z]{2,5}\/)?(?:user\/[^/]+\/)?(playlist|album|track|artist|show|episode)\/([a-zA-Z0-9]+)/i.test(url) ||
+         /spotify:(playlist|album|track|artist|show|episode):([a-zA-Z0-9]+)/i.test(url) ||
+         /(?:spotify\.link|spotify\.app\.link)\/[a-zA-Z0-9_-]+/i.test(url);
+}
+
+function extractSpotifyUrl(text) {
+  if (!text || typeof text !== "string") return null;
+  const match = text.match(/https?:\/\/open\.spotify\.com\/(?:intl-[a-zA-Z]{2,5}\/)?(?:user\/[^/]+\/)?(playlist|album|track|artist|show|episode)\/[a-zA-Z0-9]+(\?[^\s]*)?/i) ||
+                text.match(/spotify:(playlist|album|track|artist|show|episode):[a-zA-Z0-9]+/i) ||
+                text.match(/https?:\/\/(?:spotify\.link|spotify\.app\.link)\/[a-zA-Z0-9_-]+(\?[^\s]*)?/i);
+  return match ? match[0] : null;
 }
 
 function extractYouTubePlaylistId(urlOrId) {
@@ -3381,6 +3390,11 @@ async function importAndPlaySpotifyLink(url, target = activeSystemChannel) {
   const cleanUrl = (url || "").trim();
   if (!cleanUrl) return;
 
+  // Auto-detect YouTube links: seamlessly route to playYouTubeLink instead of throwing error!
+  if (isYouTubeUrl(cleanUrl) || extractYouTubePlaylistId(cleanUrl)) {
+    return playYouTubeLink(cleanUrl, true, target);
+  }
+
   showToast("Resolving Spotify playlist tracks from link...");
 
   try {
@@ -3482,6 +3496,11 @@ window.importAndPlaySpotifyLink = importAndPlaySpotifyLink;
 async function playYouTubeLink(url, immediate = true, target = activeSystemChannel) {
   const cleanUrl = (url || "").trim();
   if (!cleanUrl) return;
+
+  // Auto-detect Spotify links: seamlessly route to importAndPlaySpotifyLink!
+  if (isSpotifyUrl(cleanUrl)) {
+    return importAndPlaySpotifyLink(cleanUrl, target);
+  }
 
   // If playing through bot only
   if (target === "bot") {
@@ -7667,16 +7686,24 @@ function initEventListeners() {
 
   btnPlayBrowser?.addEventListener("click", () => {
     const url = modalInput?.value?.trim();
-    if (!url) return showToast("Please paste a Spotify link");
+    if (!url) return showToast("Please paste a link");
     closeSpotifyModal();
-    importAndPlaySpotifyLink(url, "browser");
+    if (isYouTubeUrl(url) || extractYouTubePlaylistId(url)) {
+      playYouTubeLink(url, true, "browser");
+    } else {
+      importAndPlaySpotifyLink(url, "browser");
+    }
   });
 
   btnPlayBot?.addEventListener("click", () => {
     const url = modalInput?.value?.trim();
-    if (!url) return showToast("Please paste a Spotify link");
+    if (!url) return showToast("Please paste a link");
     closeSpotifyModal();
-    importAndPlaySpotifyLink(url, "bot");
+    if (isYouTubeUrl(url) || extractYouTubePlaylistId(url)) {
+      playYouTubeLink(url, true, "bot");
+    } else {
+      importAndPlaySpotifyLink(url, "bot");
+    }
   });
 
   modalInput?.addEventListener("keydown", (e) => {
@@ -7684,7 +7711,11 @@ function initEventListeners() {
       const url = modalInput.value.trim();
       if (url) {
         closeSpotifyModal();
-        importAndPlaySpotifyLink(url, activeSystemChannel);
+        if (isYouTubeUrl(url) || extractYouTubePlaylistId(url)) {
+          playYouTubeLink(url, true, activeSystemChannel);
+        } else {
+          importAndPlaySpotifyLink(url, activeSystemChannel);
+        }
       }
     }
   });
@@ -7741,16 +7772,24 @@ function initEventListeners() {
 
   btnPlayYTNow?.addEventListener("click", () => {
     const url = ytModalInput?.value?.trim();
-    if (!url) return showToast("Please paste a YouTube link");
+    if (!url) return showToast("Please paste a link");
     closeYTModal();
-    playYouTubeLink(url, true, activeSystemChannel);
+    if (isSpotifyUrl(url)) {
+      importAndPlaySpotifyLink(url, activeSystemChannel);
+    } else {
+      playYouTubeLink(url, true, activeSystemChannel);
+    }
   });
 
   btnEnqueueYT?.addEventListener("click", () => {
     const url = ytModalInput?.value?.trim();
-    if (!url) return showToast("Please paste a YouTube link");
+    if (!url) return showToast("Please paste a link");
     closeYTModal();
-    playYouTubeLink(url, false, activeSystemChannel);
+    if (isSpotifyUrl(url)) {
+      importAndPlaySpotifyLink(url, activeSystemChannel);
+    } else {
+      playYouTubeLink(url, false, activeSystemChannel);
+    }
   });
 
   ytModalInput?.addEventListener("keydown", (e) => {
@@ -7758,7 +7797,11 @@ function initEventListeners() {
       const url = ytModalInput.value.trim();
       if (url) {
         closeYTModal();
-        playYouTubeLink(url, true, activeSystemChannel);
+        if (isSpotifyUrl(url)) {
+          importAndPlaySpotifyLink(url, activeSystemChannel);
+        } else {
+          playYouTubeLink(url, true, activeSystemChannel);
+        }
       }
     }
   });
