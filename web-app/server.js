@@ -416,7 +416,19 @@ function executeYtDlp(args, options, callback) {
           return callback(new Error("Request aborted"), "", "");
         }
         if (err) {
-          console.warn("[executeYtDlp] localBinary failed, falling back to python/system yt-dlp:", err.message);
+          console.warn("[executeYtDlp] localBinary failed, attempting python3 with localBinary:", err.message);
+          if (process.platform !== "win32") {
+            return execFile("python3", [bin, ...runArgs], options, (pyErr, pyStdout, pyStderr) => {
+              if (options?.signal?.aborted || pyErr?.name === "AbortError") {
+                return callback(new Error("Request aborted"), "", "");
+              }
+              if (pyErr) {
+                console.warn("[executeYtDlp] python3 with localBinary failed:", pyErr.message);
+                return tryPythonAndSystem(pyErr);
+              }
+              callback(null, pyStdout, pyStderr);
+            });
+          }
           return tryPythonAndSystem(err);
         }
         callback(null, stdout, stderr);
@@ -2194,22 +2206,25 @@ const server = http.createServer(async (req, res) => {
     const localBinaryExists = fs.existsSync(localBinary);
     const localBinarySize = localBinaryExists ? fs.statSync(localBinary).size : 0;
 
-    executeYtDlp(
-      ["-g", "--get-title", "--get-duration", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", targetUrl],
-      { timeout: 35000 },
-      (err, stdout, stderr) => {
-        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-        return res.end(JSON.stringify({
-          url: targetUrl,
-          binary: { path: localBinary, exists: localBinaryExists, size: localBinarySize },
-          err: err ? err.message : null,
-          stdout: stdout ? stdout.trim() : null,
-          stderr: stderr ? stderr.trim() : null,
-          nodeEnv: process.env.NODE_ENV,
-          platform: process.platform
-        }, null, 2));
-      }
-    );
+    execFile(localBinary, ["--version"], { timeout: 10000 }, (binErr, binStdout, binStderr) => {
+      execFile("python3", [localBinary, "--version"], { timeout: 10000 }, (pyErr, pyStdout, pyStderr) => {
+        executeYtDlp(
+          ["-g", "--get-title", "--get-duration", "-f", "ba/ba*/bestaudio/b/best", "--no-playlist", "--no-warnings", targetUrl],
+          { timeout: 35000 },
+          (err, stdout, stderr) => {
+            res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+            return res.end(JSON.stringify({
+              url: targetUrl,
+              binary: { path: localBinary, exists: localBinaryExists, size: localBinarySize },
+              directExec: { err: binErr ? binErr.message : null, stdout: binStdout ? binStdout.trim() : null, stderr: binStderr ? binStderr.trim() : null },
+              pythonExec: { err: pyErr ? pyErr.message : null, stdout: pyStdout ? pyStdout.trim() : null, stderr: pyStderr ? pyStderr.trim() : null },
+              fullExtract: { err: err ? err.message : null, stdout: stdout ? stdout.trim() : null, stderr: stderr ? stderr.trim() : null },
+              platform: process.platform
+            }, null, 2));
+          }
+        );
+      });
+    });
     return;
   }
 
